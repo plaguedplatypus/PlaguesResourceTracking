@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" type="text/css" href="https://runeapps.org/nis/nis.css" />
+
+    <link rel="stylesheet" type="text/css" href="https://runeapps.org/runeappslib.css" />
+</head>
+
+<body class="nis">
+    <div class="app">
+        <div class="topbar">
+            <div class="title">Plague's Resource Tracker</div>
+        </div>
+        <div class="skill-tabs">
+            <button class="skill-tab active" data-skill="all">All</button>
+            <button class="skill-tab" data-skill="mining" title="Mining">
+                <img src="./icons/mining.png" alt="Mining">
+            </button>
+
+            <button class="skill-tab" data-skill="woodcutting" title="Woodcutting">
+                <img src="./icons/woodcutting.png" alt="Woodcutting">
+            </button>
+
+            <button class="skill-tab" data-skill="fishing" title="Fishing">
+                <img src="./icons/fishing.png" alt="Fishing">
+            </button>
+
+            <button class="skill-tab" data-skill="archaeology" title="Archaeology">
+                <img src="./icons/archaeology.png" alt="Archaeology">
+            </button>
+
+            <button class="skill-tab" data-skill="invention" title="Invention">
+                <img src="./icons/invention.png" alt="Invention">
+            </button>
+
+            <button class="skill-tab" data-skill="seren" title="Seren Spirits">
+                <img src="./icons/seren.png" alt="Seren">
+            </button>
+
+        </div>
+
+        <div class="invention-filters">
+            <button class="invention-filter-cycle">Filter: All</button>
+        </div>
+
+        <label class="fishing-mode">
+            <input type="checkbox" class="fishing-porters" checked>
+            Using Porters/GOTE
+        </label>
+
+        <div class="tracker"></div>
+
+        <div class="settings-separator"></div>
+        
+        <div class="footer">
+            <span class="status">Initializing...</span>
+
+            <div class="app-settings">
+                <button class="sort-button sort-icon" title="Sort">⇵</button>
+                <button class="app-cog" title="Settings">⚙</button>
+
+                <div class="app-settings-panel">
+                    <div class="settings-row">
+                        <select class="chat">
+                            <option value="">Select Chat</option>
+                        </select>
+                        <button class="find-chat">Find Chat</button>
+                    </div>
+
+                    <div class="settings-row two-col">
+                        <button class="history-button">History</button>
+
+                        <label class="debug-toggle">
+                            <input class="debug-unknown-lines" type="checkbox">
+                            Debug
+                        </label>
+                    </div>
+
+                    <div class="settings-row two-col">
+                        <button class="export">Export</button>
+
+                        <label class="import-label">
+                            Import
+                            <input class="import" type="file" accept=".json">
+                        </label>
+                    </div>
+                    <button class="session-button">Session Stats</button>
+                    <div class="settings-separator"></div>
+                    <button class="clear tab-clear">Clear Tab</button>
+                </div>
+            </div>
+
+        </div>
+
+
+        <script src="./main.js"></script>
+</body>
+
+</html>

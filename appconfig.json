@@ -1,0 +1,14 @@
+{
+  "appName": "Resource Tracker",
+  "description": "Compact RuneScape resource tracker.",
+  "appUrl": "./index.html",
+  "configUrl": "./appconfig.json",
+  "iconUrl": "./icons/icon.png",
+  "defaultWidth": 230,
+  "defaultHeight": 350,
+  "minWidth": 175,
+  "minHeight": 100,
+  "requestHandlers": [],
+  "activators": [],
+  "permissions": "pixel,gamestate,overlay"
+}
