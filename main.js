@@ -171,7 +171,8 @@ body {
     flex-direction: column;
     box-sizing: border-box;
     gap: 4px;
-    padding-right: 3px;
+    padding-right: 2px;
+    padding-bottom: 4px;
 }
 
 .tracker::-webkit-scrollbar {
@@ -396,13 +397,14 @@ select {
     display: none;
     position: absolute;
     right: 0;
-    bottom: 18px;
+    bottom: 21px;
     min-width: 145px;
     padding: 6px;
     flex-direction: column;
     gap: 5px;
     background: #0e1d25;
-    border: 1px solid #4a4030;
+    border: 2px solid #5a4a2a;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
     border-radius: 6px;
 }
 
@@ -438,7 +440,12 @@ select {
 }
 
 .settings-separator {
-    border-top: 1px solid #444;
+    border-top: 2px solid #444;
+}
+
+.footer-separator {
+    border-top: 2px solid #444;
+    margin-bottom: 1px;
 }
 
 .invention-filter-cycle {
