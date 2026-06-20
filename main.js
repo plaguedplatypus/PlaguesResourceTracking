@@ -398,7 +398,7 @@ select {
     position: absolute;
     right: 0;
     bottom: 21px;
-    min-width: 145px;
+    min-width: 140px;
     padding: 6px;
     flex-direction: column;
     gap: 5px;
