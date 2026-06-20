@@ -570,10 +570,10 @@ const skillPatterns: Array<{
 	skill: SkillType;
 }> = [
 		{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
-		{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)[!.]?$/i, skill: "woodcutting" },
+		{pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting"},
 		{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
 		{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
-		{ pattern: /You find (?:a|an|some)\s+(.+?)\./i, skill: "archaeology" },
+		{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
 	];
 
 // Process a single chat line to check for harvesting events
