@@ -332,31 +332,36 @@ select {
     display: none;
     width: 100%;
     gap: 4px;
-    flex-wrap: wrap;
     align-items: center;
     margin-bottom: 3px;
 }
 
-.settings-panel.open,
-.app-settings-panel.open {
+.settings-panel.open {
     display: flex;
+    flex-wrap: nowrap;
 }
 
 .settings-panel input {
-    width: 50px;
+    flex: 1 1 70px;
+    min-width: 35px;
+    max-width: 70px;
+    height: 22px;
+    box-sizing: border-box;
     padding: 3px;
     font-size: 11px;
 }
 
 .settings-panel button {
+    flex: 0 0 22px;
     width: 22px;
+    height: 22px;
     padding: 0;
     font-size: 18px;
     line-height: 20px;
 }
 
 .button-separator {
-    margin: 0 6px;
+    margin: 0 2px;
     opacity: 0.5;
     user-select: none;
 }
@@ -406,6 +411,10 @@ select {
     border: 2px solid #5a4a2a;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
     border-radius: 6px;
+}
+
+.app-settings-panel.open {
+    display: flex;
 }
 
 .settings-row {
