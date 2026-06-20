@@ -367,6 +367,43 @@ function clearHistoryWindowDisplay() {
 	updateHistoryWindow();
 }
 
+function renderHistoryLine(line: string) {
+	const match = line.match(
+		/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED|SKIPPED DUPLICATE)[^\]]*\])$/i
+	);
+
+	if (!match) {
+		return escapeHtml(line);
+	}
+
+	const message = match[1];
+	const tag = match[2].trim();
+
+	return `${escapeHtml(message)} <span class="${getHistoryTagClass(tag)}">${escapeHtml(tag)}</span>`;
+}
+
+function getHistoryTagClass(tag: string) {
+	const normalized = tag.toUpperCase();
+
+	if (normalized.startsWith("[DIALOG COUNTED")) {
+		return "history-tag history-tag-dialog-counted";
+	}
+
+	if (normalized.startsWith("[COUNTED")) {
+		return "history-tag history-tag-counted";
+	}
+
+	if (normalized.startsWith("[IGNORED")) {
+		return "history-tag history-tag-ignored";
+	}
+
+	if (normalized.startsWith("[SKIPPED DUPLICATE")) {
+		return "history-tag history-tag-skipped";
+	}
+
+	return "history-tag";
+}
+
 function updateHistoryWindow() {
 	if (!historyWindow || historyWindow.closed) return;
 
@@ -378,6 +415,14 @@ function updateHistoryWindow() {
 	}
 
 	if (!doc.body.dataset.initialized) {
+		const style = doc.createElement("style");
+		style.textContent = `
+			.history-tag {font-weight: bold;}
+			.history-tag-counted {color: #7CFC7C;}
+			.history-tag-dialog-counted {color: #43bc9e;}
+			.history-tag-ignored {color: #b36b6b;}
+			.history-tag-skipped {color: #d8c58a;}`;
+		doc.head.appendChild(style);
 		doc.title = "Resource Tracker History";
 
 		doc.body.style.margin = "0";
@@ -420,7 +465,10 @@ function updateHistoryWindow() {
 
 	if (!historyPre) return;
 
-	historyPre.textContent = [...recentLines].reverse().join("\n");
+	historyPre.innerHTML = [...recentLines]
+		.reverse()
+		.map(renderHistoryLine)
+		.join("\n");
 }
 
 // Showing recent chat history
@@ -522,9 +570,10 @@ const skillPatterns: Array<{
 	skill: SkillType;
 }> = [
 		{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
+		{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)[!.]?$/i, skill: "woodcutting" },
 		{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
-		{ pattern: /You find (?:a|an|some)\s+(.+?)\./i, skill: "archaeology" },
 		{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
+		{ pattern: /You find (?:a|an|some)\s+(.+?)\./i, skill: "archaeology" },
 	];
 
 // Process a single chat line to check for harvesting events

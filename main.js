@@ -357,7 +357,6 @@ select {
     width: 18px;
     height: 18px;
     padding: 0;
-    padding-bottom: 2px;
     font-size: 18px;
     line-height: 1;
     display: flex;
@@ -6800,6 +6799,31 @@ function clearHistoryWindowDisplay() {
     recentLines = [];
     updateHistoryWindow();
 }
+function renderHistoryLine(line) {
+    var match = line.match(/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED|SKIPPED DUPLICATE)[^\]]*\])$/i);
+    if (!match) {
+        return escapeHtml(line);
+    }
+    var message = match[1];
+    var tag = match[2].trim();
+    return "".concat(escapeHtml(message), " <span class=\"").concat(getHistoryTagClass(tag), "\">").concat(escapeHtml(tag), "</span>");
+}
+function getHistoryTagClass(tag) {
+    var normalized = tag.toUpperCase();
+    if (normalized.startsWith("[DIALOG COUNTED")) {
+        return "history-tag history-tag-dialog-counted";
+    }
+    if (normalized.startsWith("[COUNTED")) {
+        return "history-tag history-tag-counted";
+    }
+    if (normalized.startsWith("[IGNORED")) {
+        return "history-tag history-tag-ignored";
+    }
+    if (normalized.startsWith("[SKIPPED DUPLICATE")) {
+        return "history-tag history-tag-skipped";
+    }
+    return "history-tag";
+}
 function updateHistoryWindow() {
     if (!historyWindow || historyWindow.closed)
         return;
@@ -6809,6 +6833,9 @@ function updateHistoryWindow() {
         return;
     }
     if (!doc.body.dataset.initialized) {
+        var style = doc.createElement("style");
+        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}";
+        doc.head.appendChild(style);
         doc.title = "Resource Tracker History";
         doc.body.style.margin = "0";
         doc.body.style.background = "#1e1e1e";
@@ -6843,7 +6870,9 @@ function updateHistoryWindow() {
     }
     if (!historyPre)
         return;
-    historyPre.textContent = __spreadArray([], recentLines, true).reverse().join("\n");
+    historyPre.innerHTML = __spreadArray([], recentLines, true).reverse()
+        .map(renderHistoryLine)
+        .join("\n");
 }
 // Showing recent chat history
 function showChatHistory() {
@@ -6925,9 +6954,10 @@ var rareSerenItems = new Set([
 ]);
 var skillPatterns = [
     { pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
+    { pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)[!.]?$/i, skill: "woodcutting" },
     { pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
-    { pattern: /You find (?:a|an|some)\s+(.+?)\./i, skill: "archaeology" },
     { pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
+    { pattern: /You find (?:a|an|some)\s+(.+?)\./i, skill: "archaeology" },
 ];
 // Process a single chat line to check for harvesting events
 function processHarvestLine(chatLine) {
