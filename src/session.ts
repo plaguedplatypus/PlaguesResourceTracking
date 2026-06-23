@@ -282,6 +282,28 @@ function renderSessionWindowHtml() {
 				margin: 0;
 			}
 
+			.session-totals {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 8px;
+				border: 1px solid #444;
+				background: #252525;
+				padding: 6px;
+				margin-bottom: 8px;
+				font-size: 12px;
+			}
+
+			.session-total-value {
+				color: #7CFC7C;
+				font-weight: bold;
+			}
+
+			.session-total-gp {
+				color: #d8c26a;
+				font-weight: bold;
+				text-align: right;
+			}
+
 			.section-title {
 				color: #d8c26a;
 				font-size: 11px;
@@ -363,11 +385,75 @@ function renderSessionWindowHtml() {
 				</label>
 			</div>
 
+			${renderSessionTotalsHtml()}
+
 			<div class="section-title">Recent Session Items</div>
 
 			${renderSessionItemsHtml()}
 		</div>
 	`;
+}
+
+function renderSessionTotalsHtml() {
+	if (!showGpValue) return "";
+
+	const totals = getSessionValueTotals();
+
+	const totalValueText = totals.hasLoadingPrices
+		? "..."
+		: formatGp(totals.totalValue);
+
+	const totalGpPerHourText = totals.hasLoadingPrices
+		? "..."
+		: `${formatGp(totals.totalGpPerHour)}`;
+
+	return `
+		<div class="session-totals">
+			<div>
+				Total session value:
+				<span class="session-total-value">${totalValueText}</span>
+			</div>
+
+			<div class="session-total-gp">
+				Total GP/hr: ${totalGpPerHourText}
+			</div>
+		</div>
+	`;
+}
+
+function getSessionValueTotals() {
+	const items = Object.keys(sessionItems);
+	const elapsedMs = getElapsedMs();
+	const elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
+
+	let totalValue = 0;
+	let hasLoadingPrices = false;
+
+	for (const item of items) {
+		const price = getFreshCachedPrice(item);
+
+		if (price === undefined) {
+			hasLoadingPrices = true;
+			continue;
+		}
+
+		if (typeof price !== "number") {
+			continue;
+		}
+
+		totalValue += sessionItems[item].count * price;
+	}
+
+	const totalGpPerHour =
+		elapsedHours > 0
+			? totalValue / elapsedHours
+			: 0;
+
+	return {
+		totalValue,
+		totalGpPerHour,
+		hasLoadingPrices,
+	};
 }
 
 function renderSessionItemsHtml() {
@@ -622,7 +708,7 @@ function formatElapsed(ms: number) {
 function formatPerHour(value: number) {
 	if (!isFinite(value) || value <= 0) return "0/hr";
 
-	return `${Math.round(value).toLocaleString()}/hr`;
+	return `${Math.round(value).toLocaleString()}`;
 }
 
 function formatPriceValue(
@@ -638,7 +724,7 @@ function formatPriceValue(
 function formatGpPerHour(value: number | null) {
 	if (value === null || !isFinite(value)) return "—";
 
-	return `${formatGp(value)}/hr`;
+	return `${formatGp(value)}`;
 }
 
 function formatGp(value: number) {

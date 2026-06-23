@@ -1426,7 +1426,46 @@ function renderSessionWindowHtml() {
         : sessionStatus === "running"
             ? "Running"
             : "Paused";
-    return "\n\t\t<style>\n\t\t\thtml,\n\t\t\tbody {\n\t\t\t\tmargin: 0;\n\t\t\t\tmin-height: 100%;\n\t\t\t\tbackground: #1e1e1e;\n\t\t\t\tcolor: #ddd;\n\t\t\t\tfont-family: Arial, sans-serif;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-wrap {\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tmin-height: 100vh;\n\t\t\t\tpadding: 8px;\n\t\t\t}\n\n\t\t\t.session-controls {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t}\n\n\t\t\tbutton {\n\t\t\t\theight: 24px;\n\t\t\t\tbackground: #aaaaaa;\n\t\t\t\tborder: 1px solid #666;\n\t\t\t\tcolor: #000;\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-meta {\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #2c2c2c;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tline-height: 1.5;\n\t\t\t}\n\n\t\t\t.session-options {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 5px;\n\t\t\t\tmargin-top: 4px;\n\t\t\t\tcolor: #ccc;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-options input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\n\t\t\t.section-title {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-size: 11px;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-transform: uppercase;\n\t\t\t\tborder-bottom: 1px solid #444;\n\t\t\t\tpadding-bottom: 3px;\n\t\t\t\tmargin-bottom: 5px;\n\t\t\t}\n\n\t\t\ttable {\n\t\t\t\twidth: 100%;\n\t\t\t\tborder-collapse: collapse;\n\t\t\t\ttable-layout: fixed;\n\t\t\t}\n\n\t\t\tth,\n\t\t\ttd {\n\t\t\t\tpadding: 3px 2px;\n\t\t\t\tborder-bottom: 1px solid #333;\n\t\t\t\twhite-space: nowrap;\n\t\t\t\toverflow: hidden;\n\t\t\t\ttext-overflow: ellipsis;\n\t\t\t}\n\n\t\t\tth {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-size: 10px;\n\t\t\t\tfont-weight: normal;\n\t\t\t\ttext-align: left;\n\t\t\t}\n\n\t\t\ttd {\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.item-name {\n\t\t\t\twidth: ".concat(showGpValue ? "34%" : "52%", ";\n\t\t\t}\n\n\t\t\t.number {\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.empty {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-style: italic;\n\t\t\t\tpadding: 8px 0;\n\t\t\t}\n\n\t\t\t.paused {\n\t\t\t\tcolor: #ffd700;\n\t\t\t}\n\n\t\t\t.running {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t}\n\n\t\t\t.idle {\n\t\t\t\tcolor: #aaa;\n\t\t\t}\n\t\t</style>\n\n\t\t<div class=\"session-wrap\">\n\t\t\t<div class=\"session-controls\">\n\t\t\t\t<button id=\"session-toggle\">").concat(toggleText, "</button>\n\t\t\t\t<button id=\"session-reset\">Reset Session</button>\n\t\t\t</div>\n\n\t\t\t<div class=\"session-meta\">\n\t\t\t\t<div><strong>** Experimental **</strong></div>\n\t\t\t\t<div><strong>Session Started:</strong> ").concat(startedText, "</div>\n\t\t\t\t<div><strong>Status:</strong> <span class=\"").concat(sessionStatus, "\">").concat(statusText, "</span></div>\n\t\t\t\t<div><strong>Elapsed:</strong> ").concat(formatElapsed(getElapsedMs()), "</div>\n\n\t\t\t\t<label class=\"session-options\">\n\t\t\t\t\t<input id=\"show-gp-value\" type=\"checkbox\" ").concat(showGpValue ? "checked" : "", ">\n\t\t\t\t\tShow GP value\n\t\t\t\t</label>\n\t\t\t</div>\n\n\t\t\t<div class=\"section-title\">Recent Session Items</div>\n\n\t\t\t").concat(renderSessionItemsHtml(), "\n\t\t</div>\n\t");
+    return "\n\t\t<style>\n\t\t\thtml,\n\t\t\tbody {\n\t\t\t\tmargin: 0;\n\t\t\t\tmin-height: 100%;\n\t\t\t\tbackground: #1e1e1e;\n\t\t\t\tcolor: #ddd;\n\t\t\t\tfont-family: Arial, sans-serif;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-wrap {\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tmin-height: 100vh;\n\t\t\t\tpadding: 8px;\n\t\t\t}\n\n\t\t\t.session-controls {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t}\n\n\t\t\tbutton {\n\t\t\t\theight: 24px;\n\t\t\t\tbackground: #aaaaaa;\n\t\t\t\tborder: 1px solid #666;\n\t\t\t\tcolor: #000;\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-meta {\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #2c2c2c;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tline-height: 1.5;\n\t\t\t}\n\n\t\t\t.session-options {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 5px;\n\t\t\t\tmargin-top: 4px;\n\t\t\t\tcolor: #ccc;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-options input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\n\t\t\t.session-totals {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 8px;\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #252525;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-total-value {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t\tfont-weight: bold;\n\t\t\t}\n\n\t\t\t.session-total-gp {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.section-title {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-size: 11px;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-transform: uppercase;\n\t\t\t\tborder-bottom: 1px solid #444;\n\t\t\t\tpadding-bottom: 3px;\n\t\t\t\tmargin-bottom: 5px;\n\t\t\t}\n\n\t\t\ttable {\n\t\t\t\twidth: 100%;\n\t\t\t\tborder-collapse: collapse;\n\t\t\t\ttable-layout: fixed;\n\t\t\t}\n\n\t\t\tth,\n\t\t\ttd {\n\t\t\t\tpadding: 3px 2px;\n\t\t\t\tborder-bottom: 1px solid #333;\n\t\t\t\twhite-space: nowrap;\n\t\t\t\toverflow: hidden;\n\t\t\t\ttext-overflow: ellipsis;\n\t\t\t}\n\n\t\t\tth {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-size: 10px;\n\t\t\t\tfont-weight: normal;\n\t\t\t\ttext-align: left;\n\t\t\t}\n\n\t\t\ttd {\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.item-name {\n\t\t\t\twidth: ".concat(showGpValue ? "34%" : "52%", ";\n\t\t\t}\n\n\t\t\t.number {\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.empty {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-style: italic;\n\t\t\t\tpadding: 8px 0;\n\t\t\t}\n\n\t\t\t.paused {\n\t\t\t\tcolor: #ffd700;\n\t\t\t}\n\n\t\t\t.running {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t}\n\n\t\t\t.idle {\n\t\t\t\tcolor: #aaa;\n\t\t\t}\n\t\t</style>\n\n\t\t<div class=\"session-wrap\">\n\t\t\t<div class=\"session-controls\">\n\t\t\t\t<button id=\"session-toggle\">").concat(toggleText, "</button>\n\t\t\t\t<button id=\"session-reset\">Reset Session</button>\n\t\t\t</div>\n\n\t\t\t<div class=\"session-meta\">\n\t\t\t\t<div><strong>** Experimental **</strong></div>\n\t\t\t\t<div><strong>Session Started:</strong> ").concat(startedText, "</div>\n\t\t\t\t<div><strong>Status:</strong> <span class=\"").concat(sessionStatus, "\">").concat(statusText, "</span></div>\n\t\t\t\t<div><strong>Elapsed:</strong> ").concat(formatElapsed(getElapsedMs()), "</div>\n\n\t\t\t\t<label class=\"session-options\">\n\t\t\t\t\t<input id=\"show-gp-value\" type=\"checkbox\" ").concat(showGpValue ? "checked" : "", ">\n\t\t\t\t\tShow GP value\n\t\t\t\t</label>\n\t\t\t</div>\n\n\t\t\t").concat(renderSessionTotalsHtml(), "\n\n\t\t\t<div class=\"section-title\">Recent Session Items</div>\n\n\t\t\t").concat(renderSessionItemsHtml(), "\n\t\t</div>\n\t");
+}
+function renderSessionTotalsHtml() {
+    if (!showGpValue)
+        return "";
+    var totals = getSessionValueTotals();
+    var totalValueText = totals.hasLoadingPrices
+        ? "..."
+        : formatGp(totals.totalValue);
+    var totalGpPerHourText = totals.hasLoadingPrices
+        ? "..."
+        : "".concat(formatGp(totals.totalGpPerHour));
+    return "\n\t\t<div class=\"session-totals\">\n\t\t\t<div>\n\t\t\t\tTotal session value:\n\t\t\t\t<span class=\"session-total-value\">".concat(totalValueText, "</span>\n\t\t\t</div>\n\n\t\t\t<div class=\"session-total-gp\">\n\t\t\t\tTotal GP/hr: ").concat(totalGpPerHourText, "\n\t\t\t</div>\n\t\t</div>\n\t");
+}
+function getSessionValueTotals() {
+    var items = Object.keys(sessionItems);
+    var elapsedMs = getElapsedMs();
+    var elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
+    var totalValue = 0;
+    var hasLoadingPrices = false;
+    for (var _i = 0, items_1 = items; _i < items_1.length; _i++) {
+        var item = items_1[_i];
+        var price = getFreshCachedPrice(item);
+        if (price === undefined) {
+            hasLoadingPrices = true;
+            continue;
+        }
+        if (typeof price !== "number") {
+            continue;
+        }
+        totalValue += sessionItems[item].count * price;
+    }
+    var totalGpPerHour = elapsedHours > 0
+        ? totalValue / elapsedHours
+        : 0;
+    return {
+        totalValue: totalValue,
+        totalGpPerHour: totalGpPerHour,
+        hasLoadingPrices: hasLoadingPrices,
+    };
 }
 function renderSessionItemsHtml() {
     var items = Object.keys(sessionItems).sort(function (a, b) {
@@ -1471,16 +1510,16 @@ function getElapsedMs() {
 }
 function ensurePricesForSessionItems() {
     return __awaiter(this, void 0, void 0, function () {
-        var items, _i, items_1, item;
+        var items, _i, items_2, item;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     items = Object.keys(sessionItems);
-                    _i = 0, items_1 = items;
+                    _i = 0, items_2 = items;
                     _a.label = 1;
                 case 1:
-                    if (!(_i < items_1.length)) return [3 /*break*/, 4];
-                    item = items_1[_i];
+                    if (!(_i < items_2.length)) return [3 /*break*/, 4];
+                    item = items_2[_i];
                     return [4 /*yield*/, ensurePriceForItem(item)];
                 case 2:
                     _a.sent();
@@ -1644,7 +1683,7 @@ function formatElapsed(ms) {
 function formatPerHour(value) {
     if (!isFinite(value) || value <= 0)
         return "0/hr";
-    return "".concat(Math.round(value).toLocaleString(), "/hr");
+    return "".concat(Math.round(value).toLocaleString());
 }
 function formatPriceValue(price, totalValue) {
     if (price === undefined)
@@ -1656,7 +1695,7 @@ function formatPriceValue(price, totalValue) {
 function formatGpPerHour(value) {
     if (value === null || !isFinite(value))
         return "—";
-    return "".concat(formatGp(value), "/hr");
+    return "".concat(formatGp(value));
 }
 function formatGp(value) {
     var rounded = Math.round(value);
@@ -6955,6 +6994,7 @@ var rareSerenItems = new Set([
 var skillPatterns = [
     { pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
     { pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
+    { pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
     { pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
     { pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
     { pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
@@ -7051,6 +7091,7 @@ var woodcuttingItems = [
     "crystal geode",
     "bamboo", // uncharted isles
     "timber", // croesus front
+    "eternal magic tree branch",
 ];
 var fishingItems = [
     "raw ",
