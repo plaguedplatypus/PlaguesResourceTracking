@@ -6908,7 +6908,7 @@ function updateHistoryWindow() {
         historyDebugInput.addEventListener("change", function () {
             setDebugUnknownLines(this.checked);
         });
-        historyDebugLabel.append(historyDebugInput, " Debug");
+        historyDebugLabel.append(historyDebugInput, " Show Untracked");
         var historyClearButton = doc.createElement("button");
         historyClearButton.textContent = "Clear Display";
         historyClearButton.className = "history-clear-button";
