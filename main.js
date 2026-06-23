@@ -1426,7 +1426,7 @@ function renderSessionWindowHtml() {
         : sessionStatus === "running"
             ? "Running"
             : "Paused";
-    return "\n\t\t<style>\n\t\t\thtml,\n\t\t\tbody {\n\t\t\t\tmargin: 0;\n\t\t\t\tmin-height: 100%;\n\t\t\t\tbackground: #1e1e1e;\n\t\t\t\tcolor: #ddd;\n\t\t\t\tfont-family: Arial, sans-serif;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-wrap {\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tmin-height: 100vh;\n\t\t\t\tpadding: 8px;\n\t\t\t}\n\n\t\t\t.session-controls {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t}\n\n\t\t\tbutton {\n\t\t\t\theight: 24px;\n\t\t\t\tbackground: #aaaaaa;\n\t\t\t\tborder: 1px solid #666;\n\t\t\t\tcolor: #000;\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-meta {\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #2c2c2c;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tline-height: 1.5;\n\t\t\t}\n\n\t\t\t.session-options {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 5px;\n\t\t\t\tmargin-top: 4px;\n\t\t\t\tcolor: #ccc;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-options input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\n\t\t\t.session-totals {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 8px;\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #252525;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-total-value {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t\tfont-weight: bold;\n\t\t\t}\n\n\t\t\t.session-total-gp {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.section-title {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-size: 11px;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-transform: uppercase;\n\t\t\t\tborder-bottom: 1px solid #444;\n\t\t\t\tpadding-bottom: 3px;\n\t\t\t\tmargin-bottom: 5px;\n\t\t\t}\n\n\t\t\ttable {\n\t\t\t\twidth: 100%;\n\t\t\t\tborder-collapse: collapse;\n\t\t\t\ttable-layout: fixed;\n\t\t\t}\n\n\t\t\tth,\n\t\t\ttd {\n\t\t\t\tpadding: 3px 2px;\n\t\t\t\tborder-bottom: 1px solid #333;\n\t\t\t\twhite-space: nowrap;\n\t\t\t\toverflow: hidden;\n\t\t\t\ttext-overflow: ellipsis;\n\t\t\t}\n\n\t\t\tth {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-size: 10px;\n\t\t\t\tfont-weight: normal;\n\t\t\t\ttext-align: left;\n\t\t\t}\n\n\t\t\ttd {\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.item-name {\n\t\t\t\twidth: ".concat(showGpValue ? "34%" : "52%", ";\n\t\t\t}\n\n\t\t\t.number {\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.empty {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-style: italic;\n\t\t\t\tpadding: 8px 0;\n\t\t\t}\n\n\t\t\t.paused {\n\t\t\t\tcolor: #ffd700;\n\t\t\t}\n\n\t\t\t.running {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t}\n\n\t\t\t.idle {\n\t\t\t\tcolor: #aaa;\n\t\t\t}\n\t\t</style>\n\n\t\t<div class=\"session-wrap\">\n\t\t\t<div class=\"session-controls\">\n\t\t\t\t<button id=\"session-toggle\">").concat(toggleText, "</button>\n\t\t\t\t<button id=\"session-reset\">Reset Session</button>\n\t\t\t</div>\n\n\t\t\t<div class=\"session-meta\">\n\t\t\t\t<div><strong>** Experimental **</strong></div>\n\t\t\t\t<div><strong>Session Started:</strong> ").concat(startedText, "</div>\n\t\t\t\t<div><strong>Status:</strong> <span class=\"").concat(sessionStatus, "\">").concat(statusText, "</span></div>\n\t\t\t\t<div><strong>Elapsed:</strong> ").concat(formatElapsed(getElapsedMs()), "</div>\n\n\t\t\t\t<label class=\"session-options\">\n\t\t\t\t\t<input id=\"show-gp-value\" type=\"checkbox\" ").concat(showGpValue ? "checked" : "", ">\n\t\t\t\t\tShow GP value\n\t\t\t\t</label>\n\t\t\t</div>\n\n\t\t\t").concat(renderSessionTotalsHtml(), "\n\n\t\t\t<div class=\"section-title\">Recent Session Items</div>\n\n\t\t\t").concat(renderSessionItemsHtml(), "\n\t\t</div>\n\t");
+    return "\n\t\t<style>\n\t\t\thtml,\n\t\t\tbody {\n\t\t\t\tmargin: 0;\n\t\t\t\tmin-height: 100%;\n\t\t\t\tbackground: #1e1e1e;\n\t\t\t\tcolor: #ddd;\n\t\t\t\tfont-family: Arial, sans-serif;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-wrap {\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tmin-height: 100vh;\n\t\t\t\tpadding: 8px;\n\t\t\t}\n\n\t\t\t.session-controls {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t}\n\n\t\t\tbutton {\n\t\t\t\theight: 22px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tfont-size: 12px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tcursor: pointer;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\n\t\t\tbutton:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tbackground: linear-gradient(#606060, #202020);\n\t\t\t}\n\t\t\t\t\n\t\t\t.separator {\n    \t\t\tborder-top: 2px solid #444;\n\t\t\t}\n\n\t\t\t.session-meta {\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #2c2c2c;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tline-height: 1.5;\n\t\t\t}\n\n\t\t\t.session-options {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 5px;\n\t\t\t\tmargin-top: 4px;\n\t\t\t\tcolor: #ccc;\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.session-options input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\n\t\t\t.session-totals {\n\t\t\t\tdisplay: grid;\n\t\t\t\tgrid-template-columns: 1fr 1fr;\n\t\t\t\tgap: 8px;\n\t\t\t\tborder: 1px solid #444;\n\t\t\t\tbackground: #252525;\n\t\t\t\tpadding: 6px;\n\t\t\t\tmargin-bottom: 8px;\n\t\t\t\tfont-size: 12px;\n\t\t\t}\n\n\t\t\t.session-total-value {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t\tfont-weight: bold;\n\t\t\t}\n\n\t\t\t.session-total-gp {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.section-title {\n\t\t\t\tcolor: #d8c26a;\n\t\t\t\tfont-size: 11px;\n\t\t\t\tfont-weight: bold;\n\t\t\t\ttext-transform: uppercase;\n\t\t\t\tborder-bottom: 1px solid #444;\n\t\t\t\tpadding-bottom: 3px;\n\t\t\t\tmargin-bottom: 5px;\n\t\t\t}\n\n\t\t\ttable {\n\t\t\t\twidth: 100%;\n\t\t\t\tborder-collapse: collapse;\n\t\t\t\ttable-layout: fixed;\n\t\t\t}\n\n\t\t\tth,\n\t\t\ttd {\n\t\t\t\tpadding: 3px 2px;\n\t\t\t\tborder-bottom: 1px solid #333;\n\t\t\t\twhite-space: nowrap;\n\t\t\t\toverflow: hidden;\n\t\t\t\ttext-overflow: ellipsis;\n\t\t\t}\n\n\t\t\tth {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-size: 10px;\n\t\t\t\tfont-weight: normal;\n\t\t\t\ttext-align: left;\n\t\t\t}\n\n\t\t\ttd {\n\t\t\t\tfont-size: 11px;\n\t\t\t}\n\n\t\t\t.item-name {\n\t\t\t\twidth: ".concat(showGpValue ? "34%" : "52%", ";\n\t\t\t}\n\n\t\t\t.number {\n\t\t\t\ttext-align: right;\n\t\t\t}\n\n\t\t\t.empty {\n\t\t\t\tcolor: #aaa;\n\t\t\t\tfont-style: italic;\n\t\t\t\tpadding: 8px 0;\n\t\t\t}\n\n\t\t\t.paused {\n\t\t\t\tcolor: #ffd700;\n\t\t\t}\n\n\t\t\t.running {\n\t\t\t\tcolor: #7CFC7C;\n\t\t\t}\n\n\t\t\t.idle {\n\t\t\t\tcolor: #aaa;\n\t\t\t}\n\t\t</style>\n\n\t\t<div class=\"session-wrap\">\n\t\t\t<div class=\"session-controls\">\n\t\t\t\t<button id=\"session-toggle\">").concat(toggleText, "</button>\n\t\t\t\t<button id=\"session-reset\">Reset Session</button>\n\t\t\t</div>\n\n\t\t\t<div class=\"session-meta\">\n\t\t\t\t<div style=\"font-size: 12px; font-style: italic;\">Session continues while this window is closed.</div>\n\t\t\t\t<div class=\"separator\"></div>\n\n\t\t\t\t<div><strong>Session Started:</strong> ").concat(startedText, "</div>\n\t\t\t\t<div><strong>Status:</strong> <span class=\"").concat(sessionStatus, "\">").concat(statusText, "</span></div>\n\t\t\t\t<div><strong>Elapsed:</strong> ").concat(formatElapsed(getElapsedMs()), "</div>\n\n\t\t\t\t<label class=\"session-options\">\n\t\t\t\t\t<input id=\"show-gp-value\" type=\"checkbox\" ").concat(showGpValue ? "checked" : "", ">\n\t\t\t\t\tShow GP value\n\t\t\t\t</label>\n\t\t\t</div>\n\n\t\t\t").concat(renderSessionTotalsHtml(), "\n\n\t\t\t<div class=\"section-title\">Recent Session Items</div>\n\n\t\t\t").concat(renderSessionItemsHtml(), "\n\t\t</div>\n\t");
 }
 function renderSessionTotalsHtml() {
     if (!showGpValue)
@@ -6816,15 +6816,19 @@ activeSkillTab =
         : (savedData.activeTab || "all");
 fishingUsePorters = (_b = savedData.fishingUsePorters) !== null && _b !== void 0 ? _b : true;
 sortMode = savedData.sortMode || "recent";
+/*
 if (debugUnknownInput) {
     debugUnknownInput.checked = debugUnknownLines;
+
     debugUnknownInput.addEventListener("change", function () {
         debugUnknownLines = this.checked;
-        var data = getSaveData();
+
+        const data = getSaveData();
         data.debugUnknownLines = debugUnknownLines;
         saveData(data);
     });
 }
+*/
 // Set initial state of fishing porters checkbox based on saved data
 if (fishingPortersInput) {
     fishingPortersInput.checked = fishingUsePorters;
@@ -6834,6 +6838,12 @@ document.querySelectorAll(".skill-tab").forEach(function (btn) {
     btn.classList.remove("active");
 });
 // History window
+function setDebugUnknownLines(value) {
+    debugUnknownLines = value;
+    var data = getSaveData();
+    data.debugUnknownLines = debugUnknownLines;
+    saveData(data);
+}
 function clearHistoryWindowDisplay() {
     recentLines = [];
     updateHistoryWindow();
@@ -6873,7 +6883,7 @@ function updateHistoryWindow() {
     }
     if (!doc.body.dataset.initialized) {
         var style = doc.createElement("style");
-        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}";
+        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}\n\t\t\t.history-debug-toggle {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 3px;\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t\tuser-select: none;\n\t\t\t}\n\t\t\t.history-debug-toggle:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tbackground: linear-gradient(#606060, #202020);\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}\n\t\t\t.history-debug-toggle input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\t\t\t.history-clear-button {\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\t\t\t.history-clear-button:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tbackground: linear-gradient(#606060, #202020);\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}";
         doc.head.appendChild(style);
         doc.title = "Resource Tracker History";
         doc.body.style.margin = "0";
@@ -6885,17 +6895,25 @@ function updateHistoryWindow() {
         doc.body.style.height = "100vh";
         var toolbar_1 = doc.createElement("div");
         toolbar_1.style.display = "flex";
-        toolbar_1.style.justifyContent = "flex-end";
+        toolbar_1.style.justifyContent = "space-between";
         toolbar_1.style.alignItems = "center";
-        toolbar_1.style.padding = "3px";
-        toolbar_1.style.borderBottom = "1px solid #444";
+        toolbar_1.style.padding = "4px";
+        toolbar_1.style.borderBottom = "2px solid #444";
         toolbar_1.style.boxSizing = "border-box";
+        var historyDebugLabel = doc.createElement("label");
+        historyDebugLabel.className = "history-debug-toggle";
+        var historyDebugInput = doc.createElement("input");
+        historyDebugInput.type = "checkbox";
+        historyDebugInput.checked = debugUnknownLines;
+        historyDebugInput.addEventListener("change", function () {
+            setDebugUnknownLines(this.checked);
+        });
+        historyDebugLabel.append(historyDebugInput, " Debug");
         var historyClearButton = doc.createElement("button");
         historyClearButton.textContent = "Clear Display";
-        historyClearButton.style.fontSize = "10px";
-        historyClearButton.style.cursor = "pointer";
+        historyClearButton.className = "history-clear-button";
         historyClearButton.addEventListener("click", clearHistoryWindowDisplay);
-        toolbar_1.appendChild(historyClearButton);
+        toolbar_1.append(historyDebugLabel, historyClearButton);
         historyPre = doc.createElement("pre");
         historyPre.style.margin = "0";
         historyPre.style.padding = "3px";
@@ -6983,6 +7001,7 @@ updateFishingModeVisibility();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
 updateSortButtonLabel();
+updateClearButtonLabel();
 render();
 // List of rare Seren spirit items that should be highlighted in the tracker.
 // We both know you'll never see them
@@ -7349,6 +7368,19 @@ if (sortButton) {
         render();
     });
 }
+function getActiveTabLabel() {
+    if (activeSkillTab === "all")
+        return "ALL";
+    if (activeSkillTab === "seren")
+        return "Seren Spirits";
+    return titleCase(activeSkillTab);
+}
+function updateClearButtonLabel() {
+    if (!clearButton)
+        return;
+    clearButton.innerText = "Clear ".concat(getActiveTabLabel());
+    clearButton.title = "Clear ".concat(getActiveTabLabel());
+}
 // group headers for the invention components
 function renderItemGroup(label, items, data, highlightItem) {
     if (items.length === 0)
@@ -7430,6 +7462,7 @@ document.querySelectorAll(".skill-tab").forEach(function (tab) {
         target.classList.add("active");
         updateFishingModeVisibility();
         updateInventionFilterVisibility();
+        updateClearButtonLabel();
         render();
     });
 });
@@ -7527,7 +7560,7 @@ function clearCurrentTab() {
     }
     saveData(data);
     render();
-    status.innerText = "".concat(titleCase(activeSkillTab), " cleared.");
+    status.innerText = "".concat(getActiveTabLabel(), " cleared.");
 }
 function exportData() {
     var data = getSaveData();

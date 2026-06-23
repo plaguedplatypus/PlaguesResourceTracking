@@ -79,8 +79,7 @@ const sessionButton = document.querySelector(".session-button") as HTMLElement;
 const clearButton = document.querySelector(".clear") as HTMLElement;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
-const debugUnknownInput = document.querySelector(".debug-unknown-lines") as HTMLInputElement;
-
+const debugUnknownInput = document.querySelector(".debug-unknown-lines") as HTMLInputElement | null;
 const status = document.querySelector(".status") as HTMLElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 
@@ -339,6 +338,7 @@ activeSkillTab =
 fishingUsePorters = savedData.fishingUsePorters ?? true;
 sortMode = savedData.sortMode || "recent";
 
+/*
 if (debugUnknownInput) {
 	debugUnknownInput.checked = debugUnknownLines;
 
@@ -350,6 +350,7 @@ if (debugUnknownInput) {
 		saveData(data);
 	});
 }
+*/
 
 // Set initial state of fishing porters checkbox based on saved data
 if (fishingPortersInput) {
@@ -362,6 +363,14 @@ document.querySelectorAll(".skill-tab").forEach((btn) => {
 });
 
 // History window
+function setDebugUnknownLines(value: boolean) {
+	debugUnknownLines = value;
+
+	const data = getSaveData();
+	data.debugUnknownLines = debugUnknownLines;
+	saveData(data);
+}
+
 function clearHistoryWindowDisplay() {
 	recentLines = [];
 	updateHistoryWindow();
@@ -421,7 +430,52 @@ function updateHistoryWindow() {
 			.history-tag-counted {color: #7CFC7C;}
 			.history-tag-dialog-counted {color: #43bc9e;}
 			.history-tag-ignored {color: #b36b6b;}
-			.history-tag-skipped {color: #d8c58a;}`;
+			.history-tag-skipped {color: #d8c58a;}
+			.history-debug-toggle {
+				display: flex;
+				align-items: center;
+				gap: 3px;
+				height: 20px;
+				box-sizing: border-box;
+				padding: 2px 6px;
+				color: #d8c58a;
+				background: linear-gradient(#262626, #1e1e1e);
+				border: 1px solid #4a4030;
+				box-shadow:
+					inset 1px 1px 0 rgba(255, 255, 255, 0.06),
+					inset -1px -1px 0 rgba(0, 0, 0, 0.75);
+				cursor: pointer;
+				font-size: 10px;
+				text-shadow: 0 1px 0 #000;
+				user-select: none;
+			}
+			.history-debug-toggle:hover {
+				color: #fff0bd;
+				background: linear-gradient(#606060, #202020);
+				border-color: #9b7a36;
+			}
+			.history-debug-toggle input {
+				margin: 0;
+			}
+			.history-clear-button {
+				height: 20px;
+				box-sizing: border-box;
+				padding: 2px 6px;
+				color: #d8c58a;
+				background: linear-gradient(#262626, #1e1e1e);
+				border: 1px solid #4a4030;
+				box-shadow:
+					inset 1px 1px 0 rgba(255, 255, 255, 0.06),
+					inset -1px -1px 0 rgba(0, 0, 0, 0.75);
+				cursor: pointer;
+				font-size: 10px;
+				text-shadow: 0 1px 0 #000;
+			}
+			.history-clear-button:hover {
+				color: #fff0bd;
+				background: linear-gradient(#606060, #202020);
+				border-color: #9b7a36;
+			}`;
 		doc.head.appendChild(style);
 		doc.title = "Resource Tracker History";
 
@@ -435,20 +489,29 @@ function updateHistoryWindow() {
 
 		const toolbar = doc.createElement("div");
 		toolbar.style.display = "flex";
-		toolbar.style.justifyContent = "flex-end";
+		toolbar.style.justifyContent = "space-between";
 		toolbar.style.alignItems = "center";
-		toolbar.style.padding = "3px";
-		toolbar.style.borderBottom = "1px solid #444";
+		toolbar.style.padding = "4px";
+		toolbar.style.borderBottom = "2px solid #444";
 		toolbar.style.boxSizing = "border-box";
+
+		const historyDebugLabel = doc.createElement("label");
+		historyDebugLabel.className = "history-debug-toggle";
+		const historyDebugInput = doc.createElement("input");
+		historyDebugInput.type = "checkbox";
+		historyDebugInput.checked = debugUnknownLines;
+		historyDebugInput.addEventListener("change", function () {
+			setDebugUnknownLines(this.checked);
+		});
+		historyDebugLabel.append(historyDebugInput, " Debug");
 
 		const historyClearButton = doc.createElement("button");
 		historyClearButton.textContent = "Clear Display";
-		historyClearButton.style.fontSize = "10px";
-		historyClearButton.style.cursor = "pointer";
+		historyClearButton.className = "history-clear-button";
 
 		historyClearButton.addEventListener("click", clearHistoryWindowDisplay);
 
-		toolbar.appendChild(historyClearButton);
+		toolbar.append(historyDebugLabel, historyClearButton);
 
 		historyPre = doc.createElement("pre");
 		historyPre.style.margin = "0";
@@ -555,6 +618,7 @@ updateFishingModeVisibility();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
 updateSortButtonLabel();
+updateClearButtonLabel();
 render();
 
 // List of rare Seren spirit items that should be highlighted in the tracker.
@@ -1027,6 +1091,20 @@ if (sortButton) {
 	});
 }
 
+function getActiveTabLabel() {
+	if (activeSkillTab === "all") return "ALL";
+	if (activeSkillTab === "seren") return "Seren Spirits";
+
+	return titleCase(activeSkillTab);
+}
+
+function updateClearButtonLabel() {
+	if (!clearButton) return;
+
+	clearButton.innerText = `Clear ${getActiveTabLabel()}`;
+	clearButton.title = `Clear ${getActiveTabLabel()}`;
+}
+
 // group headers for the invention components
 function renderItemGroup(
 	label: string,
@@ -1174,6 +1252,7 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 
 		updateFishingModeVisibility();
 		updateInventionFilterVisibility();
+		updateClearButtonLabel();
 		render();
 	});
 });
@@ -1293,7 +1372,7 @@ function clearCurrentTab() {
 	saveData(data);
 	render();
 
-	status.innerText = `${titleCase(activeSkillTab)} cleared.`;
+	status.innerText = `${getActiveTabLabel()} cleared.`;
 }
 
 function exportData() {

@@ -216,8 +216,8 @@ function renderSessionWindowHtml() {
 
 	const startedText = sessionStartedAt
 		? new Date(sessionStartedAt).toLocaleTimeString("en-US", {
-				hour12: false,
-			})
+			hour12: false,
+		})
 		: "—";
 
 	const statusText =
@@ -253,12 +253,23 @@ function renderSessionWindowHtml() {
 			}
 
 			button {
-				height: 24px;
-				background: #aaaaaa;
-				border: 1px solid #666;
-				color: #000;
+				height: 22px;
+				box-sizing: border-box;
+				font-size: 12px;
+				color: #d8c58a;
+				background: linear-gradient(#262626, #1e1e1e);
+				border: 1px solid #4a4030;
 				cursor: pointer;
-				font-size: 11px;
+				text-shadow: 0 1px 0 #000;
+			}
+
+			button:hover {
+				color: #fff0bd;
+				background: linear-gradient(#606060, #202020);
+			}
+				
+			.separator {
+    			border-top: 2px solid #444;
 			}
 
 			.session-meta {
@@ -374,7 +385,9 @@ function renderSessionWindowHtml() {
 			</div>
 
 			<div class="session-meta">
-				<div><strong>** Experimental **</strong></div>
+				<div style="font-size: 12px; font-style: italic;">Session continues while this window is closed.</div>
+				<div class="separator"></div>
+
 				<div><strong>Session Started:</strong> ${startedText}</div>
 				<div><strong>Status:</strong> <span class="${sessionStatus}">${statusText}</span></div>
 				<div><strong>Elapsed:</strong> ${formatElapsed(getElapsedMs())}</div>
