@@ -98,29 +98,36 @@ let fishingUsePorters = true;
 let historyWindow: Window | null = null;
 let historyPre: HTMLPreElement | null = null;
 let debugUnknownLines = savedData.debugUnknownLines ?? false;
+let reader = createChatReader();
 
-const reader = new ChatboxReader();
 const dialogReader = new DialogReader();
 
-reader.readargs.colors.push(
-	// anti aliasing sucks
-	a1lib.mixColor(51, 197, 20), // faded Green messages
-	a1lib.mixColor(59, 181, 20), // Green messages
-	a1lib.mixColor(59, 181, 30), // Other Green messages
+function createChatReader() {
+	const newReader = new ChatboxReader();
+	newReader.readargs.colors.push(
+		// anti aliasing sucks. These colors Alt1 does not have.
+		a1lib.mixColor(51, 197, 20), // faded Green messages
+		a1lib.mixColor(59, 181, 20), // Green messages
+		a1lib.mixColor(59, 181, 30), // Other Green messages
 
-	a1lib.mixColor(232, 47, 47), // pinkish red messages
-	a1lib.mixColor(190, 15, 6), // dark red messages
+		a1lib.mixColor(232, 47, 47), // pinkish red messages
+		a1lib.mixColor(190, 15, 6), // dark red messages
 
-	a1lib.mixColor(245, 135, 55), // News
-	a1lib.mixColor(252, 174, 0), // Orange actions
-	a1lib.mixColor(253, 127, 0), // uncommon components
-	a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
+		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
+		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
 
-	a1lib.mixColor(161, 53, 235), // what's this? Purple
-	a1lib.mixColor(51, 101, 252), // A random blue as entered the room
-);
+		a1lib.mixColor(252, 174, 0), // Orange actions
+		a1lib.mixColor(253, 127, 0), // uncommon components
+		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
 
-setupInventionNudges(reader);
+		a1lib.mixColor(161, 53, 235), // what's this? Purple
+		a1lib.mixColor(51, 101, 252), // A random blue as entered the room
+	);
+
+	setupInventionNudges(newReader);
+
+	return newReader;
+}
 
 window.setTimeout(function () {
 	if (!window.alt1) {
@@ -1044,9 +1051,7 @@ function render(highlightItem?: string, data = getSaveData()) {
 		return;
 	}
 
-	for (const item of items) {
-		renderItemRow(item, data.items[item], highlightItem);
-	}
+	renderGoalSortedTab(items, data, highlightItem);
 }
 
 function sortItems(items: string[], data: SaveData) {
@@ -1135,23 +1140,26 @@ function getSortedGroupLabel() {
 	return "Count";
 }
 
-function renderAllTab(
+function renderGoalSortedTab(
 	items: string[],
 	data: SaveData,
-	highlightItem?: string
+	highlightItem?: string,
+	includeUnknown = false
 ) {
 	const goalItems = items.filter((item) =>
 		data.items[item].goal !== null
 	);
 
-	const unknownItems = items.filter((item) =>
-		data.items[item].goal === null &&
-		(data.items[item].skill || "other") === "other"
-	);
+	const unknownItems = includeUnknown
+		? items.filter((item) =>
+				data.items[item].goal === null &&
+				(data.items[item].skill || "other") === "other"
+			)
+		: [];
 
 	const sortedItems = items.filter((item) =>
 		data.items[item].goal === null &&
-		(data.items[item].skill || "other") !== "other"
+		(!includeUnknown || (data.items[item].skill || "other") !== "other")
 	);
 
 	sortItems(goalItems, data);
@@ -1169,6 +1177,14 @@ function renderAllTab(
 	if (unknownItems.length > 0) {
 		renderItemGroup("Unknown", unknownItems, data, highlightItem);
 	}
+}
+
+function renderAllTab(
+	items: string[],
+	data: SaveData,
+	highlightItem?: string
+) {
+	renderGoalSortedTab(items, data, highlightItem, true);
 }
 
 function renderItemRow(
@@ -1367,7 +1383,7 @@ function deleteItem(item: string) {
 function refreshChatboxes() {
 	if (!window.alt1) return;
 
-	reader.pos = null;
+	reader = createChatReader();
 
 	const found = reader.find() as ChatboxPosition | null;
 

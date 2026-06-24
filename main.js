@@ -6623,22 +6623,27 @@ var fishingUsePorters = true;
 var historyWindow = null;
 var historyPre = null;
 var debugUnknownLines = (_a = savedData.debugUnknownLines) !== null && _a !== void 0 ? _a : false;
-var reader = new (alt1_chatbox__WEBPACK_IMPORTED_MODULE_1___default())();
+var reader = createChatReader();
 var dialogReader = new (alt1_dialog__WEBPACK_IMPORTED_MODULE_2___default())();
-reader.readargs.colors.push(
-// anti aliasing sucks
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(51, 197, 20), // faded Green messages
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(59, 181, 20), // Green messages
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(59, 181, 30), // Other Green messages
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(232, 47, 47), // pinkish red messages
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(190, 15, 6), // dark red messages
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(245, 135, 55), // News
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(252, 174, 0), // Orange actions
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(253, 127, 0), // uncommon components
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(67, 188, 188), // Cotton candy? or ancient?
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(161, 53, 235), // what's this? Purple
-alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(51, 101, 252));
-(0,_invention__WEBPACK_IMPORTED_MODULE_3__.setupInventionNudges)(reader);
+function createChatReader() {
+    var newReader = new (alt1_chatbox__WEBPACK_IMPORTED_MODULE_1___default())();
+    newReader.readargs.colors.push(
+    // anti aliasing sucks. These colors Alt1 does not have.
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(51, 197, 20), // faded Green messages
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(59, 181, 20), // Green messages
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(59, 181, 30), // Other Green messages
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(232, 47, 47), // pinkish red messages
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(190, 15, 6), // dark red messages
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(252, 140, 56), // broadcasts we don't need
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(245, 135, 55), // broadcasts we don't need
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(252, 174, 0), // Orange actions
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(253, 127, 0), // uncommon components
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(67, 188, 188), // Cotton candy? or ancient?
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(161, 53, 235), // what's this? Purple
+    alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(51, 101, 252));
+    (0,_invention__WEBPACK_IMPORTED_MODULE_3__.setupInventionNudges)(newReader);
+    return newReader;
+}
 window.setTimeout(function () {
     if (!window.alt1) {
         render();
@@ -7326,10 +7331,7 @@ function render(highlightItem, data) {
         }
         return;
     }
-    for (var _a = 0, items_2 = items; _a < items_2.length; _a++) {
-        var item = items_2[_a];
-        renderItemRow(item, data.items[item], highlightItem);
-    }
+    renderGoalSortedTab(items, data, highlightItem);
 }
 function sortItems(items, data) {
     if (sortMode === "recent") {
@@ -7392,8 +7394,8 @@ function renderItemGroup(label, items, data, highlightItem) {
     header.className = "group-header";
     header.innerText = label;
     tracker.appendChild(header);
-    for (var _i = 0, items_3 = items; _i < items_3.length; _i++) {
-        var item = items_3[_i];
+    for (var _i = 0, items_2 = items; _i < items_2.length; _i++) {
+        var item = items_2[_i];
         renderItemRow(item, data.items[item], highlightItem);
     }
 }
@@ -7404,17 +7406,20 @@ function getSortedGroupLabel() {
         return "A-Z";
     return "Count";
 }
-function renderAllTab(items, data, highlightItem) {
+function renderGoalSortedTab(items, data, highlightItem, includeUnknown) {
+    if (includeUnknown === void 0) { includeUnknown = false; }
     var goalItems = items.filter(function (item) {
         return data.items[item].goal !== null;
     });
-    var unknownItems = items.filter(function (item) {
-        return data.items[item].goal === null &&
-            (data.items[item].skill || "other") === "other";
-    });
+    var unknownItems = includeUnknown
+        ? items.filter(function (item) {
+            return data.items[item].goal === null &&
+                (data.items[item].skill || "other") === "other";
+        })
+        : [];
     var sortedItems = items.filter(function (item) {
         return data.items[item].goal === null &&
-            (data.items[item].skill || "other") !== "other";
+            (!includeUnknown || (data.items[item].skill || "other") !== "other");
     });
     sortItems(goalItems, data);
     sortItems(sortedItems, data);
@@ -7428,6 +7433,9 @@ function renderAllTab(items, data, highlightItem) {
     if (unknownItems.length > 0) {
         renderItemGroup("Unknown", unknownItems, data, highlightItem);
     }
+}
+function renderAllTab(items, data, highlightItem) {
+    renderGoalSortedTab(items, data, highlightItem, true);
 }
 function renderItemRow(item, itemData, highlightItem) {
     var row = document.createElement("div");
@@ -7557,7 +7565,7 @@ function deleteItem(item) {
 function refreshChatboxes() {
     if (!window.alt1)
         return;
-    reader.pos = null;
+    reader = createChatReader();
     var found = reader.find();
     if (!found || found.boxes.length === 0) {
         status.innerText = "No chatbox found.";
