@@ -39,7 +39,7 @@ body {
 
 body {
     margin: 0;
-    padding: 4px 4px 0;
+    padding: 4px 2px 1px 4px;
     box-sizing: border-box;
     background: #1e1e1e;
     color: white;
@@ -89,7 +89,7 @@ body {
     width: 28px;
     height: 28px;
     min-width: 20px;
-    padding: 2px;
+    padding: 1px;
     font-size: 12px;
 }
 
@@ -175,13 +175,12 @@ body {
     padding-bottom: 4px;
 }
 
-.tracker::-webkit-scrollbar {
-    width: 6px;
+.tracker::-webkit-scrollbar-button {
+    display: none;
 }
 
 .tracker::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 3px;
+    min-height: 48px;
 }
 
 .item-row {
@@ -7138,6 +7137,7 @@ function isDamagedArtefact(item) {
 }
 function normalizeItemName(item) {
     return item
+        .replace(/\s+\[\d{1,2}(?::\d{0,2}){0,2}.*$/, "") // Fragmented timestamps bad
         .toLowerCase()
         .replace(/[.!]$/, "")
         .trim();
@@ -7281,6 +7281,10 @@ function render(highlightItem, data) {
         tracker.innerHTML = "<div class=\"empty\">No tracked items yet.</div>";
         return;
     }
+    if (activeSkillTab === "all") {
+        renderAllTab(items, data, highlightItem);
+        return;
+    }
     if (activeSkillTab === "archaeology") {
         var materials = items.filter(function (item) {
             return !isDamagedArtefact(item);
@@ -7381,7 +7385,6 @@ function updateClearButtonLabel() {
     clearButton.innerText = "Clear ".concat(getActiveTabLabel());
     clearButton.title = "Clear ".concat(getActiveTabLabel());
 }
-// group headers for the invention components
 function renderItemGroup(label, items, data, highlightItem) {
     if (items.length === 0)
         return;
@@ -7392,6 +7395,38 @@ function renderItemGroup(label, items, data, highlightItem) {
     for (var _i = 0, items_3 = items; _i < items_3.length; _i++) {
         var item = items_3[_i];
         renderItemRow(item, data.items[item], highlightItem);
+    }
+}
+function getSortedGroupLabel() {
+    if (sortMode === "recent")
+        return "Recent";
+    if (sortMode === "alpha")
+        return "A-Z";
+    return "Count";
+}
+function renderAllTab(items, data, highlightItem) {
+    var goalItems = items.filter(function (item) {
+        return data.items[item].goal !== null;
+    });
+    var unknownItems = items.filter(function (item) {
+        return data.items[item].goal === null &&
+            (data.items[item].skill || "other") === "other";
+    });
+    var sortedItems = items.filter(function (item) {
+        return data.items[item].goal === null &&
+            (data.items[item].skill || "other") !== "other";
+    });
+    sortItems(goalItems, data);
+    sortItems(sortedItems, data);
+    sortItems(unknownItems, data);
+    if (goalItems.length > 0) {
+        renderItemGroup("Goals", goalItems, data, highlightItem);
+    }
+    if (sortedItems.length > 0) {
+        renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItem);
+    }
+    if (unknownItems.length > 0) {
+        renderItemGroup("Unknown", unknownItems, data, highlightItem);
     }
 }
 function renderItemRow(item, itemData, highlightItem) {

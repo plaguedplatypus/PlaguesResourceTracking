@@ -801,6 +801,7 @@ function isDamagedArtefact(item: string) {
 
 function normalizeItemName(item: string) {
 	return item
+		.replace(/\s+\[\d{1,2}(?::\d{0,2}){0,2}.*$/, "") // Fragmented timestamps bad
 		.toLowerCase()
 		.replace(/[.!]$/, "")
 		.trim();
@@ -974,6 +975,11 @@ function render(highlightItem?: string, data = getSaveData()) {
 		return;
 	}
 
+	if (activeSkillTab === "all") {
+		renderAllTab(items, data, highlightItem);
+		return;
+	}
+
 	if (activeSkillTab === "archaeology") {
 		const materials = items.filter(function (item) {
 			return !isDamagedArtefact(item);
@@ -1105,7 +1111,6 @@ function updateClearButtonLabel() {
 	clearButton.title = `Clear ${getActiveTabLabel()}`;
 }
 
-// group headers for the invention components
 function renderItemGroup(
 	label: string,
 	items: string[],
@@ -1121,6 +1126,48 @@ function renderItemGroup(
 
 	for (const item of items) {
 		renderItemRow(item, data.items[item], highlightItem);
+	}
+}
+
+function getSortedGroupLabel() {
+	if (sortMode === "recent") return "Recent";
+	if (sortMode === "alpha") return "A-Z";
+	return "Count";
+}
+
+function renderAllTab(
+	items: string[],
+	data: SaveData,
+	highlightItem?: string
+) {
+	const goalItems = items.filter((item) =>
+		data.items[item].goal !== null
+	);
+
+	const unknownItems = items.filter((item) =>
+		data.items[item].goal === null &&
+		(data.items[item].skill || "other") === "other"
+	);
+
+	const sortedItems = items.filter((item) =>
+		data.items[item].goal === null &&
+		(data.items[item].skill || "other") !== "other"
+	);
+
+	sortItems(goalItems, data);
+	sortItems(sortedItems, data);
+	sortItems(unknownItems, data);
+
+	if (goalItems.length > 0) {
+		renderItemGroup("Goals", goalItems, data, highlightItem);
+	}
+
+	if (sortedItems.length > 0) {
+		renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItem);
+	}
+
+	if (unknownItems.length > 0) {
+		renderItemGroup("Unknown", unknownItems, data, highlightItem);
 	}
 }
 
