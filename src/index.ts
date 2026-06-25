@@ -43,8 +43,8 @@ type ItemUpdate = {
 	source?: string;
 };
 
+type HistoryFilter = "all" | "counted" | "ignored";
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
-
 type SortMode = "recent" | "alpha" | "count";
 
 type SaveData = {
@@ -52,7 +52,6 @@ type SaveData = {
 	activeTab?: InternalSkillType;
 	fishingUsePorters?: boolean;
 	sortMode?: SortMode;
-	debugUnknownLines?: boolean;
 	items: Record<string, TrackedItem>;
 };
 
@@ -61,7 +60,7 @@ type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
 
-const maxRecentHistory = 50;
+const maxRecentHistory = 100;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
@@ -79,7 +78,6 @@ const sessionButton = document.querySelector(".session-button") as HTMLElement;
 const clearButton = document.querySelector(".clear") as HTMLElement;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
-const debugUnknownInput = document.querySelector(".debug-unknown-lines") as HTMLInputElement | null;
 const status = document.querySelector(".status") as HTMLElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 
@@ -97,7 +95,7 @@ let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let historyWindow: Window | null = null;
 let historyPre: HTMLPreElement | null = null;
-let debugUnknownLines = savedData.debugUnknownLines ?? false;
+let historyFilter: HistoryFilter = "all";
 let reader = createChatReader();
 
 const dialogReader = new DialogReader();
@@ -289,9 +287,7 @@ function readChatbox() {
 
 		const debugStatus = processHarvestLine(chatLine);
 		if (debugStatus === null) {
-			if (debugUnknownLines) {
-				updateChatHistory(historyKey, "[IGNORED]");
-			}
+			updateChatHistory(historyKey, "[IGNORED]");
 			continue;
 		}
 		updateChatHistory(historyKey, debugStatus);
@@ -345,20 +341,6 @@ activeSkillTab =
 fishingUsePorters = savedData.fishingUsePorters ?? true;
 sortMode = savedData.sortMode || "recent";
 
-/*
-if (debugUnknownInput) {
-	debugUnknownInput.checked = debugUnknownLines;
-
-	debugUnknownInput.addEventListener("change", function () {
-		debugUnknownLines = this.checked;
-
-		const data = getSaveData();
-		data.debugUnknownLines = debugUnknownLines;
-		saveData(data);
-	});
-}
-*/
-
 // Set initial state of fishing porters checkbox based on saved data
 if (fishingPortersInput) {
 	fishingPortersInput.checked = fishingUsePorters;
@@ -370,12 +352,20 @@ document.querySelectorAll(".skill-tab").forEach((btn) => {
 });
 
 // History window
-function setDebugUnknownLines(value: boolean) {
-	debugUnknownLines = value;
+function isHistoryLineVisible(line: string) {
+	if (historyFilter === "all") return true;
 
-	const data = getSaveData();
-	data.debugUnknownLines = debugUnknownLines;
-	saveData(data);
+	const upper = line.toUpperCase();
+
+	if (historyFilter === "counted") {
+		return upper.includes("[COUNTED") || upper.includes("[DIALOG COUNTED");
+	}
+
+	if (historyFilter === "ignored") {
+		return upper.includes("[IGNORED") || upper.includes("[SKIPPED DUPLICATE");
+	}
+
+	return true;
 }
 
 function clearHistoryWindowDisplay() {
@@ -438,32 +428,7 @@ function updateHistoryWindow() {
 			.history-tag-dialog-counted {color: #43bc9e;}
 			.history-tag-ignored {color: #b36b6b;}
 			.history-tag-skipped {color: #d8c58a;}
-			.history-debug-toggle {
-				display: flex;
-				align-items: center;
-				gap: 3px;
-				height: 20px;
-				box-sizing: border-box;
-				padding: 2px 6px;
-				color: #d8c58a;
-				background: linear-gradient(#262626, #1e1e1e);
-				border: 1px solid #4a4030;
-				box-shadow:
-					inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-					inset -1px -1px 0 rgba(0, 0, 0, 0.75);
-				cursor: pointer;
-				font-size: 10px;
-				text-shadow: 0 1px 0 #000;
-				user-select: none;
-			}
-			.history-debug-toggle:hover {
-				color: #fff0bd;
-				background: linear-gradient(#606060, #202020);
-				border-color: #9b7a36;
-			}
-			.history-debug-toggle input {
-				margin: 0;
-			}
+			.history-filter-button,
 			.history-clear-button {
 				height: 20px;
 				box-sizing: border-box;
@@ -478,10 +443,15 @@ function updateHistoryWindow() {
 				font-size: 10px;
 				text-shadow: 0 1px 0 #000;
 			}
+			.history-filter-button:hover,
 			.history-clear-button:hover {
 				color: #fff0bd;
-				background: linear-gradient(#606060, #202020);
 				border-color: #9b7a36;
+			}
+			.history-filter-button.active {
+				color: #fff2aa;
+				border-color: #d9a441;
+				background: linear-gradient(#4a3518, #20170c);
 			}`;
 		doc.head.appendChild(style);
 		doc.title = "Resource Tracker History";
@@ -502,15 +472,42 @@ function updateHistoryWindow() {
 		toolbar.style.borderBottom = "2px solid #444";
 		toolbar.style.boxSizing = "border-box";
 
-		const historyDebugLabel = doc.createElement("label");
-		historyDebugLabel.className = "history-debug-toggle";
-		const historyDebugInput = doc.createElement("input");
-		historyDebugInput.type = "checkbox";
-		historyDebugInput.checked = debugUnknownLines;
-		historyDebugInput.addEventListener("change", function () {
-			setDebugUnknownLines(this.checked);
-		});
-		historyDebugLabel.append(historyDebugInput, " Show Untracked");
+		const filterBar = doc.createElement("div");
+		filterBar.style.display = "flex";
+		filterBar.style.gap = "3px";
+
+		const createHistoryFilterButton = (label: string, value: HistoryFilter) => {
+			const button = doc.createElement("button");
+			button.textContent = label;
+			button.className = "history-filter-button";
+
+			if (historyFilter === value) {
+				button.classList.add("active");
+			}
+
+			button.addEventListener("click", function () {
+				historyFilter = value;
+
+				doc.querySelectorAll(".history-filter-button").forEach((filterButton) => {
+					const filterButtonElement = filterButton as HTMLButtonElement;
+
+					filterButtonElement.classList.toggle(
+						"active",
+						filterButtonElement.textContent?.toLowerCase() === value
+					);
+				});
+
+				updateHistoryWindow();
+			});
+
+			return button;
+		};
+
+		filterBar.append(
+			createHistoryFilterButton("All", "all"),
+			createHistoryFilterButton("Counted", "counted"),
+			createHistoryFilterButton("Ignored", "ignored")
+		);
 
 		const historyClearButton = doc.createElement("button");
 		historyClearButton.textContent = "Clear Display";
@@ -518,7 +515,7 @@ function updateHistoryWindow() {
 
 		historyClearButton.addEventListener("click", clearHistoryWindowDisplay);
 
-		toolbar.append(historyDebugLabel, historyClearButton);
+		toolbar.append(filterBar, historyClearButton);
 
 		historyPre = doc.createElement("pre");
 		historyPre.style.margin = "0";
@@ -537,6 +534,7 @@ function updateHistoryWindow() {
 
 	historyPre.innerHTML = [...recentLines]
 		.reverse()
+		.filter(isHistoryLineVisible)
 		.map(renderHistoryLine)
 		.join("\n");
 }
@@ -808,7 +806,7 @@ function isDamagedArtefact(item: string) {
 
 function normalizeItemName(item: string) {
 	return item
-		.replace(/\s+\[\d{1,2}(?::\d{0,2}){0,2}.*$/, "") // Fragmented timestamps bad
+		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
 		.toLowerCase()
 		.replace(/[.!]$/, "")
 		.trim();
@@ -854,13 +852,11 @@ function getSaveData(): SaveData {
 			activeTab: data.activeTab || "all",
 			fishingUsePorters: data.fishingUsePorters ?? true,
 			sortMode: data.sortMode || "recent",
-			debugUnknownLines: data.debugUnknownLines ?? false,
 			items: data.items || {},
 		};
 	} catch {
 		return {
 			sortMode: "recent",
-			debugUnknownLines: false,
 			items: {},
 		};
 	}
@@ -978,7 +974,7 @@ function render(highlightItem?: string, data = getSaveData()) {
 	tracker.innerHTML = "";
 
 	if (items.length === 0) {
-		tracker.innerHTML = `<div class="empty">No tracked items yet.</div>`;
+		tracker.innerHTML = `<div class="empty">No tracked items yet...</div>`;
 		return;
 	}
 
@@ -1152,9 +1148,9 @@ function renderGoalSortedTab(
 
 	const unknownItems = includeUnknown
 		? items.filter((item) =>
-				data.items[item].goal === null &&
-				(data.items[item].skill || "other") === "other"
-			)
+			data.items[item].goal === null &&
+			(data.items[item].skill || "other") === "other"
+		)
 		: [];
 
 	const sortedItems = items.filter((item) =>
@@ -1239,7 +1235,7 @@ function renderItemRow(
 	row.innerHTML = `
 		<div class="item-main-row">
 			<div class="item-text">
-				<strong class="${itemData.colorClass || ""}">
+				<strong class="${escapeAttr(itemData.colorClass || "")}">
 					${escapeHtml(titleCase(item))}
 				</strong>
 			</div>
@@ -1259,11 +1255,23 @@ function renderItemRow(
 				   placeholder="Goal"
 				   value="${itemData.goal || ""}">
 
-			<button class="clear-goal" data-item="${escapeAttr(item)}" title="Clear Goal">✖</button>
-			<button class="save-goal" data-item="${escapeAttr(item)}" title="Save Goal">💾</button>
+			<button class="clear-goal icon-btn" data-item="${escapeAttr(item)}" title="Clear Goal">
+				<img src="./icons/clear-goal.png" alt="Clear Goal">
+			</button>
+
+			<button class="save-goal icon-btn" data-item="${escapeAttr(item)}" title="Set Goal">
+				<img src="./icons/save-goal.png" alt="Set Goal">
+			</button>
+
 			<span class="button-separator">•</span>
-			<button class="reset-item" data-item="${escapeAttr(item)}" title="Reset Count">↺</button>
-			<button class="delete-item" data-item="${escapeAttr(item)}" title="Delete Item">🗑</button>
+
+			<button class="reset-item icon-btn" data-item="${escapeAttr(item)}" title="Reset Count">
+				<img src="./icons/reset-count.png" alt="Reset Count">
+			</button>
+
+			<button class="delete-item icon-btn" data-item="${escapeAttr(item)}" title="Delete Item">
+				<img src="./icons/delete-item.png" alt="Delete Item">
+			</button>
 		</div>
 	`;
 
@@ -1464,17 +1472,10 @@ function importData(file: File) {
 				activeTab: imported.activeTab || "all",
 				fishingUsePorters: imported.fishingUsePorters ?? true,
 				sortMode: imported.sortMode || "recent",
-				debugUnknownLines: imported.debugUnknownLines ?? false,
 				items: imported.items || {},
 			};
 
 			saveData(data);
-
-			debugUnknownLines = data.debugUnknownLines ?? false;
-
-			if (debugUnknownInput) {
-				debugUnknownInput.checked = debugUnknownLines;
-			}
 
 			render();
 			status.innerText = "Save imported.";

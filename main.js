@@ -103,13 +103,6 @@ body {
     text-shadow: none;
 }
 
-.skill-tab:hover,
-.sort-button:hover,
-.app-cog:hover {
-    border-color: #9b7a36;
-    background: linear-gradient(#606060, #202020);
-}
-
 .skill-tab.active {
     color: #fff2aa;
     border-color: #d9a441;
@@ -258,7 +251,7 @@ body {
 
 .progress-bar {
     flex: 1;
-    min-width: 25px;
+    min-width: 20px;
     height: 8px;
     margin-bottom: 1px;
     overflow: hidden;
@@ -273,8 +266,7 @@ body {
 
 button,
 select,
-.import-label,
-.debug-toggle {
+.import-label {
     height: 22px;
     box-sizing: border-box;
     font-size: 12px;
@@ -286,8 +278,7 @@ select,
 }
 
 button,
-.import-label,
-.debug-toggle {
+.import-label {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -296,19 +287,13 @@ button,
 
 button:hover,
 select:hover,
-.import-label:hover,
-.debug-toggle:hover {
+.import-label:hover {
     color: #fff0bd;
-    background: linear-gradient(#606060, #202020);
+    border-color: #9b7a36;
 }
 
 button:active,
-.import-label:active,
-.debug-toggle:active {
-    background: linear-gradient(#2c2c2c, #000000);
-    box-shadow:
-        inset 0 2px 3px rgba(0, 0, 0, 0.75),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+.import-label:active {
     transform: translateY(1px);
 }
 
@@ -320,9 +305,9 @@ select {
 .cog-btn {
     flex: 0 0 auto;
     height: auto;
-    padding: 0 2px;
+    padding: 0 1px;
     color: white;
-    font-size: 11px;
+    font-size: 12px;
     background: transparent;
     border: 0;
 }
@@ -351,20 +336,39 @@ select {
     line-height: 20px;
 }
 
-.settings-panel button {
+.settings-panel input[type="number"]::-webkit-inner-spin-button {
+    opacity: 1;
+    display: block;
+}
+
+.icon-btn {
     flex: 0 0 18px;
     width: 18px;
     height: 18px;
     padding: 0;
-    font-size: 18px;
-    line-height: 1;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+}
+
+.icon-btn img {
+	width: 18px;
+	height: 18px;
+	display: block;
+	object-fit: contain;
+	pointer-events: none;
+}
+
+.icon-btn:hover img,
+.skill-tab:hover img {
+    filter: brightness(1.5);
 }
 
 .button-separator {
-    margin: 0 2px;
     opacity: 0.5;
     user-select: none;
 }
@@ -390,15 +394,6 @@ select {
     color: #7a7a7a;
     font-size: 10px;
     line-height: 1;
-}
-
-.debug-toggle {
-    gap: 3px;
-    padding: 1px 2px;
-}
-
-.debug-toggle input {
-    margin: 0;
 }
 
 .app-settings-panel {
@@ -427,19 +422,15 @@ select {
     width: 100%;
 }
 
-.settings-row select,
-.settings-row button,
-.settings-row .import-label,
-.settings-row .debug-toggle {
+.settings-row > * {
     width: 100%;
     min-width: 0;
     white-space: nowrap;
     text-align: center;
 }
 
-.settings-row button,
-.settings-row .import-label,
-.settings-row .debug-toggle {
+.settings-row > button,
+.settings-row > .import-label {
     padding: 3px 4px;
 }
 
@@ -472,7 +463,7 @@ select {
 .ancient-component { color: #43bcbc; }
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
-.empty { color: #aaa; }
+.empty { color: #d0ff00; }
 `, ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
@@ -6584,7 +6575,7 @@ var __spreadArray = (undefined && undefined.__spreadArray) || function (to, from
     }
     return to.concat(ar || Array.prototype.slice.call(from));
 };
-var _a, _b;
+var _a;
 
 
 
@@ -6595,7 +6586,7 @@ var _a, _b;
 
 var appName = "ResourceTracker";
 var appColor = alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(67, 188, 188);
-var maxRecentHistory = 50;
+var maxRecentHistory = 100;
 var timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 var timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
 var appCog = document.querySelector(".app-cog");
@@ -6608,7 +6599,6 @@ var importInput = document.querySelector(".import");
 var sessionButton = document.querySelector(".session-button");
 var clearButton = document.querySelector(".clear");
 var tracker = document.querySelector(".tracker");
-var debugUnknownInput = document.querySelector(".debug-unknown-lines");
 var status = document.querySelector(".status");
 var sortButton = document.querySelector(".sort-button");
 var fishingMode = document.querySelector(".fishing-mode");
@@ -6622,7 +6612,7 @@ var sortMode = "recent";
 var fishingUsePorters = true;
 var historyWindow = null;
 var historyPre = null;
-var debugUnknownLines = (_a = savedData.debugUnknownLines) !== null && _a !== void 0 ? _a : false;
+var historyFilter = "all";
 var reader = createChatReader();
 var dialogReader = new (alt1_dialog__WEBPACK_IMPORTED_MODULE_2___default())();
 function createChatReader() {
@@ -6773,9 +6763,7 @@ function readChatbox() {
             continue;
         var debugStatus = processHarvestLine(chatLine);
         if (debugStatus === null) {
-            if (debugUnknownLines) {
-                updateChatHistory(historyKey, "[IGNORED]");
-            }
+            updateChatHistory(historyKey, "[IGNORED]");
             continue;
         }
         updateChatHistory(historyKey, debugStatus);
@@ -6818,21 +6806,8 @@ activeSkillTab =
     savedActiveTab === "other"
         ? "all"
         : (savedData.activeTab || "all");
-fishingUsePorters = (_b = savedData.fishingUsePorters) !== null && _b !== void 0 ? _b : true;
+fishingUsePorters = (_a = savedData.fishingUsePorters) !== null && _a !== void 0 ? _a : true;
 sortMode = savedData.sortMode || "recent";
-/*
-if (debugUnknownInput) {
-    debugUnknownInput.checked = debugUnknownLines;
-
-    debugUnknownInput.addEventListener("change", function () {
-        debugUnknownLines = this.checked;
-
-        const data = getSaveData();
-        data.debugUnknownLines = debugUnknownLines;
-        saveData(data);
-    });
-}
-*/
 // Set initial state of fishing porters checkbox based on saved data
 if (fishingPortersInput) {
     fishingPortersInput.checked = fishingUsePorters;
@@ -6842,11 +6817,17 @@ document.querySelectorAll(".skill-tab").forEach(function (btn) {
     btn.classList.remove("active");
 });
 // History window
-function setDebugUnknownLines(value) {
-    debugUnknownLines = value;
-    var data = getSaveData();
-    data.debugUnknownLines = debugUnknownLines;
-    saveData(data);
+function isHistoryLineVisible(line) {
+    if (historyFilter === "all")
+        return true;
+    var upper = line.toUpperCase();
+    if (historyFilter === "counted") {
+        return upper.includes("[COUNTED") || upper.includes("[DIALOG COUNTED");
+    }
+    if (historyFilter === "ignored") {
+        return upper.includes("[IGNORED") || upper.includes("[SKIPPED DUPLICATE");
+    }
+    return true;
 }
 function clearHistoryWindowDisplay() {
     recentLines = [];
@@ -6887,7 +6868,7 @@ function updateHistoryWindow() {
     }
     if (!doc.body.dataset.initialized) {
         var style = doc.createElement("style");
-        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}\n\t\t\t.history-debug-toggle {\n\t\t\t\tdisplay: flex;\n\t\t\t\talign-items: center;\n\t\t\t\tgap: 3px;\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t\tuser-select: none;\n\t\t\t}\n\t\t\t.history-debug-toggle:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tbackground: linear-gradient(#606060, #202020);\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}\n\t\t\t.history-debug-toggle input {\n\t\t\t\tmargin: 0;\n\t\t\t}\n\t\t\t.history-clear-button {\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\t\t\t.history-clear-button:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tbackground: linear-gradient(#606060, #202020);\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}";
+        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}\n\t\t\t.history-filter-button,\n\t\t\t.history-clear-button {\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\t\t\t.history-filter-button:hover,\n\t\t\t.history-clear-button:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}\n\t\t\t.history-filter-button.active {\n\t\t\t\tcolor: #fff2aa;\n\t\t\t\tborder-color: #d9a441;\n\t\t\t\tbackground: linear-gradient(#4a3518, #20170c);\n\t\t\t}";
         doc.head.appendChild(style);
         doc.title = "Resource Tracker History";
         doc.body.style.margin = "0";
@@ -6904,20 +6885,33 @@ function updateHistoryWindow() {
         toolbar_1.style.padding = "4px";
         toolbar_1.style.borderBottom = "2px solid #444";
         toolbar_1.style.boxSizing = "border-box";
-        var historyDebugLabel = doc.createElement("label");
-        historyDebugLabel.className = "history-debug-toggle";
-        var historyDebugInput = doc.createElement("input");
-        historyDebugInput.type = "checkbox";
-        historyDebugInput.checked = debugUnknownLines;
-        historyDebugInput.addEventListener("change", function () {
-            setDebugUnknownLines(this.checked);
-        });
-        historyDebugLabel.append(historyDebugInput, " Show Untracked");
+        var filterBar = doc.createElement("div");
+        filterBar.style.display = "flex";
+        filterBar.style.gap = "3px";
+        var createHistoryFilterButton = function (label, value) {
+            var button = doc.createElement("button");
+            button.textContent = label;
+            button.className = "history-filter-button";
+            if (historyFilter === value) {
+                button.classList.add("active");
+            }
+            button.addEventListener("click", function () {
+                historyFilter = value;
+                doc.querySelectorAll(".history-filter-button").forEach(function (filterButton) {
+                    var _a;
+                    var filterButtonElement = filterButton;
+                    filterButtonElement.classList.toggle("active", ((_a = filterButtonElement.textContent) === null || _a === void 0 ? void 0 : _a.toLowerCase()) === value);
+                });
+                updateHistoryWindow();
+            });
+            return button;
+        };
+        filterBar.append(createHistoryFilterButton("All", "all"), createHistoryFilterButton("Counted", "counted"), createHistoryFilterButton("Ignored", "ignored"));
         var historyClearButton = doc.createElement("button");
         historyClearButton.textContent = "Clear Display";
         historyClearButton.className = "history-clear-button";
         historyClearButton.addEventListener("click", clearHistoryWindowDisplay);
-        toolbar_1.append(historyDebugLabel, historyClearButton);
+        toolbar_1.append(filterBar, historyClearButton);
         historyPre = doc.createElement("pre");
         historyPre.style.margin = "0";
         historyPre.style.padding = "3px";
@@ -6932,6 +6926,7 @@ function updateHistoryWindow() {
     if (!historyPre)
         return;
     historyPre.innerHTML = __spreadArray([], recentLines, true).reverse()
+        .filter(isHistoryLineVisible)
         .map(renderHistoryLine)
         .join("\n");
 }
@@ -7142,7 +7137,7 @@ function isDamagedArtefact(item) {
 }
 function normalizeItemName(item) {
     return item
-        .replace(/\s+\[\d{1,2}(?::\d{0,2}){0,2}.*$/, "") // Fragmented timestamps bad
+        .replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
         .toLowerCase()
         .replace(/[.!]$/, "")
         .trim();
@@ -7165,7 +7160,7 @@ function registerDamagedArtifactCount(item) {
     return true;
 }
 function getSaveData() {
-    var _a, _b;
+    var _a;
     var raw = localStorage.getItem(appName);
     if (!raw) {
         return {
@@ -7180,14 +7175,12 @@ function getSaveData() {
             activeTab: data.activeTab || "all",
             fishingUsePorters: (_a = data.fishingUsePorters) !== null && _a !== void 0 ? _a : true,
             sortMode: data.sortMode || "recent",
-            debugUnknownLines: (_b = data.debugUnknownLines) !== null && _b !== void 0 ? _b : false,
             items: data.items || {},
         };
     }
-    catch (_c) {
+    catch (_b) {
         return {
             sortMode: "recent",
-            debugUnknownLines: false,
             items: {},
         };
     }
@@ -7283,7 +7276,7 @@ function render(highlightItem, data) {
     sortItems(items, data);
     tracker.innerHTML = "";
     if (items.length === 0) {
-        tracker.innerHTML = "<div class=\"empty\">No tracked items yet.</div>";
+        tracker.innerHTML = "<div class=\"empty\">No tracked items yet...</div>";
         return;
     }
     if (activeSkillTab === "all") {
@@ -7462,7 +7455,7 @@ function renderItemRow(item, itemData, highlightItem) {
             goalHtml = "\n    \t\t<div class=\"goal-row\" title=\"".concat(escapeAttr(goalTooltip), "\">\n        \t\t<span class=\"goal-text\">\n           \t\t\t ").concat(current, " / ").concat(goal, " (").concat(progress.toFixed(1), "%)\n        \t\t</span>\n\n\t\t\t\t<div class=\"progress-bar\">\n\t\t\t\t\t<div class=\"progress-fill\" style=\"width:").concat(progress, "%\"></div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t");
         }
     }
-    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(itemData.colorClass || "", "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t<div class=\"settings-panel ").concat(itemData.settingsOpen ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\u2716</button>\n\t\t\t<button class=\"save-goal\" data-item=\"").concat(escapeAttr(item), "\" title=\"Save Goal\">\uD83D\uDCBE</button>\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\t\t\t<button class=\"reset-item\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\u21BA</button>\n\t\t\t<button class=\"delete-item\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\uD83D\uDDD1</button>\n\t\t</div>\n\t");
+    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t<div class=\"settings-panel ").concat(itemData.settingsOpen ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
     if (highlightItem === item) {
         row.classList.add("highlight");
     }
@@ -7620,7 +7613,7 @@ function exportData() {
 function importData(file) {
     var reader = new FileReader();
     reader.onload = function () {
-        var _a, _b, _c;
+        var _a;
         try {
             var imported = JSON.parse(reader.result);
             var data = {
@@ -7628,18 +7621,13 @@ function importData(file) {
                 activeTab: imported.activeTab || "all",
                 fishingUsePorters: (_a = imported.fishingUsePorters) !== null && _a !== void 0 ? _a : true,
                 sortMode: imported.sortMode || "recent",
-                debugUnknownLines: (_b = imported.debugUnknownLines) !== null && _b !== void 0 ? _b : false,
                 items: imported.items || {},
             };
             saveData(data);
-            debugUnknownLines = (_c = data.debugUnknownLines) !== null && _c !== void 0 ? _c : false;
-            if (debugUnknownInput) {
-                debugUnknownInput.checked = debugUnknownLines;
-            }
             render();
             status.innerText = "Save imported.";
         }
-        catch (_d) {
+        catch (_b) {
             status.innerText = "Import failed.";
         }
     };

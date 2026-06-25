@@ -70,13 +70,6 @@ body {
     text-shadow: none;
 }
 
-.skill-tab:hover,
-.sort-button:hover,
-.app-cog:hover {
-    border-color: #9b7a36;
-    background: linear-gradient(#606060, #202020);
-}
-
 .skill-tab.active {
     color: #fff2aa;
     border-color: #d9a441;
@@ -225,7 +218,7 @@ body {
 
 .progress-bar {
     flex: 1;
-    min-width: 25px;
+    min-width: 20px;
     height: 8px;
     margin-bottom: 1px;
     overflow: hidden;
@@ -240,8 +233,7 @@ body {
 
 button,
 select,
-.import-label,
-.debug-toggle {
+.import-label {
     height: 22px;
     box-sizing: border-box;
     font-size: 12px;
@@ -253,8 +245,7 @@ select,
 }
 
 button,
-.import-label,
-.debug-toggle {
+.import-label {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -263,19 +254,13 @@ button,
 
 button:hover,
 select:hover,
-.import-label:hover,
-.debug-toggle:hover {
+.import-label:hover {
     color: #fff0bd;
-    background: linear-gradient(#606060, #202020);
+    border-color: #9b7a36;
 }
 
 button:active,
-.import-label:active,
-.debug-toggle:active {
-    background: linear-gradient(#2c2c2c, #000000);
-    box-shadow:
-        inset 0 2px 3px rgba(0, 0, 0, 0.75),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+.import-label:active {
     transform: translateY(1px);
 }
 
@@ -287,9 +272,9 @@ select {
 .cog-btn {
     flex: 0 0 auto;
     height: auto;
-    padding: 0 2px;
+    padding: 0 1px;
     color: white;
-    font-size: 11px;
+    font-size: 12px;
     background: transparent;
     border: 0;
 }
@@ -318,20 +303,39 @@ select {
     line-height: 20px;
 }
 
-.settings-panel button {
+.settings-panel input[type="number"]::-webkit-inner-spin-button {
+    opacity: 1;
+    display: block;
+}
+
+.icon-btn {
     flex: 0 0 18px;
     width: 18px;
     height: 18px;
     padding: 0;
-    font-size: 18px;
-    line-height: 1;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+}
+
+.icon-btn img {
+	width: 18px;
+	height: 18px;
+	display: block;
+	object-fit: contain;
+	pointer-events: none;
+}
+
+.icon-btn:hover img,
+.skill-tab:hover img {
+    filter: brightness(1.5);
 }
 
 .button-separator {
-    margin: 0 2px;
     opacity: 0.5;
     user-select: none;
 }
@@ -357,15 +361,6 @@ select {
     color: #7a7a7a;
     font-size: 10px;
     line-height: 1;
-}
-
-.debug-toggle {
-    gap: 3px;
-    padding: 1px 2px;
-}
-
-.debug-toggle input {
-    margin: 0;
 }
 
 .app-settings-panel {
@@ -394,19 +389,15 @@ select {
     width: 100%;
 }
 
-.settings-row select,
-.settings-row button,
-.settings-row .import-label,
-.settings-row .debug-toggle {
+.settings-row > * {
     width: 100%;
     min-width: 0;
     white-space: nowrap;
     text-align: center;
 }
 
-.settings-row button,
-.settings-row .import-label,
-.settings-row .debug-toggle {
+.settings-row > button,
+.settings-row > .import-label {
     padding: 3px 4px;
 }
 
@@ -439,4 +430,4 @@ select {
 .ancient-component { color: #43bcbc; }
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
-.empty { color: #aaa; }
+.empty { color: #d0ff00; }
