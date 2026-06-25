@@ -164,8 +164,7 @@ body {
     flex-direction: column;
     box-sizing: border-box;
     gap: 4px;
-    padding-right: 2px;
-    padding-bottom: 4px;
+    padding: 0 2px 4px 0;
 }
 
 .tracker::-webkit-scrollbar-button {
@@ -180,7 +179,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding: 1px 4px;
+    padding: 1px 2px 1px 2px;
     line-height: 1.15;
     background: #2c2c2c;
     border: 1px solid #3a3a3a;
@@ -221,7 +220,7 @@ body {
 .item-count {
     flex: 0 0 auto;
     min-width: 24px;
-    margin-right: 6px;
+    margin-right: 1px;
     text-align: right;
     font-size: 13px;
     font-weight: bold;
@@ -231,7 +230,7 @@ body {
 .goal-row {
     gap: 4px;
     width: 100%;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .goal-text {
@@ -241,7 +240,7 @@ body {
 }
 
 .goal-complete {
-    margin: -1px 0 1px;
+    margin: 0 0 2px 0;
     color: #ffd700;
     font-size: 10px;
     font-weight: bold;
@@ -253,7 +252,6 @@ body {
     flex: 1;
     min-width: 20px;
     height: 8px;
-    margin-bottom: 1px;
     overflow: hidden;
     background: #444;
     border-radius: 4px;
@@ -306,18 +304,23 @@ select {
     flex: 0 0 auto;
     height: auto;
     padding: 0 1px;
-    color: white;
+    color: #d8c58a;
     font-size: 12px;
     background: transparent;
     border: 0;
+    opacity: 0.75;
+
+    position: relative;
+    top: -3px;
+    left: 2px;
 }
 
 .settings-panel {
     display: none;
     width: 100%;
-    gap: 3px;
+    gap: 2px;
     align-items: center;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
 }
 
 .settings-panel.open {
@@ -402,7 +405,7 @@ select {
     right: 0;
     bottom: 21px;
     min-width: 140px;
-    padding: 6px;
+    padding: 5px;
     flex-direction: column;
     gap: 5px;
     background: #0e1d25;
@@ -444,6 +447,7 @@ select {
 
 .settings-separator {
     border-top: 2px solid #444;
+    margin: 2px 0 2px;
 }
 
 .footer-separator {
@@ -7455,7 +7459,7 @@ function renderItemRow(item, itemData, highlightItem) {
             goalHtml = "\n    \t\t<div class=\"goal-row\" title=\"".concat(escapeAttr(goalTooltip), "\">\n        \t\t<span class=\"goal-text\">\n           \t\t\t ").concat(current, " / ").concat(goal, " (").concat(progress.toFixed(1), "%)\n        \t\t</span>\n\n\t\t\t\t<div class=\"progress-bar\">\n\t\t\t\t\t<div class=\"progress-fill\" style=\"width:").concat(progress, "%\"></div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t");
         }
     }
-    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t<div class=\"settings-panel ").concat(itemData.settingsOpen ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
+    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(itemData.settingsOpen ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(itemData.settingsOpen ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
     if (highlightItem === item) {
         row.classList.add("highlight");
     }

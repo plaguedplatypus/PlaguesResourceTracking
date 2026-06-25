@@ -1249,6 +1249,8 @@ function renderItemRow(
 
 		${goalHtml}
 
+		${itemData.settingsOpen ? `<div class="settings-separator"></div>` : ""}
+
 		<div class="settings-panel ${itemData.settingsOpen ? "open" : ""}">
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
