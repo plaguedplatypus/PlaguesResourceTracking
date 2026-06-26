@@ -1,7 +1,8 @@
 
 // setting up the session window for you stats and money weirdos
 
-type SessionStatus = "idle" | "running" | "paused";
+type InternalSessionStatus = "idle" | "running" | "paused";
+export type SessionStatus = "idle" | "running" | "paused";
 
 export type SessionItemUpdate = {
 	item: string;
@@ -9,6 +10,13 @@ export type SessionItemUpdate = {
 	skill: string;
 	source?: string;
 };
+
+export function getSessionStatus(): SessionStatus {
+	if (sessionStatus === "running") return "running";
+	if (sessionStatus === "paused") return "paused";
+
+	return "idle";
+}
 
 type SessionItem = {
 	count: number;
@@ -42,7 +50,7 @@ const sessionSettingsKey = `${appName}_SessionSettings`;
 const priceCacheKey = `${appName}_PriceCache`;
 const priceCacheDurationMs = 24 * 60 * 60 * 1000;
 
-let sessionStatus: SessionStatus = "idle";
+let sessionStatus: InternalSessionStatus = "idle";
 let sessionStartedAt: number | null = null;
 let activeStartedAt: number | null = null;
 let elapsedBeforePauseMs = 0;

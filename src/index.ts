@@ -1,14 +1,8 @@
 import * as a1lib from "alt1/base";
 import ChatboxReader from "alt1/chatbox";
 import DialogReader from "alt1/dialog";
-import {
-	setupInventionNudges,
-	processInventionMaterials,
-} from "./invention";
-import {
-	recordSessionUpdates,
-	showSessionWindow,
-} from "./session";
+import { setupInventionNudges, processInventionMaterials, } from "./invention";
+import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./session";
 
 import "./index.html";
 import "./appconfig.json";
@@ -74,6 +68,8 @@ const historyButton = document.querySelector(".history-button") as HTMLElement;
 const exportButton = document.querySelector(".export") as HTMLElement;
 const importInput = document.querySelector(".import") as HTMLInputElement;
 const sessionButton = document.querySelector(".session-button") as HTMLElement;
+const sessionStatusMini = document.querySelector(".session-status-line, .session-status-mini") as HTMLElement | null;
+const sessionStatusValue = document.querySelector(".session-status-value") as HTMLElement | null;
 const clearButton = document.querySelector(".clear") as HTMLElement;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
@@ -81,7 +77,7 @@ const status = document.querySelector(".status") as HTMLElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 
 const fishingMode = document.querySelector(".fishing-mode") as HTMLElement;
-const fishingPortersInput = document.querySelector(".fishing-porters") as HTMLInputElement;
+const fishingPortersButton = document.querySelector(".fishing-porters-cycle") as HTMLElement;
 
 const inventionFilters = document.querySelector(".invention-filters") as HTMLElement;
 const inventionFilterButton = document.querySelector(".invention-filter-cycle") as HTMLElement;
@@ -342,8 +338,16 @@ fishingUsePorters = savedData.fishingUsePorters ?? true;
 sortMode = savedData.sortMode || "recent";
 
 // Set initial state of fishing porters checkbox based on saved data
-if (fishingPortersInput) {
-	fishingPortersInput.checked = fishingUsePorters;
+function updateFishingPortersButton() {
+	if (!fishingPortersButton) return;
+
+	fishingPortersButton.innerText = fishingUsePorters
+		? "Porters / GOTE: ON"
+		: "Porters / GOTE: OFF";
+
+	fishingPortersButton.title = fishingUsePorters
+		? "Counting fishing items from porter/bank transport lines."
+		: "Counting fishing items from direct catch lines.";
 }
 
 // Set initial sort button label
@@ -620,10 +624,12 @@ if (savedTabButton) {
 }
 
 updateFishingModeVisibility();
+updateFishingPortersButton();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
 updateSortButtonLabel();
 updateClearButtonLabel();
+updateSessionStatusMini();
 render();
 
 // List of rare Seren spirit items that should be highlighted in the tracker.
@@ -1104,6 +1110,22 @@ function getActiveTabLabel() {
 	return titleCase(activeSkillTab);
 }
 
+function updateSessionStatusMini() {
+	if (!sessionStatusMini || !sessionStatusValue) return;
+
+	const currentSessionStatus = getSessionStatus();
+
+	sessionStatusMini.classList.remove("running", "paused", "idle");
+	sessionStatusMini.classList.add(currentSessionStatus);
+
+	sessionStatusValue.innerText =
+		currentSessionStatus === "running"
+			? "Running"
+			: currentSessionStatus === "paused"
+				? "Paused"
+				: "Not Running";
+}
+
 function updateClearButtonLabel() {
 	if (!clearButton) return;
 
@@ -1530,21 +1552,33 @@ function escapeAttr(value: string) {
 // Hey you, listen to this...
 appCog?.addEventListener("click", function () {
 	appSettingsPanel?.classList.toggle("open");
+	updateSessionStatusMini();
 });
 
-sessionButton?.addEventListener("click", showSessionWindow);
+sessionButton?.addEventListener("click", function () {
+	showSessionWindow();
+	setTimeout(updateSessionStatusMini, 100);
+});
 
 clearButton?.addEventListener("click", clearCurrentTab);
 
-if (fishingPortersInput) {
-	fishingPortersInput.addEventListener("change", function () {
-		fishingUsePorters = this.checked;
+window.setInterval(function () {
+	if (!appSettingsPanel?.classList.contains("open")) return;
 
-		const data = getSaveData();
-		data.fishingUsePorters = fishingUsePorters;
-		saveData(data);
-	});
-}
+	updateSessionStatusMini();
+}, 1000);
+
+fishingPortersButton?.addEventListener("click", function () {
+	fishingUsePorters = !fishingUsePorters;
+
+	const data = getSaveData();
+	data.fishingUsePorters = fishingUsePorters;
+	saveData(data);
+
+	updateFishingPortersButton();
+	render();
+});
+
 findChatButton?.addEventListener("click", refreshChatboxes);
 
 historyButton?.addEventListener("click", showChatHistory);

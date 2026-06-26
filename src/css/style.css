@@ -99,15 +99,10 @@ body {
     display: flex;
 }
 
-.fishing-mode {
-    margin-bottom: 3px;
-    color: #aaa;
-    font-size: 10px;
-}
-
+.fishing-porters-cycle,
 .invention-filters {
     align-self: flex-start;
-    gap: 2px;
+    font-size: 11px;
 }
 
 .group-header {
@@ -419,6 +414,33 @@ select {
     display: none;
 }
 
+.session-status-line {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-style: italic;
+    color: #777;
+    gap: 4px;
+    margin: -1px 0 -4px;
+    font-size: 12px;
+    text-shadow: 0 1px 0 #000;
+}
+
+.session-status-label {
+    font-weight: bold;
+    font-style: normal;
+}
+
+.session-status-line.running .session-status-value {
+    color: #7CFC7C;
+}
+.session-status-line.paused .session-status-value {
+    color: #ffd700;
+}
+.session-status-line.idle .session-status-value {
+    color: #777;
+}
+
 .settings-separator {
     border-top: 2px solid #444;
     margin: 2px 0 2px;
@@ -441,4 +463,14 @@ select {
 .ancient-component { color: #43bcbc; }
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
-.empty { color: #d0ff00; }
+
+.empty { 
+    color: #d0ff00;
+    flex-direction: column;
+    margin: 7px 0 0 0;
+    padding: 8px 2px 5px 10px;
+    line-height: 1.15;
+    background: #2c2c2c;
+    border: 2px solid #3a3a3a;
+    border-radius: 3px;
+ }

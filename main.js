@@ -132,15 +132,10 @@ body {
     display: flex;
 }
 
-.fishing-mode {
-    margin-bottom: 3px;
-    color: #aaa;
-    font-size: 10px;
-}
-
+.fishing-porters-cycle,
 .invention-filters {
     align-self: flex-start;
-    gap: 2px;
+    font-size: 11px;
 }
 
 .group-header {
@@ -452,6 +447,33 @@ select {
     display: none;
 }
 
+.session-status-line {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-style: italic;
+    color: #777;
+    gap: 4px;
+    margin: -1px 0 -4px;
+    font-size: 12px;
+    text-shadow: 0 1px 0 #000;
+}
+
+.session-status-label {
+    font-weight: bold;
+    font-style: normal;
+}
+
+.session-status-line.running .session-status-value {
+    color: #7CFC7C;
+}
+.session-status-line.paused .session-status-value {
+    color: #ffd700;
+}
+.session-status-line.idle .session-status-value {
+    color: #777;
+}
+
 .settings-separator {
     border-top: 2px solid #444;
     margin: 2px 0 2px;
@@ -474,7 +496,17 @@ select {
 .ancient-component { color: #43bcbc; }
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
-.empty { color: #d0ff00; }
+
+.empty { 
+    color: #d0ff00;
+    flex-direction: column;
+    margin: 7px 0 0 0;
+    padding: 8px 2px 5px 10px;
+    line-height: 1.15;
+    background: #2c2c2c;
+    border: 2px solid #3a3a3a;
+    border-radius: 3px;
+ }
 `, ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
@@ -1239,6 +1271,7 @@ function processInventionMaterials(cleanLine) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   getSessionStatus: () => (/* binding */ getSessionStatus),
 /* harmony export */   recordSessionUpdates: () => (/* binding */ recordSessionUpdates),
 /* harmony export */   showSessionWindow: () => (/* binding */ showSessionWindow)
 /* harmony export */ });
@@ -1280,6 +1313,13 @@ var __generator = (undefined && undefined.__generator) || function (thisArg, bod
     }
 };
 var _a;
+function getSessionStatus() {
+    if (sessionStatus === "running")
+        return "running";
+    if (sessionStatus === "paused")
+        return "paused";
+    return "idle";
+}
 var appName = "ResourceTracker";
 var sessionSettingsKey = "".concat(appName, "_SessionSettings");
 var priceCacheKey = "".concat(appName, "_PriceCache");
@@ -6608,12 +6648,14 @@ var historyButton = document.querySelector(".history-button");
 var exportButton = document.querySelector(".export");
 var importInput = document.querySelector(".import");
 var sessionButton = document.querySelector(".session-button");
+var sessionStatusMini = document.querySelector(".session-status-line, .session-status-mini");
+var sessionStatusValue = document.querySelector(".session-status-value");
 var clearButton = document.querySelector(".clear");
 var tracker = document.querySelector(".tracker");
 var status = document.querySelector(".status");
 var sortButton = document.querySelector(".sort-button");
 var fishingMode = document.querySelector(".fishing-mode");
-var fishingPortersInput = document.querySelector(".fishing-porters");
+var fishingPortersButton = document.querySelector(".fishing-porters-cycle");
 var inventionFilters = document.querySelector(".invention-filters");
 var inventionFilterButton = document.querySelector(".invention-filter-cycle");
 var savedData = getSaveData();
@@ -6821,8 +6863,15 @@ activeSkillTab =
 fishingUsePorters = (_a = savedData.fishingUsePorters) !== null && _a !== void 0 ? _a : true;
 sortMode = savedData.sortMode || "recent";
 // Set initial state of fishing porters checkbox based on saved data
-if (fishingPortersInput) {
-    fishingPortersInput.checked = fishingUsePorters;
+function updateFishingPortersButton() {
+    if (!fishingPortersButton)
+        return;
+    fishingPortersButton.innerText = fishingUsePorters
+        ? "Porters / GOTE: ON"
+        : "Porters / GOTE: OFF";
+    fishingPortersButton.title = fishingUsePorters
+        ? "Counting fishing items from porter/bank transport lines."
+        : "Counting fishing items from direct catch lines.";
 }
 // Set initial sort button label
 document.querySelectorAll(".skill-tab").forEach(function (btn) {
@@ -7009,10 +7058,12 @@ if (savedTabButton) {
     savedTabButton.classList.add("active");
 }
 updateFishingModeVisibility();
+updateFishingPortersButton();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
 updateSortButtonLabel();
 updateClearButtonLabel();
+updateSessionStatusMini();
 render();
 // List of rare Seren spirit items that should be highlighted in the tracker.
 // We both know you'll never see them
@@ -7385,6 +7436,19 @@ function getActiveTabLabel() {
         return "Seren Spirits";
     return titleCase(activeSkillTab);
 }
+function updateSessionStatusMini() {
+    if (!sessionStatusMini || !sessionStatusValue)
+        return;
+    var currentSessionStatus = (0,_session__WEBPACK_IMPORTED_MODULE_4__.getSessionStatus)();
+    sessionStatusMini.classList.remove("running", "paused", "idle");
+    sessionStatusMini.classList.add(currentSessionStatus);
+    sessionStatusValue.innerText =
+        currentSessionStatus === "running"
+            ? "Running"
+            : currentSessionStatus === "paused"
+                ? "Paused"
+                : "Not Running";
+}
 function updateClearButtonLabel() {
     if (!clearButton)
         return;
@@ -7673,17 +7737,26 @@ function escapeAttr(value) {
 // Hey you, listen to this...
 appCog === null || appCog === void 0 ? void 0 : appCog.addEventListener("click", function () {
     appSettingsPanel === null || appSettingsPanel === void 0 ? void 0 : appSettingsPanel.classList.toggle("open");
+    updateSessionStatusMini();
 });
-sessionButton === null || sessionButton === void 0 ? void 0 : sessionButton.addEventListener("click", _session__WEBPACK_IMPORTED_MODULE_4__.showSessionWindow);
+sessionButton === null || sessionButton === void 0 ? void 0 : sessionButton.addEventListener("click", function () {
+    (0,_session__WEBPACK_IMPORTED_MODULE_4__.showSessionWindow)();
+    setTimeout(updateSessionStatusMini, 100);
+});
 clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener("click", clearCurrentTab);
-if (fishingPortersInput) {
-    fishingPortersInput.addEventListener("change", function () {
-        fishingUsePorters = this.checked;
-        var data = getSaveData();
-        data.fishingUsePorters = fishingUsePorters;
-        saveData(data);
-    });
-}
+window.setInterval(function () {
+    if (!(appSettingsPanel === null || appSettingsPanel === void 0 ? void 0 : appSettingsPanel.classList.contains("open")))
+        return;
+    updateSessionStatusMini();
+}, 1000);
+fishingPortersButton === null || fishingPortersButton === void 0 ? void 0 : fishingPortersButton.addEventListener("click", function () {
+    fishingUsePorters = !fishingUsePorters;
+    var data = getSaveData();
+    data.fishingUsePorters = fishingUsePorters;
+    saveData(data);
+    updateFishingPortersButton();
+    render();
+});
 findChatButton === null || findChatButton === void 0 ? void 0 : findChatButton.addEventListener("click", refreshChatboxes);
 historyButton === null || historyButton === void 0 ? void 0 : historyButton.addEventListener("click", showChatHistory);
 exportButton === null || exportButton === void 0 ? void 0 : exportButton.addEventListener("click", exportData);

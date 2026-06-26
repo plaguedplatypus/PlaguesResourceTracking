@@ -44,15 +44,16 @@
             <button class="invention-filter-cycle">Filter: All</button>
         </div>
 
-        <label class="fishing-mode">
-            <input type="checkbox" class="fishing-porters" checked>
-            Using Porters/GOTE
-        </label>
+        <div class="fishing-mode">
+            <button class="fishing-porters-cycle" title="Toggle fishing tracking mode">
+                Porters / GOTE: ON
+            </button>
+        </div>
 
         <div class="tracker"></div>
 
         <div class="footer-separator"></div>
-        
+
         <div class="footer">
             <span class="status">Initializing...</span>
 
@@ -70,7 +71,9 @@
 
                     <div class="settings-row two-col">
                         <button class="history-button">History</button>
+                        <button class="session-button">Session</button>
                     </div>
+
 
                     <div class="settings-row two-col">
                         <button class="export">Export</button>
@@ -80,7 +83,11 @@
                             <input class="import" type="file" accept=".json">
                         </label>
                     </div>
-                    <button class="session-button">Session Stats</button>
+                    <div class="session-status-line idle">
+                        <span class="session-status-label">Session:</span>
+                        <span class="session-status-value">Not Running</span>
+                    </div>
+
                     <div class="settings-separator"></div>
                     <button class="clear tab-clear">Clear Tab</button>
                 </div>
