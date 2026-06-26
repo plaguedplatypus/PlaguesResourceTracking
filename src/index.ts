@@ -52,6 +52,7 @@ type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
 
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
+const tabsToggleButton = document.querySelector(".tabs-toggle") as HTMLElement | null;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
@@ -87,6 +88,7 @@ let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let openSettingsItem: string | null = null;
+let tabsCollapsed = false;
 let reader = createChatReader();
 
 const savedActiveTab = savedData.activeTab as string | undefined;
@@ -736,6 +738,15 @@ function render(highlightItem?: string, data = getSaveData()) {
 	renderGoalSortedTab(items, data, highlightItem);
 }
 
+function updateTabsCollapsedUi() {
+	document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
+
+	if (!tabsToggleButton) return;
+
+	tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
+	tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
+}
+
 function renderAllTab(
 	items: string[],
 	data: SaveData,
@@ -1279,9 +1290,15 @@ updateInventionFilterVisibility();
 updateSortButtonLabel();
 updateClearButtonLabel();
 updateSessionStatusMini();
+updateTabsCollapsedUi();
 render();
 
 // App settings panel / session status refresh
+tabsToggleButton?.addEventListener("click", function () {
+	tabsCollapsed = !tabsCollapsed;
+	updateTabsCollapsedUi();
+});
+
 appCog?.addEventListener("click", function () {
 	appSettingsPanel?.classList.toggle("open");
 	updateSessionStatusMini();

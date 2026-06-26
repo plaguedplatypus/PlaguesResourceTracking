@@ -55,11 +55,32 @@ body {
 }
 
 .title {
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     color: #d8c58a;
     font-size: 10px;
     font-weight: normal;
     line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: left;
+	gap: 2px;
+}
+
+.tabs-toggle {
+	width: 11px;
+	height: 11px;
+	padding: 0;
+	font-size: 10px;
+    background: transparent;
+    border: 1;
+	color: #d8c58a;
+    background: linear-gradient(#262626, #1e1e1e);
+	cursor: pointer;
+	text-shadow: 0 1px 0 #000;
+}
+
+.tabs-collapsed .skill-tabs {
+	display: none;
 }
 
 .skill-tabs {
@@ -6811,6 +6832,7 @@ var _a;
 
 var appName = "ResourceTracker";
 var appColor = alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(67, 188, 188);
+var tabsToggleButton = document.querySelector(".tabs-toggle");
 var timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 var timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
 var appCog = document.querySelector(".app-cog");
@@ -6837,6 +6859,7 @@ var activeSkillTab = "all";
 var sortMode = "recent";
 var fishingUsePorters = true;
 var openSettingsItem = null;
+var tabsCollapsed = false;
 var reader = createChatReader();
 var savedActiveTab = savedData.activeTab;
 activeSkillTab =
@@ -7333,6 +7356,13 @@ function render(highlightItem, data) {
     }
     renderGoalSortedTab(items, data, highlightItem);
 }
+function updateTabsCollapsedUi() {
+    document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
+    if (!tabsToggleButton)
+        return;
+    tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
+    tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
+}
 function renderAllTab(items, data, highlightItem) {
     renderGoalSortedTab(items, data, highlightItem, true);
 }
@@ -7731,8 +7761,13 @@ updateInventionFilterVisibility();
 updateSortButtonLabel();
 updateClearButtonLabel();
 updateSessionStatusMini();
+updateTabsCollapsedUi();
 render();
 // App settings panel / session status refresh
+tabsToggleButton === null || tabsToggleButton === void 0 ? void 0 : tabsToggleButton.addEventListener("click", function () {
+    tabsCollapsed = !tabsCollapsed;
+    updateTabsCollapsedUi();
+});
 appCog === null || appCog === void 0 ? void 0 : appCog.addEventListener("click", function () {
     appSettingsPanel === null || appSettingsPanel === void 0 ? void 0 : appSettingsPanel.classList.toggle("open");
     updateSessionStatusMini();
