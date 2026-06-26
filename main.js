@@ -79,7 +79,7 @@ body {
 	text-shadow: 0 1px 0 #000;
 }
 
-.tabs-collapsed, .skill-tabs, .footer {
+.tabs-collapsed .skill-tabs {
 	display: none;
 }
 
