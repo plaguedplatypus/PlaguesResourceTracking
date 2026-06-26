@@ -3,6 +3,7 @@ import ChatboxReader from "alt1/chatbox";
 import DialogReader from "alt1/dialog";
 import { setupInventionNudges, processInventionMaterials, } from "./invention";
 import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./session";
+import { isInHistory, showChatHistory, updateChatHistory } from "./history";
 
 import "./index.html";
 import "./appconfig.json";
@@ -36,7 +37,6 @@ type ItemUpdate = {
 	source?: string;
 };
 
-type HistoryFilter = "all" | "counted" | "ignored";
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type SortMode = "recent" | "alpha" | "count";
 
@@ -52,8 +52,6 @@ type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
 
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
-
-const maxRecentHistory = 100;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
@@ -88,40 +86,19 @@ let inventionFilter: InventionFilter = "all";
 let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
-let historyWindow: Window | null = null;
-let historyPre: HTMLPreElement | null = null;
-let historyFilter: HistoryFilter = "all";
 let openSettingsItem: string | null = null;
 let reader = createChatReader();
 
+const savedActiveTab = savedData.activeTab as string | undefined;
+activeSkillTab =
+	savedActiveTab === "other"
+		? "all"
+		: ((savedData.activeTab || "all") as SkillType);
+fishingUsePorters = savedData.fishingUsePorters ?? true;
+sortMode = savedData.sortMode || "recent";
+
+
 const dialogReader = new DialogReader();
-
-function createChatReader() {
-	const newReader = new ChatboxReader();
-	newReader.readargs.colors.push(
-		// anti aliasing sucks. These colors Alt1 does not have.
-		a1lib.mixColor(51, 197, 20), // faded Green messages
-		a1lib.mixColor(59, 181, 20), // Green messages
-		a1lib.mixColor(59, 181, 30), // Other Green messages
-
-		a1lib.mixColor(232, 47, 47), // pinkish red messages
-		a1lib.mixColor(190, 15, 6), // dark red messages
-
-		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
-		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
-
-		a1lib.mixColor(252, 174, 0), // Orange actions
-		a1lib.mixColor(253, 127, 0), // uncommon components
-		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
-
-		a1lib.mixColor(161, 53, 235), // what's this? Purple
-		a1lib.mixColor(51, 101, 252), // A random blue as entered the room
-	);
-
-	setupInventionNudges(newReader);
-
-	return newReader;
-}
 
 window.setTimeout(function () {
 	if (!window.alt1) {
@@ -164,6 +141,33 @@ if (window.alt1) {
 	status.innerHTML = `Alt1 not detected. <a href='${addappurl}'>Add this app to Alt1</a>`;
 }
 
+function createChatReader() {
+	const newReader = new ChatboxReader();
+	newReader.readargs.colors.push(
+		// anti aliasing sucks. These colors Alt1 does not have.
+		a1lib.mixColor(51, 197, 20), // faded Green messages
+		a1lib.mixColor(59, 181, 20), // Green messages
+		a1lib.mixColor(59, 181, 30), // Other Green messages
+
+		a1lib.mixColor(232, 47, 47), // pinkish red messages
+		a1lib.mixColor(190, 15, 6), // dark red messages
+
+		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
+		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
+
+		a1lib.mixColor(252, 174, 0), // Orange actions
+		a1lib.mixColor(253, 127, 0), // uncommon components
+		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
+
+		a1lib.mixColor(161, 53, 235), // what's this? Purple
+		a1lib.mixColor(51, 101, 252), // A random blue as entered the room
+	);
+
+	setupInventionNudges(newReader);
+
+	return newReader;
+}
+
 function populateChatSelector() {
 	if (!reader.pos) return;
 
@@ -199,6 +203,20 @@ function selectSavedChat() {
 
 	data.chat = savedChat;
 	saveData(data);
+}
+
+function showSelectedChat(pos: any) {
+	if (!pos || !pos.mainbox) return;
+
+	alt1.overLayRect(
+		appColor,
+		pos.mainbox.rect.x,
+		pos.mainbox.rect.y,
+		pos.mainbox.rect.width,
+		pos.mainbox.rect.height,
+		2000,
+		3
+	);
 }
 
 let activeDialogFindText = "";
@@ -317,341 +335,6 @@ function processChat(opts: Array<{ text: string }>) {
 		.split("\n");
 }
 
-function getTimeStamp() {
-	return new Date().toLocaleTimeString("en-US", {
-		hour12: false,
-	});
-}
-
-// Update the status message in the footer with a timestamp on when events occurred
-function setStatus(message: string) {
-	status.innerText = `${message} @ ${getTimeStamp()}`;
-}
-
-// Activate the saved fishing porters setting or default to true if not set
-const savedActiveTab = savedData.activeTab as string | undefined;
-activeSkillTab =
-	savedActiveTab === "other"
-		? "all"
-		: ((savedData.activeTab || "all") as SkillType);
-fishingUsePorters = savedData.fishingUsePorters ?? true;
-sortMode = savedData.sortMode || "recent";
-
-// Set initial state of fishing porters checkbox based on saved data
-function updateFishingPortersButton() {
-	if (!fishingPortersButton) return;
-
-	fishingPortersButton.innerText = fishingUsePorters
-		? "Porters / GOTE: ON"
-		: "Porters / GOTE: OFF";
-
-	fishingPortersButton.title = fishingUsePorters
-		? "Counting fishing items from porter/bank transport lines."
-		: "Counting fishing items from direct catch lines.";
-}
-
-// Set initial sort button label
-document.querySelectorAll(".skill-tab").forEach((btn) => {
-	btn.classList.remove("active");
-});
-
-// History window
-function isHistoryLineVisible(line: string) {
-	if (historyFilter === "all") return true;
-
-	const upper = line.toUpperCase();
-
-	if (historyFilter === "counted") {
-		return upper.includes("[COUNTED") || upper.includes("[DIALOG COUNTED");
-	}
-
-	if (historyFilter === "ignored") {
-		return upper.includes("[IGNORED") || upper.includes("[SKIPPED DUPLICATE");
-	}
-
-	return true;
-}
-
-function clearHistoryWindowDisplay() {
-	recentLines = [];
-	updateHistoryWindow();
-}
-
-function renderHistoryLine(line: string) {
-	const match = line.match(
-		/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED|SKIPPED DUPLICATE)[^\]]*\])$/i
-	);
-
-	if (!match) {
-		return escapeHtml(line);
-	}
-
-	const message = match[1];
-	const tag = match[2].trim();
-
-	return `${escapeHtml(message)} <span class="${getHistoryTagClass(tag)}">${escapeHtml(tag)}</span>`;
-}
-
-function getHistoryTagClass(tag: string) {
-	const normalized = tag.toUpperCase();
-
-	if (normalized.startsWith("[DIALOG COUNTED")) {
-		return "history-tag history-tag-dialog-counted";
-	}
-
-	if (normalized.startsWith("[COUNTED")) {
-		return "history-tag history-tag-counted";
-	}
-
-	if (normalized.startsWith("[IGNORED")) {
-		return "history-tag history-tag-ignored";
-	}
-
-	if (normalized.startsWith("[SKIPPED DUPLICATE")) {
-		return "history-tag history-tag-skipped";
-	}
-
-	return "history-tag";
-}
-
-function updateHistoryWindow() {
-	if (!historyWindow || historyWindow.closed) return;
-
-	const doc = historyWindow.document;
-
-	if (!doc.body) {
-		setTimeout(updateHistoryWindow, 50);
-		return;
-	}
-
-	if (!doc.body.dataset.initialized) {
-		const style = doc.createElement("style");
-		style.textContent = `
-			.history-tag {font-weight: bold;}
-			.history-tag-counted {color: #7CFC7C;}
-			.history-tag-dialog-counted {color: #43bc9e;}
-			.history-tag-ignored {color: #b36b6b;}
-			.history-tag-skipped {color: #d8c58a;}
-			.history-filter-button,
-			.history-clear-button {
-				height: 20px;
-				box-sizing: border-box;
-				padding: 2px 6px;
-				color: #d8c58a;
-				background: linear-gradient(#262626, #1e1e1e);
-				border: 1px solid #4a4030;
-				box-shadow:
-					inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-					inset -1px -1px 0 rgba(0, 0, 0, 0.75);
-				cursor: pointer;
-				font-size: 10px;
-				text-shadow: 0 1px 0 #000;
-			}
-			.history-filter-button:hover,
-			.history-clear-button:hover {
-				color: #fff0bd;
-				border-color: #9b7a36;
-			}
-			.history-filter-button.active {
-				color: #fff2aa;
-				border-color: #d9a441;
-				background: linear-gradient(#4a3518, #20170c);
-			}`;
-		doc.head.appendChild(style);
-		doc.title = "Resource Tracker History";
-
-		doc.body.style.margin = "0";
-		doc.body.style.background = "#1e1e1e";
-		doc.body.style.color = "#ddd";
-		doc.body.style.fontFamily = "Consolas, monospace";
-		doc.body.style.display = "flex";
-		doc.body.style.flexDirection = "column";
-		doc.body.style.height = "100vh";
-
-		const toolbar = doc.createElement("div");
-		toolbar.style.display = "flex";
-		toolbar.style.justifyContent = "space-between";
-		toolbar.style.alignItems = "center";
-		toolbar.style.padding = "4px";
-		toolbar.style.borderBottom = "2px solid #444";
-		toolbar.style.boxSizing = "border-box";
-
-		const filterBar = doc.createElement("div");
-		filterBar.style.display = "flex";
-		filterBar.style.gap = "3px";
-
-		const createHistoryFilterButton = (label: string, value: HistoryFilter) => {
-			const button = doc.createElement("button");
-			button.textContent = label;
-			button.className = "history-filter-button";
-
-			if (historyFilter === value) {
-				button.classList.add("active");
-			}
-
-			button.addEventListener("click", function () {
-				historyFilter = value;
-
-				doc.querySelectorAll(".history-filter-button").forEach((filterButton) => {
-					const filterButtonElement = filterButton as HTMLButtonElement;
-
-					filterButtonElement.classList.toggle(
-						"active",
-						filterButtonElement.textContent?.toLowerCase() === value
-					);
-				});
-
-				updateHistoryWindow();
-			});
-
-			return button;
-		};
-
-		filterBar.append(
-			createHistoryFilterButton("All", "all"),
-			createHistoryFilterButton("Counted", "counted"),
-			createHistoryFilterButton("Ignored", "ignored")
-		);
-
-		const historyClearButton = doc.createElement("button");
-		historyClearButton.textContent = "Clear Display";
-		historyClearButton.className = "history-clear-button";
-
-		historyClearButton.addEventListener("click", clearHistoryWindowDisplay);
-
-		toolbar.append(filterBar, historyClearButton);
-
-		historyPre = doc.createElement("pre");
-		historyPre.style.margin = "0";
-		historyPre.style.padding = "3px";
-		historyPre.style.whiteSpace = "pre-wrap";
-		historyPre.style.overflowY = "auto";
-		historyPre.style.flex = "1";
-		historyPre.style.boxSizing = "border-box";
-		historyPre.style.fontSize = "10px";
-
-		doc.body.replaceChildren(toolbar, historyPre);
-		doc.body.dataset.initialized = "true";
-	}
-
-	if (!historyPre) return;
-
-	historyPre.innerHTML = [...recentLines]
-		.reverse()
-		.filter(isHistoryLineVisible)
-		.map(renderHistoryLine)
-		.join("\n");
-}
-
-// Showing recent chat history
-function showChatHistory() {
-	if (!historyWindow || historyWindow.closed) {
-		historyWindow = window.open(
-			"",
-			"historyWindow",
-			"width=350,height=450"
-		);
-
-		historyPre = null;
-	}
-
-	setTimeout(updateHistoryWindow, 50);
-}
-
-// Toggles/Buttons inside tabs
-// Show/hide fishing mode based on active tab
-function updateFishingModeVisibility() {
-	if (!fishingMode) return;
-
-	if (activeSkillTab === "fishing") {
-		fishingMode.classList.add("visible");
-	} else {
-		fishingMode.classList.remove("visible");
-	}
-}
-
-// Hide invention filters when not on invention tab
-function updateInventionFilterVisibility() {
-	if (!inventionFilters) return;
-
-	if (activeSkillTab === "invention") {
-		inventionFilters.classList.add("visible");
-	} else {
-		inventionFilters.classList.remove("visible");
-	}
-}
-
-// Invention filter button handlers
-function updateInventionFilterButton() {
-	if (!inventionFilterButton) return;
-
-	inventionFilterButton.innerText =
-		inventionFilter === "all"
-			? "Filter: All"
-			: inventionFilter === "ancient"
-				? "Filter: Ancient"
-				: inventionFilter === "rare"
-					? "Filter: Rare"
-					: inventionFilter === "uncommon"
-						? "Filter: Uncommon"
-						: "Filter: Common";
-}
-
-inventionFilterButton?.addEventListener("click", () => {
-	inventionFilter =
-		inventionFilter === "all"
-			? "ancient"
-			: inventionFilter === "ancient"
-				? "rare"
-				: inventionFilter === "rare"
-					? "uncommon"
-					: inventionFilter === "uncommon"
-						? "common"
-						: "all";
-
-	updateInventionFilterButton();
-	render();
-});
-
-// Activate the saved skill tab or default to "all"
-const savedTabButton = document.querySelector(
-	`.skill-tab[data-skill="${activeSkillTab}"]`
-);
-
-// If the saved active tab is "other", default to "all", how old is that save file?
-if (savedTabButton) {
-	savedTabButton.classList.add("active");
-}
-
-updateFishingModeVisibility();
-updateFishingPortersButton();
-updateInventionFilterButton();
-updateInventionFilterVisibility();
-updateSortButtonLabel();
-updateClearButtonLabel();
-updateSessionStatusMini();
-render();
-
-// List of rare Seren spirit items that should be highlighted in the tracker.
-// We both know you'll never see them
-const rareSerenItems = new Set([
-	"hazelmere's signet ring",
-	"blurberry special", // maybe this one, about 15 times.
-	"cheese+tom batta" // should have been wearing that ring...
-]);
-
-const skillPatterns: Array<{
-	pattern: RegExp;
-	skill: SkillType;
-}> = [
-	{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
-	{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
-	{ pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
-	{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
-	{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
-	{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
-];
-
 // Process a single chat line to check for harvesting events
 function processHarvestLine(chatLine: string): string | null {
 	const cleanLine = chatLine.replace(timestampRegex, "").trim();
@@ -765,7 +448,59 @@ function processHarvestLine(chatLine: string): string | null {
 	return null;
 }
 
+function getSkillForItem(item: string): InternalSkillType {
+	// For those artifacts that are tracked. It can happen.
+	if (item.includes("(damaged)")) return "archaeology";
+
+	if (miningItems.some((keyword) => item.includes(keyword))) {
+		return "mining";
+	}
+
+	if (woodcuttingItems.some((keyword) => item.includes(keyword))) {
+		return "woodcutting";
+	}
+
+	if (fishingItems.some((keyword) => item.includes(keyword))) {
+		return "fishing";
+	}
+	// What did you find? Was it farming related? I'm not sorting those.
+	return "other";
+}
+
+function normalizeItemName(item: string) {
+	return item
+		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
+		.toLowerCase()
+		.replace(/[.!]$/, "")
+		.trim();
+}
+
+function isDamagedArtefact(item: string) {
+	return item.toLowerCase().includes("(damaged)");
+}
+
+const skillPatterns: Array<{
+	pattern: RegExp;
+	skill: SkillType;
+}> = [
+		{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
+		{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
+		{ pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
+		{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
+		{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
+		{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
+	];
+
 // Sorting the items not caught by skillPatterns/transportMatch
+
+// List of rare Seren spirit items that should be highlighted in the tracker.
+// We both know you'll never see them
+const rareSerenItems = new Set([
+	"hazelmere's signet ring",
+	"blurberry special", // maybe this one, about 15 times.
+	"cheese+tom batta" // should have been wearing that ring...
+]);
+
 const miningItems = [
 	"limestone", "essence",
 	"clay", "sandstone", "granite",
@@ -786,37 +521,6 @@ const fishingItems = [
 	"leaping ", // barbarian fishing
 	"algae",   // croesus front
 ];
-
-function getSkillForItem(item: string): InternalSkillType {
-	// For those artifacts that are tracked. It can happen.
-	if (item.includes("(damaged)")) return "archaeology";
-
-	if (miningItems.some((keyword) => item.includes(keyword))) {
-		return "mining";
-	}
-
-	if (woodcuttingItems.some((keyword) => item.includes(keyword))) {
-		return "woodcutting";
-	}
-
-	if (fishingItems.some((keyword) => item.includes(keyword))) {
-		return "fishing";
-	}
-	// What did you find? Was it farming related? I'm not sorting those.
-	return "other";
-}
-
-function isDamagedArtefact(item: string) {
-	return item.toLowerCase().includes("(damaged)");
-}
-
-function normalizeItemName(item: string) {
-	return item
-		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
-		.toLowerCase()
-		.replace(/[.!]$/, "")
-		.trim();
-}
 
 function registerDamagedArtifactCount(item: string) {
 	if (!item.includes("(damaged)")) {
@@ -839,6 +543,16 @@ function registerDamagedArtifactCount(item: string) {
 
 	recentDamagedArtifactCounts.set(item, now);
 	return true;
+}
+
+// Update the status message in the footer with a timestamp on when events occurred
+function getTimeStamp() {
+	return new Date().toLocaleTimeString("en-US", {
+		hour12: false,
+	});
+}
+function setStatus(message: string) {
+	status.innerText = `${message} @ ${getTimeStamp()}`;
 }
 
 function getSaveData(): SaveData {
@@ -917,8 +631,6 @@ function incrementItems(updates: ItemUpdate[], highlightItem?: string) {
 	render(highlightItem || updates[updates.length - 1].item, data);
 }
 
-// Increment the count of a tracked item
-// then re-render the tracker to reflect the change
 function incrementItem(
 	item: string,
 	amount: number = 1,
@@ -935,38 +647,7 @@ function incrementItem(
 	}], item);
 }
 
-// Prevent processing duplicates
-let recentLines: string[] = [];
-let recentLineKeys: string[] = [];
-const recentLineSet = new Set<string>();
-
-function isInHistory(chatLine: string) {
-	return recentLineSet.has(chatLine);
-}
-
-// Add a new chat line to the history
-function updateChatHistory(chatLine: string, debugStatus = "[IGNORED]") {
-	const debugLine = `${chatLine} ${debugStatus}`;
-
-	recentLines.push(debugLine);
-	recentLineKeys.push(chatLine);
-	recentLineSet.add(chatLine);
-
-	if (recentLines.length > maxRecentHistory) {
-		recentLines.shift();
-	}
-
-	if (recentLineKeys.length > maxRecentHistory) {
-		const oldKey = recentLineKeys.shift();
-
-		if (oldKey) {
-			recentLineSet.delete(oldKey);
-		}
-	}
-
-	updateHistoryWindow();
-}
-
+// Rendering the UI
 function render(highlightItem?: string, data = getSaveData()) {
 	const items = Object.keys(data.items)
 		.filter((item) => {
@@ -1055,108 +736,13 @@ function render(highlightItem?: string, data = getSaveData()) {
 	renderGoalSortedTab(items, data, highlightItem);
 }
 
-function sortItems(items: string[], data: SaveData) {
-	if (sortMode === "recent") {
-		items.sort((a, b) =>
-			(data.items[b].lastUpdated || 0) -
-			(data.items[a].lastUpdated || 0)
-		);
-		return;
-	}
-
-	if (sortMode === "count") {
-		items.sort((a, b) =>
-			data.items[b].count - data.items[a].count
-		);
-		return;
-	}
-
-	items.sort();
-}
-
-function updateSortButtonLabel() {
-	if (!sortButton) return;
-
-	sortButton.title =
-		sortMode === "recent"
-			? "Sort: Recent"
-			: sortMode === "alpha"
-				? "Sort: A-Z"
-				: "Sort: Count";
-}
-
-if (sortButton) {
-	sortButton.addEventListener("click", function () {
-		sortMode =
-			sortMode === "recent"
-				? "alpha"
-				: sortMode === "alpha"
-					? "count"
-					: "recent";
-
-		const data = getSaveData();
-		data.sortMode = sortMode;
-		saveData(data);
-
-		updateSortButtonLabel();
-		render();
-	});
-}
-
-function getActiveTabLabel() {
-	if (activeSkillTab === "all") return "ALL";
-	if (activeSkillTab === "seren") return "Seren Spirits";
-
-	return titleCase(activeSkillTab);
-}
-
-function updateSessionStatusMini() {
-	if (!sessionStatusMini || !sessionStatusValue) return;
-
-	const currentSessionStatus = getSessionStatus();
-
-	sessionStatusMini.classList.remove("running", "paused", "idle");
-	sessionStatusMini.classList.add(currentSessionStatus);
-
-	sessionStatusValue.innerText =
-		currentSessionStatus === "running"
-			? "Running"
-			: currentSessionStatus === "paused"
-				? "Paused"
-				: "Not Running";
-}
-
-function updateClearButtonLabel() {
-	if (!clearButton) return;
-
-	clearButton.innerText = `Clear ${getActiveTabLabel()}`;
-	clearButton.title = `Clear ${getActiveTabLabel()}`;
-}
-
-function renderItemGroup(
-	label: string,
+function renderAllTab(
 	items: string[],
 	data: SaveData,
 	highlightItem?: string
 ) {
-	if (items.length === 0) return;
-
-	const header = document.createElement("div");
-	header.className = "group-header";
-	header.innerText = label;
-	tracker.appendChild(header);
-
-	for (const item of items) {
-		renderItemRow(item, data.items[item], highlightItem);
-	}
+	renderGoalSortedTab(items, data, highlightItem, true);
 }
-
-function getSortedGroupLabel() {
-	if (sortMode === "recent") return "Recent";
-	if (sortMode === "alpha") return "A-Z";
-	return "Count";
-}
-
 function renderGoalSortedTab(
 	items: string[],
 	data: SaveData,
@@ -1196,12 +782,22 @@ function renderGoalSortedTab(
 	}
 }
 
-function renderAllTab(
+function renderItemGroup(
+	label: string,
 	items: string[],
 	data: SaveData,
 	highlightItem?: string
 ) {
-	renderGoalSortedTab(items, data, highlightItem, true);
+	if (items.length === 0) return;
+
+	const header = document.createElement("div");
+	header.className = "group-header";
+	header.innerText = label;
+	tracker.appendChild(header);
+
+	for (const item of items) {
+		renderItemRow(item, data.items[item], highlightItem);
+	}
 }
 
 function renderItemRow(
@@ -1305,28 +901,123 @@ function renderItemRow(
 	tracker.appendChild(row);
 }
 
-function bindRowEvents() {
-	tracker.addEventListener("click", (e: Event) => {
-		const target = (e.target as HTMLElement).closest("button[data-item]") as HTMLElement | null;
-		if (!target) return;
+function sortItems(items: string[], data: SaveData) {
+	if (sortMode === "recent") {
+		items.sort((a, b) =>
+			(data.items[b].lastUpdated || 0) -
+			(data.items[a].lastUpdated || 0)
+		);
+		return;
+	}
 
-		const item = target.dataset.item || "";
+	if (sortMode === "count") {
+		items.sort((a, b) =>
+			data.items[b].count - data.items[a].count
+		);
+		return;
+	}
 
-		if (target.classList.contains("cog-btn")) {
-			toggleSettings(item);
-		} else if (target.classList.contains("clear-goal")) {
-			clearGoal(item);
-		} else if (target.classList.contains("save-goal")) {
-			setGoal(item);
-		} else if (target.classList.contains("reset-item")) {
-			resetItem(item);
-		} else if (target.classList.contains("delete-item")) {
-			deleteItem(item);
-		}
-	});
+	items.sort();
 }
 
-bindRowEvents();
+// Toggles/Buttons inside tabs
+// Show/hide fishing mode based on active tab
+function updateFishingModeVisibility() {
+	if (!fishingMode) return;
+
+	if (activeSkillTab === "fishing") {
+		fishingMode.classList.add("visible");
+	} else {
+		fishingMode.classList.remove("visible");
+	}
+}
+
+// Set state of fishing porters
+function updateFishingPortersButton() {
+	if (!fishingPortersButton) return;
+
+	fishingPortersButton.innerText = fishingUsePorters
+		? "Porters / GOTE: ON"
+		: "Porters / GOTE: OFF";
+
+	fishingPortersButton.title = fishingUsePorters
+		? "Counting fishing items from porter/bank transport lines."
+		: "Counting fishing items from direct catch lines.";
+}
+
+// Hide invention filters when not on invention tab
+function updateInventionFilterVisibility() {
+	if (!inventionFilters) return;
+
+	if (activeSkillTab === "invention") {
+		inventionFilters.classList.add("visible");
+	} else {
+		inventionFilters.classList.remove("visible");
+	}
+}
+
+// Invention filter button handlers
+function updateInventionFilterButton() {
+	if (!inventionFilterButton) return;
+
+	inventionFilterButton.innerText =
+		inventionFilter === "all"
+			? "Filter: All"
+			: inventionFilter === "ancient"
+				? "Filter: Ancient"
+				: inventionFilter === "rare"
+					? "Filter: Rare"
+					: inventionFilter === "uncommon"
+						? "Filter: Uncommon"
+						: "Filter: Common";
+}
+
+function updateSortButtonLabel() {
+	if (!sortButton) return;
+
+	sortButton.title =
+		sortMode === "recent"
+			? "Sort: Recent"
+			: sortMode === "alpha"
+				? "Sort: A-Z"
+				: "Sort: Count";
+}
+
+function updateClearButtonLabel() {
+	if (!clearButton) return;
+
+	clearButton.innerText = `Clear ${getActiveTabLabel()}`;
+	clearButton.title = `Clear ${getActiveTabLabel()}`;
+}
+
+function updateSessionStatusMini() {
+	if (!sessionStatusMini || !sessionStatusValue) return;
+
+	const currentSessionStatus = getSessionStatus();
+
+	sessionStatusMini.classList.remove("running", "paused", "idle");
+	sessionStatusMini.classList.add(currentSessionStatus);
+
+	sessionStatusValue.innerText =
+		currentSessionStatus === "running"
+			? "Running"
+			: currentSessionStatus === "paused"
+				? "Paused"
+				: "Not Running";
+}
+
+function getActiveTabLabel() {
+	if (activeSkillTab === "all") return "ALL";
+	if (activeSkillTab === "seren") return "Seren Spirits";
+
+	return titleCase(activeSkillTab);
+}
+
+function getSortedGroupLabel() {
+	if (sortMode === "recent") return "Recent";
+	if (sortMode === "alpha") return "A-Z";
+	return "Count";
+}
 
 document.querySelectorAll(".skill-tab").forEach((tab) => {
 	tab.addEventListener("click", (e: Event) => {
@@ -1518,20 +1209,6 @@ function importData(file: File) {
 	reader.readAsText(file);
 }
 
-function showSelectedChat(pos: any) {
-	if (!pos || !pos.mainbox) return;
-
-	alt1.overLayRect(
-		appColor,
-		pos.mainbox.rect.x,
-		pos.mainbox.rect.y,
-		pos.mainbox.rect.width,
-		pos.mainbox.rect.height,
-		2000,
-		3
-	);
-}
-
 function escapeHtml(value: string) {
 	return value
 		.replace(/&/g, "&amp;")
@@ -1549,24 +1226,100 @@ function escapeAttr(value: string) {
 	return escapeHtml(value);
 }
 
-// Hey you, listen to this...
-appCog?.addEventListener("click", function () {
-	appSettingsPanel?.classList.toggle("open");
-	updateSessionStatusMini();
-});
+function bindRowEvents() {
+	tracker.addEventListener("click", (e: Event) => {
+		const target = (e.target as HTMLElement).closest("button[data-item]") as HTMLElement | null;
+		if (!target) return;
 
-sessionButton?.addEventListener("click", function () {
-	showSessionWindow();
-	setTimeout(updateSessionStatusMini, 100);
-});
+		const item = target.dataset.item || "";
 
-clearButton?.addEventListener("click", clearCurrentTab);
+		if (target.classList.contains("cog-btn")) {
+			toggleSettings(item);
+		} else if (target.classList.contains("clear-goal")) {
+			clearGoal(item);
+		} else if (target.classList.contains("save-goal")) {
+			setGoal(item);
+		} else if (target.classList.contains("reset-item")) {
+			resetItem(item);
+		} else if (target.classList.contains("delete-item")) {
+			deleteItem(item);
+		}
+	});
+}
+
+bindRowEvents();
+
 
 window.setInterval(function () {
 	if (!appSettingsPanel?.classList.contains("open")) return;
 
 	updateSessionStatusMini();
 }, 1000);
+
+// Set initial sort button label
+document.querySelectorAll(".skill-tab").forEach((btn) => {
+	btn.classList.remove("active");
+});
+
+// Activate the saved skill tab or default to "all"
+const savedTabButton = document.querySelector(
+	`.skill-tab[data-skill="${activeSkillTab}"]`
+);
+
+// If the saved active tab is "other", default to "all", how old is that save file?
+if (savedTabButton) {
+	savedTabButton.classList.add("active");
+}
+
+// Initial UI setup
+updateFishingModeVisibility();
+updateFishingPortersButton();
+updateInventionFilterButton();
+updateInventionFilterVisibility();
+updateSortButtonLabel();
+updateClearButtonLabel();
+updateSessionStatusMini();
+render();
+
+// App settings panel / session status refresh
+appCog?.addEventListener("click", function () {
+	appSettingsPanel?.classList.toggle("open");
+	updateSessionStatusMini();
+});
+
+if (sortButton) {
+	sortButton.addEventListener("click", function () {
+		sortMode =
+			sortMode === "recent"
+				? "alpha"
+				: sortMode === "alpha"
+					? "count"
+					: "recent";
+
+		const data = getSaveData();
+		data.sortMode = sortMode;
+		saveData(data);
+
+		updateSortButtonLabel();
+		render();
+	});
+}
+
+inventionFilterButton?.addEventListener("click", () => {
+	inventionFilter =
+		inventionFilter === "all"
+			? "ancient"
+			: inventionFilter === "ancient"
+				? "rare"
+				: inventionFilter === "rare"
+					? "uncommon"
+					: inventionFilter === "uncommon"
+						? "common"
+						: "all";
+
+	updateInventionFilterButton();
+	render();
+});
 
 fishingPortersButton?.addEventListener("click", function () {
 	fishingUsePorters = !fishingUsePorters;
@@ -1578,6 +1331,13 @@ fishingPortersButton?.addEventListener("click", function () {
 	updateFishingPortersButton();
 	render();
 });
+
+sessionButton?.addEventListener("click", function () {
+	showSessionWindow();
+	setTimeout(updateSessionStatusMini, 100);
+});
+
+clearButton?.addEventListener("click", clearCurrentTab);
 
 findChatButton?.addEventListener("click", refreshChatboxes);
 
