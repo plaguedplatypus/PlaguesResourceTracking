@@ -186,6 +186,13 @@ body {
     border-radius: 3px;
 }
 
+.item-row.settings-active {
+    border-color: #d9a441;
+    box-shadow:
+        inset 0 0 4px rgba(255, 200, 80, 0.35),
+        0 0 3px rgba(255, 180, 60, 0.45);
+}
+
 .item-main-row,
 .goal-row {
     display: flex;
@@ -6617,6 +6624,7 @@ var fishingUsePorters = true;
 var historyWindow = null;
 var historyPre = null;
 var historyFilter = "all";
+var openSettingsItem = null;
 var reader = createChatReader();
 var dialogReader = new (alt1_dialog__WEBPACK_IMPORTED_MODULE_2___default())();
 function createChatReader() {
@@ -7197,7 +7205,6 @@ function ensureItem(data, item) {
         data.items[item] = {
             count: 0,
             goal: null,
-            settingsOpen: false,
         };
     }
 }
@@ -7436,7 +7443,7 @@ function renderAllTab(items, data, highlightItem) {
 }
 function renderItemRow(item, itemData, highlightItem) {
     var row = document.createElement("div");
-    row.className = "item-row";
+    row.className = "item-row ".concat(openSettingsItem === item ? "settings-active" : "");
     var goalHtml = "";
     var goalTooltip = "";
     if (itemData.goal) {
@@ -7459,7 +7466,7 @@ function renderItemRow(item, itemData, highlightItem) {
             goalHtml = "\n    \t\t<div class=\"goal-row\" title=\"".concat(escapeAttr(goalTooltip), "\">\n        \t\t<span class=\"goal-text\">\n           \t\t\t ").concat(current, " / ").concat(goal, " (").concat(progress.toFixed(1), "%)\n        \t\t</span>\n\n\t\t\t\t<div class=\"progress-bar\">\n\t\t\t\t\t<div class=\"progress-fill\" style=\"width:").concat(progress, "%\"></div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t");
         }
     }
-    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(itemData.settingsOpen ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(itemData.settingsOpen ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
+    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(openSettingsItem === item ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(openSettingsItem === item ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
     if (highlightItem === item) {
         row.classList.add("highlight");
     }
@@ -7511,8 +7518,7 @@ function toggleSettings(item) {
     var data = getSaveData();
     if (!data.items[item])
         return;
-    data.items[item].settingsOpen = !data.items[item].settingsOpen;
-    saveData(data);
+    openSettingsItem = openSettingsItem === item ? null : item;
     render();
 }
 function clearGoal(item) {
@@ -7555,6 +7561,9 @@ function resetItem(item) {
 }
 function deleteItem(item) {
     var data = getSaveData();
+    if (openSettingsItem === item) {
+        openSettingsItem = null;
+    }
     delete data.items[item];
     saveData(data);
     render();
@@ -7587,6 +7596,7 @@ function clearCurrentTab() {
     var data = getSaveData();
     if (activeSkillTab === "all") {
         data.items = {};
+        openSettingsItem = null;
         saveData(data);
         render();
         status.innerText = "All items cleared.";
@@ -7596,6 +7606,9 @@ function clearCurrentTab() {
         var item = _a[_i];
         if ((data.items[item].skill || "other") === activeSkillTab) {
             delete data.items[item];
+            if (openSettingsItem === item) {
+                openSettingsItem = null;
+            }
         }
     }
     saveData(data);
@@ -7628,6 +7641,7 @@ function importData(file) {
                 items: imported.items || {},
             };
             saveData(data);
+            openSettingsItem = null;
             render();
             status.innerText = "Save imported.";
         }

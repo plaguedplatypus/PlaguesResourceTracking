@@ -28,7 +28,6 @@ type InternalSkillType = SkillType | "other";
 type TrackedItem = {
 	count: number;
 	goal: number | null;
-	settingsOpen: boolean;
 	skill?: InternalSkillType;
 	source?: string;
 	colorClass?: string;
@@ -96,6 +95,7 @@ let fishingUsePorters = true;
 let historyWindow: Window | null = null;
 let historyPre: HTMLPreElement | null = null;
 let historyFilter: HistoryFilter = "all";
+let openSettingsItem: string | null = null;
 let reader = createChatReader();
 
 const dialogReader = new DialogReader();
@@ -638,13 +638,13 @@ const skillPatterns: Array<{
 	pattern: RegExp;
 	skill: SkillType;
 }> = [
-		{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
-		{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
-		{ pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
-		{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
-		{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
-		{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
-	];
+	{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
+	{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
+	{ pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
+	{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
+	{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
+	{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
+];
 
 // Process a single chat line to check for harvesting events
 function processHarvestLine(chatLine: string): string | null {
@@ -871,7 +871,6 @@ function ensureItem(data: SaveData, item: string) {
 		data.items[item] = {
 			count: 0,
 			goal: null,
-			settingsOpen: false,
 		};
 	}
 }
@@ -1189,7 +1188,7 @@ function renderItemRow(
 	highlightItem?: string
 ) {
 	const row = document.createElement("div");
-	row.className = "item-row";
+	row.className = `item-row ${openSettingsItem === item ? "settings-active" : ""}`;
 
 	let goalHtml = "";
 	let goalTooltip = "";
@@ -1249,9 +1248,9 @@ function renderItemRow(
 
 		${goalHtml}
 
-		${itemData.settingsOpen ? `<div class="settings-separator"></div>` : ""}
+		${openSettingsItem === item ? `<div class="settings-separator"></div>` : ""}
 
-		<div class="settings-panel ${itemData.settingsOpen ? "open" : ""}">
+		<div class="settings-panel ${openSettingsItem === item ? "open" : ""}">
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
 				   placeholder="Goal"
@@ -1334,9 +1333,8 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 function toggleSettings(item: string) {
 	const data = getSaveData();
 	if (!data.items[item]) return;
+	openSettingsItem = openSettingsItem === item ? null : item;
 
-	data.items[item].settingsOpen = !data.items[item].settingsOpen;
-	saveData(data);
 	render();
 }
 
@@ -1385,6 +1383,9 @@ function resetItem(item: string) {
 
 function deleteItem(item: string) {
 	const data = getSaveData();
+	if (openSettingsItem === item) {
+		openSettingsItem = null;
+	}
 	delete data.items[item];
 	saveData(data);
 	render();
@@ -1428,6 +1429,7 @@ function clearCurrentTab() {
 
 	if (activeSkillTab === "all") {
 		data.items = {};
+		openSettingsItem = null;
 
 		saveData(data);
 		render();
@@ -1439,6 +1441,10 @@ function clearCurrentTab() {
 	for (const item of Object.keys(data.items)) {
 		if ((data.items[item].skill || "other") === activeSkillTab) {
 			delete data.items[item];
+
+			if (openSettingsItem === item) {
+				openSettingsItem = null;
+			}
 		}
 	}
 
@@ -1478,6 +1484,7 @@ function importData(file: File) {
 			};
 
 			saveData(data);
+			openSettingsItem = null;
 
 			render();
 			status.innerText = "Save imported.";
