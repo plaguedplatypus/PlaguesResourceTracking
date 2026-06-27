@@ -79,7 +79,9 @@ body {
 	text-shadow: 0 1px 0 #000;
 }
 
-.tabs-collapsed .skill-tabs {
+.tabs-collapsed .skill-tabs,
+.tabs-collapsed .footer, 
+.tabs-collapsed .footer-separator {
 	display: none;
 }
 
@@ -7360,7 +7362,7 @@ function updateTabsCollapsedUi() {
     document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
     if (!tabsToggleButton)
         return;
-    tabsToggleButton.innerText = tabsCollapsed ? "+" : "-";
+    tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
     tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
 }
 function renderAllTab(items, data, highlightItem) {

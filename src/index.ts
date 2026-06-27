@@ -743,7 +743,7 @@ function updateTabsCollapsedUi() {
 
 	if (!tabsToggleButton) return;
 
-	tabsToggleButton.innerText = tabsCollapsed ? "+" : "-";
+	tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
 	tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
 }
 

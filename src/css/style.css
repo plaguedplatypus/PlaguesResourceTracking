@@ -46,7 +46,9 @@ body {
 	text-shadow: 0 1px 0 #000;
 }
 
-.tabs-collapsed .skill-tabs {
+.tabs-collapsed .skill-tabs,
+.tabs-collapsed .footer, 
+.tabs-collapsed .footer-separator {
 	display: none;
 }
 
