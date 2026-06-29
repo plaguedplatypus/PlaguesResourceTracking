@@ -12,6 +12,7 @@
         <div class="topbar">
             <div class="title">
                 <button class="tabs-toggle" title="Compact Mode">-</button>
+                <button class="compact-sort-button compact-only" title="Sort">⇵</button>
                 Resource Tracker
             </div>
         </div>
@@ -63,41 +64,39 @@
             <div class="app-settings">
                 <button class="sort-button sort-icon" title="Sort">⇵</button>
                 <button class="app-cog" title="Settings">⚙</button>
-
-                <div class="app-settings-panel">
-                    <div class="settings-row">
-                        <select class="chat">
-                            <option value="">Select Chat</option>
-                        </select>
-                        <button class="find-chat">Find Chat</button>
-                    </div>
-
-                    <div class="settings-row two-col">
-                        <button class="history-button">History</button>
-                        <button class="session-button">Session</button>
-                    </div>
-
-
-                    <div class="settings-row two-col">
-                        <button class="export">Export</button>
-
-                        <label class="import-label">
-                            Import
-                            <input class="import" type="file" accept=".json">
-                        </label>
-                    </div>
-                    <div class="session-status-line idle">
-                        <span class="session-status-label">Session:</span>
-                        <span class="session-status-value">Not Running</span>
-                    </div>
-
-                    <div class="settings-separator"></div>
-                    <button class="clear tab-clear">Clear Tab</button>
-                </div>
             </div>
-
         </div>
 
+        <div class="app-settings-panel">
+            <div class="settings-row">
+                <select class="chat">
+                    <option value="">Select Chat</option>
+                </select>
+                <button class="find-chat">Find Chat</button>
+            </div>
+
+            <div class="settings-row two-col">
+                <button class="history-button">History</button>
+                <button class="session-button">Session</button>
+            </div>
+
+
+            <div class="settings-row two-col">
+                <button class="export">Export</button>
+
+                <label class="import-label">
+                    Import
+                    <input class="import" type="file" accept=".json">
+                </label>
+            </div>
+            <div class="session-status-line idle">
+                <span class="session-status-label">Session:</span>
+                <span class="session-status-value">Not Running</span>
+            </div>
+
+            <div class="settings-separator"></div>
+            <button class="clear tab-clear">Clear Tab</button>
+        </div>
 
         <script src="./main.js"></script>
 </body>

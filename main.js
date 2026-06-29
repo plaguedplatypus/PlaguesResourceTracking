@@ -39,7 +39,7 @@ body {
 
 body {
     margin: 0;
-    padding: 4px 2px 1px 4px;
+    padding: 4px 3px 1px 3px;
     box-sizing: border-box;
     background: #1e1e1e;
     color: white;
@@ -55,40 +55,49 @@ body {
 }
 
 .title {
-    margin-bottom: 3px;
+    margin-bottom: 4px;
     color: #d8c58a;
     font-size: 10px;
     font-weight: normal;
     line-height: 1;
-	display: flex;
-	align-items: center;
-	justify-content: left;
-	gap: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    gap: 2px;
 }
 
-.tabs-toggle {
-	width: 11px;
-	height: 11px;
-	padding: 0;
-	font-size: 10px;
+.tabs-toggle,
+.compact-sort-button {
+    width: 11px;
+    height: 11px;
+    padding: 0;
+    font-size: 10px;
     background: transparent;
     border: 1;
-	color: #d8c58a;
+    color: #d8c58a;
     background: linear-gradient(#262626, #1e1e1e);
-	cursor: pointer;
-	text-shadow: 0 1px 0 #000;
+    cursor: pointer;
+    text-shadow: 0 1px 0 #000;
 }
 
 .tabs-collapsed .skill-tabs,
-.tabs-collapsed .footer, 
+.tabs-collapsed .footer,
 .tabs-collapsed .footer-separator {
+    display: none;
+}
+
+.compact-only {
 	display: none;
+}
+
+.tabs-collapsed .compact-only {
+	display: inline-flex;
 }
 
 .skill-tabs {
     display: flex;
     gap: 3px;
-    margin-bottom: 7px;
+    margin: 0 0 4px;
     flex: 0 0 auto;
 }
 
@@ -159,6 +168,7 @@ body {
 .invention-filters {
     align-self: flex-start;
     font-size: 11px;
+    margin: 0 0 -3px;
 }
 
 .group-header {
@@ -200,8 +210,23 @@ body {
     padding: 1px 2px 1px 2px;
     line-height: 1.15;
     background: #2c2c2c;
-    border: 1px solid #3a3a3a;
+    border: 1px solid #4a4030;
     border-radius: 3px;
+}
+
+.item-row.highlight {
+    animation: itemCountBorderFlash 1s ease-out; }
+
+@keyframes itemCountBorderFlash {
+    0% {
+        border-color: #d9a441;
+        box-shadow: inset 0 0 6px rgba(255, 200, 80, 0.35),
+    }
+
+    100% {
+		border-color: #4a4030;
+		box-shadow: none;
+    }
 }
 
 .item-row.settings-active {
@@ -384,11 +409,11 @@ select {
 }
 
 .icon-btn img {
-	width: 18px;
-	height: 18px;
-	display: block;
-	object-fit: contain;
-	pointer-events: none;
+    width: 18px;
+    height: 18px;
+    display: block;
+    object-fit: contain;
+    pointer-events: none;
 }
 
 .icon-btn:hover img,
@@ -503,7 +528,7 @@ select {
 }
 
 .footer-separator {
-    border-top: 2px solid #444;
+    border-top: 1px solid #444;
     margin-bottom: 1px;
 }
 
@@ -520,7 +545,7 @@ select {
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
 
-.empty { 
+.empty {
     color: #d0ff00;
     flex-direction: column;
     margin: 7px 0 0 0;
@@ -529,7 +554,7 @@ select {
     background: #2c2c2c;
     border: 2px solid #3a3a3a;
     border-radius: 3px;
- }
+}
 `, ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
@@ -6835,6 +6860,7 @@ var _a;
 var appName = "ResourceTracker";
 var appColor = alt1_base__WEBPACK_IMPORTED_MODULE_0__.mixColor(67, 188, 188);
 var tabsToggleButton = document.querySelector(".tabs-toggle");
+var compactSortButton = document.querySelector(".compact-sort-button");
 var timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 var timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
 var appCog = document.querySelector(".app-cog");
@@ -7283,7 +7309,11 @@ function incrementItems(updates, highlightItem) {
         console.warn("Session update failed", error);
     }
     saveData(data);
-    render(highlightItem || updates[updates.length - 1].item, data);
+    var highlightedItems = new Set(updates.map(function (update) { return update.item; }));
+    if (highlightItem) {
+        highlightedItems.add(highlightItem);
+    }
+    render(highlightedItems, data);
 }
 function incrementItem(item, amount, skill, colorClass, source) {
     if (amount === void 0) { amount = 1; }
@@ -7297,7 +7327,7 @@ function incrementItem(item, amount, skill, colorClass, source) {
         }], item);
 }
 // Rendering the UI
-function render(highlightItem, data) {
+function render(highlightItems, data) {
     if (data === void 0) { data = getSaveData(); }
     var items = Object.keys(data.items)
         .filter(function (item) {
@@ -7312,7 +7342,7 @@ function render(highlightItem, data) {
         return;
     }
     if (activeSkillTab === "all") {
-        renderAllTab(items, data, highlightItem);
+        renderAllTab(items, data, highlightItems);
         return;
     }
     if (activeSkillTab === "archaeology") {
@@ -7323,10 +7353,10 @@ function render(highlightItem, data) {
             return isDamagedArtefact(item);
         });
         if (materials.length > 0) {
-            renderItemGroup("Materials", materials, data, highlightItem);
+            renderItemGroup("Materials", materials, data, highlightItems);
         }
         if (artefacts.length > 0) {
-            renderItemGroup("Artefacts", artefacts, data, highlightItem);
+            renderItemGroup("Artefacts", artefacts, data, highlightItems);
         }
         return;
     }
@@ -7334,7 +7364,7 @@ function render(highlightItem, data) {
         if (inventionFilter === "all") {
             for (var _i = 0, items_1 = items; _i < items_1.length; _i++) {
                 var item = items_1[_i];
-                renderItemRow(item, data.items[item], highlightItem);
+                renderItemRow(item, data.items[item], highlightItems);
             }
             return;
         }
@@ -7343,32 +7373,35 @@ function render(highlightItem, data) {
         var uncommonItems = items.filter(function (item) { return data.items[item].source === "uncommon-components"; });
         var commonItems = items.filter(function (item) { return data.items[item].source === "invention" || !data.items[item].source; });
         if (inventionFilter === "ancient") {
-            renderItemGroup("Ancient Components", ancientItems, data, highlightItem);
+            renderItemGroup("Ancient Components", ancientItems, data, highlightItems);
         }
         if (inventionFilter === "rare") {
-            renderItemGroup("Rare Components", rareItems, data, highlightItem);
+            renderItemGroup("Rare Components", rareItems, data, highlightItems);
         }
         if (inventionFilter === "uncommon") {
-            renderItemGroup("Uncommon Components", uncommonItems, data, highlightItem);
+            renderItemGroup("Uncommon Components", uncommonItems, data, highlightItems);
         }
         if (inventionFilter === "common") {
-            renderItemGroup("Common Components", commonItems, data, highlightItem);
+            renderItemGroup("Common Components", commonItems, data, highlightItems);
         }
         return;
     }
-    renderGoalSortedTab(items, data, highlightItem);
+    renderGoalSortedTab(items, data, highlightItems);
 }
 function updateTabsCollapsedUi() {
     document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
+    if (tabsCollapsed) {
+        appSettingsPanel === null || appSettingsPanel === void 0 ? void 0 : appSettingsPanel.classList.remove("open");
+    }
     if (!tabsToggleButton)
         return;
     tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
     tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
 }
-function renderAllTab(items, data, highlightItem) {
-    renderGoalSortedTab(items, data, highlightItem, true);
+function renderAllTab(items, data, highlightItems) {
+    renderGoalSortedTab(items, data, highlightItems, true);
 }
-function renderGoalSortedTab(items, data, highlightItem, includeUnknown) {
+function renderGoalSortedTab(items, data, highlightItems, includeUnknown) {
     if (includeUnknown === void 0) { includeUnknown = false; }
     var goalItems = items.filter(function (item) {
         return data.items[item].goal !== null;
@@ -7387,16 +7420,16 @@ function renderGoalSortedTab(items, data, highlightItem, includeUnknown) {
     sortItems(sortedItems, data);
     sortItems(unknownItems, data);
     if (goalItems.length > 0) {
-        renderItemGroup("Goals", goalItems, data, highlightItem);
+        renderItemGroup("Goals", goalItems, data, highlightItems);
     }
     if (sortedItems.length > 0) {
-        renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItem);
+        renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItems);
     }
     if (unknownItems.length > 0) {
-        renderItemGroup("Unknown", unknownItems, data, highlightItem);
+        renderItemGroup("Unknown", unknownItems, data, highlightItems);
     }
 }
-function renderItemGroup(label, items, data, highlightItem) {
+function renderItemGroup(label, items, data, highlightItems) {
     if (items.length === 0)
         return;
     var header = document.createElement("div");
@@ -7405,10 +7438,10 @@ function renderItemGroup(label, items, data, highlightItem) {
     tracker.appendChild(header);
     for (var _i = 0, items_2 = items; _i < items_2.length; _i++) {
         var item = items_2[_i];
-        renderItemRow(item, data.items[item], highlightItem);
+        renderItemRow(item, data.items[item], highlightItems);
     }
 }
-function renderItemRow(item, itemData, highlightItem) {
+function renderItemRow(item, itemData, highlightItems) {
     var row = document.createElement("div");
     row.className = "item-row ".concat(openSettingsItem === item ? "settings-active" : "");
     var goalHtml = "";
@@ -7434,7 +7467,7 @@ function renderItemRow(item, itemData, highlightItem) {
         }
     }
     row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(openSettingsItem === item ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(openSettingsItem === item ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
-    if (highlightItem === item) {
+    if (highlightItems === null || highlightItems === void 0 ? void 0 : highlightItems.has(item)) {
         row.classList.add("highlight");
     }
     tracker.appendChild(row);
@@ -7505,14 +7538,17 @@ function updateInventionFilterButton() {
                         : "Filter: Common";
 }
 function updateSortButtonLabel() {
-    if (!sortButton)
-        return;
-    sortButton.title =
-        sortMode === "recent"
-            ? "Sort: Recent"
-            : sortMode === "alpha"
-                ? "Sort: A-Z"
-                : "Sort: Count";
+    var sortTitle = sortMode === "recent"
+        ? "Sort: Recent"
+        : sortMode === "alpha"
+            ? "Sort: A-Z"
+            : "Sort: Count";
+    if (sortButton) {
+        sortButton.title = sortTitle;
+    }
+    if (compactSortButton) {
+        compactSortButton.title = sortTitle;
+    }
 }
 function updateClearButtonLabel() {
     if (!clearButton)
@@ -7570,6 +7606,19 @@ function toggleSettings(item) {
     if (!data.items[item])
         return;
     openSettingsItem = openSettingsItem === item ? null : item;
+    render();
+}
+function cycleSortMode() {
+    sortMode =
+        sortMode === "recent"
+            ? "alpha"
+            : sortMode === "alpha"
+                ? "count"
+                : "recent";
+    var data = getSaveData();
+    data.sortMode = sortMode;
+    saveData(data);
+    updateSortButtonLabel();
     render();
 }
 function clearGoal(item) {
@@ -7774,21 +7823,8 @@ appCog === null || appCog === void 0 ? void 0 : appCog.addEventListener("click",
     appSettingsPanel === null || appSettingsPanel === void 0 ? void 0 : appSettingsPanel.classList.toggle("open");
     updateSessionStatusMini();
 });
-if (sortButton) {
-    sortButton.addEventListener("click", function () {
-        sortMode =
-            sortMode === "recent"
-                ? "alpha"
-                : sortMode === "alpha"
-                    ? "count"
-                    : "recent";
-        var data = getSaveData();
-        data.sortMode = sortMode;
-        saveData(data);
-        updateSortButtonLabel();
-        render();
-    });
-}
+sortButton === null || sortButton === void 0 ? void 0 : sortButton.addEventListener("click", cycleSortMode);
+compactSortButton === null || compactSortButton === void 0 ? void 0 : compactSortButton.addEventListener("click", cycleSortMode);
 inventionFilterButton === null || inventionFilterButton === void 0 ? void 0 : inventionFilterButton.addEventListener("click", function () {
     inventionFilter =
         inventionFilter === "all"

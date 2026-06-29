@@ -53,6 +53,7 @@ type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
 const tabsToggleButton = document.querySelector(".tabs-toggle") as HTMLElement | null;
+const compactSortButton = document.querySelector(".compact-sort-button") as HTMLElement | null;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
@@ -630,7 +631,16 @@ function incrementItems(updates: ItemUpdate[], highlightItem?: string) {
 	}
 
 	saveData(data);
-	render(highlightItem || updates[updates.length - 1].item, data);
+
+	const highlightedItems = new Set(
+		updates.map((update) => update.item)
+	);
+
+	if (highlightItem) {
+		highlightedItems.add(highlightItem);
+	}
+
+	render(highlightedItems, data);
 }
 
 function incrementItem(
@@ -650,7 +660,7 @@ function incrementItem(
 }
 
 // Rendering the UI
-function render(highlightItem?: string, data = getSaveData()) {
+function render(highlightItems?: Set<string>, data = getSaveData()) {
 	const items = Object.keys(data.items)
 		.filter((item) => {
 			if (activeSkillTab === "all") return true;
@@ -667,7 +677,7 @@ function render(highlightItem?: string, data = getSaveData()) {
 	}
 
 	if (activeSkillTab === "all") {
-		renderAllTab(items, data, highlightItem);
+		renderAllTab(items, data, highlightItems);
 		return;
 	}
 
@@ -681,11 +691,11 @@ function render(highlightItem?: string, data = getSaveData()) {
 		});
 
 		if (materials.length > 0) {
-			renderItemGroup("Materials", materials, data, highlightItem);
+			renderItemGroup("Materials", materials, data, highlightItems);
 		}
 
 		if (artefacts.length > 0) {
-			renderItemGroup("Artefacts", artefacts, data, highlightItem);
+			renderItemGroup("Artefacts", artefacts, data, highlightItems);
 		}
 
 		return;
@@ -694,7 +704,7 @@ function render(highlightItem?: string, data = getSaveData()) {
 	if (activeSkillTab === "invention") {
 		if (inventionFilter === "all") {
 			for (const item of items) {
-				renderItemRow(item, data.items[item], highlightItem);
+				renderItemRow(item, data.items[item], highlightItems);
 			}
 
 			return;
@@ -717,29 +727,33 @@ function render(highlightItem?: string, data = getSaveData()) {
 		);
 
 		if (inventionFilter === "ancient") {
-			renderItemGroup("Ancient Components", ancientItems, data, highlightItem);
+			renderItemGroup("Ancient Components", ancientItems, data, highlightItems);
 		}
 
 		if (inventionFilter === "rare") {
-			renderItemGroup("Rare Components", rareItems, data, highlightItem);
+			renderItemGroup("Rare Components", rareItems, data, highlightItems);
 		}
 
 		if (inventionFilter === "uncommon") {
-			renderItemGroup("Uncommon Components", uncommonItems, data, highlightItem);
+			renderItemGroup("Uncommon Components", uncommonItems, data, highlightItems);
 		}
 
 		if (inventionFilter === "common") {
-			renderItemGroup("Common Components", commonItems, data, highlightItem);
+			renderItemGroup("Common Components", commonItems, data, highlightItems);
 		}
 
 		return;
 	}
 
-	renderGoalSortedTab(items, data, highlightItem);
+	renderGoalSortedTab(items, data, highlightItems);
 }
 
 function updateTabsCollapsedUi() {
 	document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
+
+	if (tabsCollapsed) {
+		appSettingsPanel?.classList.remove("open");
+	}
 
 	if (!tabsToggleButton) return;
 
@@ -750,14 +764,14 @@ function updateTabsCollapsedUi() {
 function renderAllTab(
 	items: string[],
 	data: SaveData,
-	highlightItem?: string
+	highlightItems?: Set<string>
 ) {
-	renderGoalSortedTab(items, data, highlightItem, true);
+	renderGoalSortedTab(items, data, highlightItems, true);
 }
 function renderGoalSortedTab(
 	items: string[],
 	data: SaveData,
-	highlightItem?: string,
+	highlightItems?: Set<string>,
 	includeUnknown = false
 ) {
 	const goalItems = items.filter((item) =>
@@ -781,15 +795,15 @@ function renderGoalSortedTab(
 	sortItems(unknownItems, data);
 
 	if (goalItems.length > 0) {
-		renderItemGroup("Goals", goalItems, data, highlightItem);
+		renderItemGroup("Goals", goalItems, data, highlightItems);
 	}
 
 	if (sortedItems.length > 0) {
-		renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItem);
+		renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItems);
 	}
 
 	if (unknownItems.length > 0) {
-		renderItemGroup("Unknown", unknownItems, data, highlightItem);
+		renderItemGroup("Unknown", unknownItems, data, highlightItems);
 	}
 }
 
@@ -797,7 +811,7 @@ function renderItemGroup(
 	label: string,
 	items: string[],
 	data: SaveData,
-	highlightItem?: string
+	highlightItems?: Set<string>
 ) {
 	if (items.length === 0) return;
 
@@ -807,14 +821,14 @@ function renderItemGroup(
 	tracker.appendChild(header);
 
 	for (const item of items) {
-		renderItemRow(item, data.items[item], highlightItem);
+		renderItemRow(item, data.items[item], highlightItems);
 	}
 }
 
 function renderItemRow(
 	item: string,
 	itemData: TrackedItem,
-	highlightItem?: string
+	highlightItems?: Set<string>
 ) {
 	const row = document.createElement("div");
 	row.className = `item-row ${openSettingsItem === item ? "settings-active" : ""}`;
@@ -905,7 +919,7 @@ function renderItemRow(
 		</div>
 	`;
 
-	if (highlightItem === item) {
+	if (highlightItems?.has(item)) {
 		row.classList.add("highlight");
 	}
 
@@ -984,14 +998,20 @@ function updateInventionFilterButton() {
 }
 
 function updateSortButtonLabel() {
-	if (!sortButton) return;
-
-	sortButton.title =
+	const sortTitle =
 		sortMode === "recent"
 			? "Sort: Recent"
 			: sortMode === "alpha"
 				? "Sort: A-Z"
 				: "Sort: Count";
+
+	if (sortButton) {
+		sortButton.title = sortTitle;
+	}
+
+	if (compactSortButton) {
+		compactSortButton.title = sortTitle;
+	}
 }
 
 function updateClearButtonLabel() {
@@ -1059,6 +1079,22 @@ function toggleSettings(item: string) {
 	if (!data.items[item]) return;
 	openSettingsItem = openSettingsItem === item ? null : item;
 
+	render();
+}
+
+function cycleSortMode() {
+	sortMode =
+		sortMode === "recent"
+			? "alpha"
+			: sortMode === "alpha"
+				? "count"
+				: "recent";
+
+	const data = getSaveData();
+	data.sortMode = sortMode;
+	saveData(data);
+
+	updateSortButtonLabel();
 	render();
 }
 
@@ -1304,23 +1340,8 @@ appCog?.addEventListener("click", function () {
 	updateSessionStatusMini();
 });
 
-if (sortButton) {
-	sortButton.addEventListener("click", function () {
-		sortMode =
-			sortMode === "recent"
-				? "alpha"
-				: sortMode === "alpha"
-					? "count"
-					: "recent";
-
-		const data = getSaveData();
-		data.sortMode = sortMode;
-		saveData(data);
-
-		updateSortButtonLabel();
-		render();
-	});
-}
+sortButton?.addEventListener("click", cycleSortMode);
+compactSortButton?.addEventListener("click", cycleSortMode);
 
 inventionFilterButton?.addEventListener("click", () => {
 	inventionFilter =
