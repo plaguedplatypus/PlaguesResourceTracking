@@ -82,6 +82,11 @@ const fishingPortersButton = document.querySelector(".fishing-porters-cycle") as
 const inventionFilters = document.querySelector(".invention-filters") as HTMLElement;
 const inventionFilterButton = document.querySelector(".invention-filter-cycle") as HTMLElement;
 
+// *********************************************
+// Temporary migration:
+cleanupBakedSerenPrefixes();
+// *********************************************
+
 const savedData = getSaveData();
 
 let inventionFilter: InventionFilter = "all";
@@ -353,14 +358,14 @@ function processHarvestLine(chatLine: string): string | null {
 
 		if (!normalizedItem || isNaN(amount)) return "[IGNORED]";
 
-		const item = "﴾♦﴿ " + normalizedItem;
+		const item = normalizedItem;
 
 		const colorClass = rareSerenItems.has(normalizedItem)
 			? "seren-item-rare"
 			: "seren-item";
 
 		incrementItem(item, amount, "seren", colorClass, "seren-spirit");
-		setStatus(`﴾♦﴿: ${amount} x ${item}`);
+		setStatus(`Seren: ${amount} x ${item}`);
 
 		return `[COUNTED: ${item} +${amount}]`;
 	}
@@ -470,18 +475,6 @@ function getSkillForItem(item: string): InternalSkillType {
 	return "other";
 }
 
-function normalizeItemName(item: string) {
-	return item
-		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
-		.toLowerCase()
-		.replace(/[.!]$/, "")
-		.trim();
-}
-
-function isDamagedArtefact(item: string) {
-	return item.toLowerCase().includes("(damaged)");
-}
-
 const skillPatterns: Array<{
 	pattern: RegExp;
 	skill: SkillType;
@@ -524,6 +517,38 @@ const fishingItems = [
 	"leaping ", // barbarian fishing
 	"algae",   // croesus front
 ];
+
+function normalizeItemName(item: string) {
+	return item
+		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
+		.toLowerCase()
+		.replace(/[.!]$/, "")
+		.trim();
+}
+
+function getItemDisplayPrefixHtml(itemData: TrackedItem) {
+// function getItemDisplayPrefix(itemData: TrackedItem) {
+	if (activeSkillTab !== "all") return "";
+
+	if (itemData.skill === "mining") //return "⛏ ";
+		{ return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `; }
+	if (itemData.skill === "woodcutting") //return "🪓 ";
+		{ return `<img class="item-prefix-icon" src="./icons/woodcutting.png" alt=""> `; }
+	if (itemData.skill === "fishing") //return "🎣 ";
+		{ return `<img class="item-prefix-icon" src="./icons/fishing.png" alt=""> `; }
+	if (itemData.skill === "archaeology") //return "🏺 ";
+		{ return `<img class="item-prefix-icon" src="./icons/archaeology.png" alt=""> `; }
+	if (itemData.skill === "invention") //return "💡 ";
+		{ return `<img class="item-prefix-icon" src="./icons/invention.png" alt=""> `; }
+	if (itemData.skill === "seren") //return "♦ ";
+		{ return `<img class="item-prefix-icon" src="./icons/seren.png" alt=""> `; }
+
+	return "";
+}
+
+function isDamagedArtefact(item: string) {
+	return item.toLowerCase().includes("(damaged)");
+}
 
 function registerDamagedArtifactCount(item: string) {
 	if (!item.includes("(damaged)")) {
@@ -588,6 +613,58 @@ function getSaveData(): SaveData {
 function saveData(data: SaveData) {
 	localStorage.setItem(appName, JSON.stringify(data));
 }
+
+// *********************************************
+// Temporary migration:
+// Older saves stored the Seren Spirit marker as part of the item name.
+// Clean those item names so the marker can be handled by renderItemRow instead.
+// Safe to remove after this version has been live for a while.
+function cleanupBakedSerenPrefixes() {
+	const data = getSaveData();
+	let changed = false;
+
+	for (const item of Object.keys(data.items)) {
+		if (!item.startsWith("﴾♦﴿ ")) continue;
+
+		const cleanItem = item.replace(/^﴾♦﴿\s*/, "").trim();
+		if (!cleanItem) continue;
+
+		const oldItemData = data.items[item];
+
+		if (data.items[cleanItem]) {
+			const existingItemData = data.items[cleanItem];
+
+			existingItemData.count += oldItemData.count;
+
+			if (existingItemData.goal === null && oldItemData.goal !== null) {
+				existingItemData.goal = oldItemData.goal;
+			}
+
+			existingItemData.skill = existingItemData.skill || oldItemData.skill || "seren";
+			existingItemData.source = existingItemData.source || oldItemData.source || "seren-spirit";
+			existingItemData.colorClass = existingItemData.colorClass || oldItemData.colorClass;
+
+			existingItemData.lastUpdated = Math.max(
+				existingItemData.lastUpdated || 0,
+				oldItemData.lastUpdated || 0
+			);
+		} else {
+			data.items[cleanItem] = {
+				...oldItemData,
+				skill: oldItemData.skill || "seren",
+				source: oldItemData.source || "seren-spirit",
+			};
+		}
+
+		delete data.items[item];
+		changed = true;
+	}
+
+	if (changed) {
+		saveData(data);
+	}
+}
+// *********************************************
 
 function ensureItem(data: SaveData, item: string) {
 	if (!data.items[item]) {
@@ -874,11 +951,20 @@ function renderItemRow(
 		}
 	}
 
+	// Icons
+	/* Icons Display: ${displayPrefixHtml}${escapeHtml(displayName)} */
+	const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
+	const displayName = titleCase(item);
+
+	/* Text Display: ${escapeHtml(displayPrefixHtml)} */
+	//const displayPrefix = getItemDisplayPrefix(itemData);
+	//const displayName = displayPrefix + titleCase(item);
+
 	row.innerHTML = `
 		<div class="item-main-row">
 			<div class="item-text">
 				<strong class="${escapeAttr(itemData.colorClass || "")}">
-					${escapeHtml(titleCase(item))}
+					${displayPrefixHtml}${escapeHtml(displayName)}
 				</strong>
 			</div>
 
@@ -1266,7 +1352,9 @@ function escapeHtml(value: string) {
 }
 
 function titleCase(text: string) {
-	return text.replace(/\b\w/g, (char) => char.toUpperCase());
+	return text.replace(/(^|[\s\-\(])([a-z])/g, (_match, prefix, char) => {
+		return prefix + char.toUpperCase();
+	});
 }
 
 function escapeAttr(value: string) {

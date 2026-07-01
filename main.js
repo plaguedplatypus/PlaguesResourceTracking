@@ -73,7 +73,7 @@ body {
     padding: 0;
     font-size: 10px;
     background: transparent;
-    border: 1;
+    border: 1px solid #4a4030;
     color: #d8c58a;
     background: linear-gradient(#262626, #1e1e1e);
     cursor: pointer;
@@ -206,7 +206,6 @@ body {
 .item-row {
     display: flex;
     flex-direction: column;
-    gap: 1px;
     padding: 1px 2px 1px 2px;
     line-height: 1.15;
     background: #2c2c2c;
@@ -220,7 +219,7 @@ body {
 @keyframes itemCountBorderFlash {
     0% {
         border-color: #d9a441;
-        box-shadow: inset 0 0 6px rgba(255, 200, 80, 0.35),
+        box-shadow: inset 0 0 6px rgba(255, 200, 80, 0.35);
     }
 
     100% {
@@ -247,6 +246,19 @@ body {
     line-height: 1.15;
 }
 
+.item-prefix-icon {
+	width: 12px;
+	height: 12px;
+	display: inline-block;
+	object-fit: contain;
+	vertical-align: -1px;
+	margin: 0px -2px 0px -1px;
+	pointer-events: none;
+    
+	filter: brightness(0.85) contrast(1.1);
+    opacity: 0.75;
+}
+
 .item-text {
     flex: 1;
     min-width: 0;
@@ -269,10 +281,10 @@ body {
 
 .item-count {
     flex: 0 0 auto;
-    min-width: 24px;
-    margin-right: 1px;
+    min-width: 10px;
+    margin: 0 1px 0 2px;
     text-align: right;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: bold;
     line-height: 1;
 }
@@ -6847,6 +6859,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _index_html__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./index.html */ "./index.html");
 /* harmony import */ var _appconfig_json__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./appconfig.json */ "./appconfig.json");
 /* harmony import */ var _css_style_css__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./css/style.css */ "./css/style.css");
+var __assign = (undefined && undefined.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var _a;
 
 
@@ -6881,6 +6904,10 @@ var fishingMode = document.querySelector(".fishing-mode");
 var fishingPortersButton = document.querySelector(".fishing-porters-cycle");
 var inventionFilters = document.querySelector(".invention-filters");
 var inventionFilterButton = document.querySelector(".invention-filter-cycle");
+// *********************************************
+// Temporary migration:
+cleanupBakedSerenPrefixes();
+// *********************************************
 var savedData = getSaveData();
 var inventionFilter = "all";
 var activeSkillTab = "all";
@@ -7088,12 +7115,12 @@ function processHarvestLine(chatLine) {
         var normalizedItem = normalizeItemName(serenMatch[2]);
         if (!normalizedItem || isNaN(amount))
             return "[IGNORED]";
-        var item = "﴾♦﴿ " + normalizedItem;
+        var item = normalizedItem;
         var colorClass = rareSerenItems.has(normalizedItem)
             ? "seren-item-rare"
             : "seren-item";
         incrementItem(item, amount, "seren", colorClass, "seren-spirit");
-        setStatus("\uFD3E\u2666\uFD3F: ".concat(amount, " x ").concat(item));
+        setStatus("Seren: ".concat(amount, " x ").concat(item));
         return "[COUNTED: ".concat(item, " +").concat(amount, "]");
     }
     // Invention materials
@@ -7174,16 +7201,6 @@ function getSkillForItem(item) {
     // What did you find? Was it farming related? I'm not sorting those.
     return "other";
 }
-function normalizeItemName(item) {
-    return item
-        .replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
-        .toLowerCase()
-        .replace(/[.!]$/, "")
-        .trim();
-}
-function isDamagedArtefact(item) {
-    return item.toLowerCase().includes("(damaged)");
-}
 var skillPatterns = [
     { pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
     { pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
@@ -7218,6 +7235,46 @@ var fishingItems = [
     "leaping ", // barbarian fishing
     "algae", // croesus front
 ];
+function normalizeItemName(item) {
+    return item
+        .replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
+        .toLowerCase()
+        .replace(/[.!]$/, "")
+        .trim();
+}
+function getItemDisplayPrefixHtml(itemData) {
+    // function getItemDisplayPrefix(itemData: TrackedItem) {
+    if (activeSkillTab !== "all")
+        return "";
+    if (itemData.skill === "mining") //return "⛏ ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/mining.png\" alt=\"\"> ";
+    }
+    if (itemData.skill === "woodcutting") //return "🪓 ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/woodcutting.png\" alt=\"\"> ";
+    }
+    if (itemData.skill === "fishing") //return "🎣 ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/fishing.png\" alt=\"\"> ";
+    }
+    if (itemData.skill === "archaeology") //return "🏺 ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/archaeology.png\" alt=\"\"> ";
+    }
+    if (itemData.skill === "invention") //return "💡 ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/invention.png\" alt=\"\"> ";
+    }
+    if (itemData.skill === "seren") //return "♦ ";
+     {
+        return "<img class=\"item-prefix-icon\" src=\"./icons/seren.png\" alt=\"\"> ";
+    }
+    return "";
+}
+function isDamagedArtefact(item) {
+    return item.toLowerCase().includes("(damaged)");
+}
 function registerDamagedArtifactCount(item) {
     if (!item.includes("(damaged)")) {
         return true;
@@ -7273,6 +7330,44 @@ function getSaveData() {
 function saveData(data) {
     localStorage.setItem(appName, JSON.stringify(data));
 }
+// *********************************************
+// Temporary migration:
+// Older saves stored the Seren Spirit marker as part of the item name.
+// Clean those item names so the marker can be handled by renderItemRow instead.
+// Safe to remove after this version has been live for a while.
+function cleanupBakedSerenPrefixes() {
+    var data = getSaveData();
+    var changed = false;
+    for (var _i = 0, _a = Object.keys(data.items); _i < _a.length; _i++) {
+        var item = _a[_i];
+        if (!item.startsWith("﴾♦﴿ "))
+            continue;
+        var cleanItem = item.replace(/^﴾♦﴿\s*/, "").trim();
+        if (!cleanItem)
+            continue;
+        var oldItemData = data.items[item];
+        if (data.items[cleanItem]) {
+            var existingItemData = data.items[cleanItem];
+            existingItemData.count += oldItemData.count;
+            if (existingItemData.goal === null && oldItemData.goal !== null) {
+                existingItemData.goal = oldItemData.goal;
+            }
+            existingItemData.skill = existingItemData.skill || oldItemData.skill || "seren";
+            existingItemData.source = existingItemData.source || oldItemData.source || "seren-spirit";
+            existingItemData.colorClass = existingItemData.colorClass || oldItemData.colorClass;
+            existingItemData.lastUpdated = Math.max(existingItemData.lastUpdated || 0, oldItemData.lastUpdated || 0);
+        }
+        else {
+            data.items[cleanItem] = __assign(__assign({}, oldItemData), { skill: oldItemData.skill || "seren", source: oldItemData.source || "seren-spirit" });
+        }
+        delete data.items[item];
+        changed = true;
+    }
+    if (changed) {
+        saveData(data);
+    }
+}
+// *********************************************
 function ensureItem(data, item) {
     if (!data.items[item]) {
         data.items[item] = {
@@ -7466,7 +7561,14 @@ function renderItemRow(item, itemData, highlightItems) {
             goalHtml = "\n    \t\t<div class=\"goal-row\" title=\"".concat(escapeAttr(goalTooltip), "\">\n        \t\t<span class=\"goal-text\">\n           \t\t\t ").concat(current, " / ").concat(goal, " (").concat(progress.toFixed(1), "%)\n        \t\t</span>\n\n\t\t\t\t<div class=\"progress-bar\">\n\t\t\t\t\t<div class=\"progress-fill\" style=\"width:").concat(progress, "%\"></div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t");
         }
     }
-    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(escapeHtml(titleCase(item)), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(openSettingsItem === item ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(openSettingsItem === item ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
+    // Icons
+    /* Icons Display: ${displayPrefixHtml}${escapeHtml(displayName)} */
+    var displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
+    var displayName = titleCase(item);
+    /* Text Display: ${escapeHtml(displayPrefixHtml)} */
+    //const displayPrefix = getItemDisplayPrefix(itemData);
+    //const displayName = displayPrefix + titleCase(item);
+    row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(displayPrefixHtml).concat(escapeHtml(displayName), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(openSettingsItem === item ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(openSettingsItem === item ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
     if (highlightItems === null || highlightItems === void 0 ? void 0 : highlightItems.has(item)) {
         row.classList.add("highlight");
     }
@@ -7760,7 +7862,9 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 function titleCase(text) {
-    return text.replace(/\b\w/g, function (char) { return char.toUpperCase(); });
+    return text.replace(/(^|[\s\-\(])([a-z])/g, function (_match, prefix, char) {
+        return prefix + char.toUpperCase();
+    });
 }
 function escapeAttr(value) {
     return escapeHtml(value);
