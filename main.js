@@ -81,6 +81,7 @@ body {
 }
 
 .tabs-collapsed .skill-tabs,
+.tabs-collapsed .fishing-porters-cycle,
 .tabs-collapsed .footer,
 .tabs-collapsed .footer-separator {
     display: none;
@@ -158,17 +159,19 @@ body {
 
 .fishing-mode.visible {
     display: block;
+    margin-bottom: 3px;
 }
 
 .invention-filters.visible {
     display: flex;
+    margin-bottom: 3px;
 }
 
 .fishing-porters-cycle,
-.invention-filters {
+.invention-filter-cycle {
     align-self: flex-start;
     font-size: 11px;
-    margin: 0 0 -3px;
+    margin: 0;
 }
 
 .group-header {
@@ -542,13 +545,6 @@ select {
 .footer-separator {
     border-top: 1px solid #444;
     margin-bottom: 1px;
-}
-
-.invention-filter-cycle {
-    align-self: flex-start;
-    margin-bottom: 7px;
-    padding: 2px 6px;
-    font-size: 11px;
 }
 
 .uncommon-component { color: #ff9900; }
@@ -1998,7 +1994,9 @@ function trimDecimal(value) {
         .replace(/\.0$/, "");
 }
 function titleCase(text) {
-    return text.replace(/\b\w/g, function (char) { return char.toUpperCase(); });
+    return text.replace(/(^|[\s\-])([a-z])/g, function (_match, prefix, char) {
+        return prefix + char.toUpperCase();
+    });
 }
 function escapeHtml(value) {
     return value

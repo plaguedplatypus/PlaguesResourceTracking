@@ -773,7 +773,9 @@ function trimDecimal(value: number) {
 }
 
 function titleCase(text: string) {
-	return text.replace(/\b\w/g, (char) => char.toUpperCase());
+	return text.replace(/(^|[\s\-])([a-z])/g, (_match, prefix, char) => {
+		return prefix + char.toUpperCase();
+	});
 }
 
 function escapeHtml(value: string) {
