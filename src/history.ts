@@ -15,7 +15,7 @@ export function isInHistory(chatLine: string) {
 }
 
 // Add a new chat line to the history
-export function updateChatHistory(chatLine: string, debugStatus = "[IGNORED]") {
+export function updateChatHistory(chatLine: string, debugStatus: string) {
 	const debugLine = `${chatLine} ${debugStatus}`;
 
 	recentLines.push(debugLine);
@@ -62,7 +62,7 @@ function isHistoryLineVisible(line: string) {
 	}
 
 	if (historyFilter === "ignored") {
-		return upper.includes("[IGNORED") || upper.includes("[SKIPPED DUPLICATE");
+		return upper.includes("[IGNORED");
 	}
 
 	return true;
@@ -75,7 +75,7 @@ function clearHistoryWindowDisplay() {
 
 function renderHistoryLine(line: string) {
 	const match = line.match(
-		/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED|SKIPPED DUPLICATE)[^\]]*\])$/i
+		/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED)[^\]]*\])$/i
 	);
 
 	if (!match) {
@@ -103,10 +103,6 @@ function getHistoryTagClass(tag: string) {
 		return "history-tag history-tag-ignored";
 	}
 
-	if (normalized.startsWith("[SKIPPED DUPLICATE")) {
-		return "history-tag history-tag-skipped";
-	}
-
 	return "history-tag";
 }
 
@@ -127,7 +123,6 @@ function updateHistoryWindow() {
 			.history-tag-counted {color: #7CFC7C;}
 			.history-tag-dialog-counted {color: #43bc9e;}
 			.history-tag-ignored {color: #b36b6b;}
-			.history-tag-skipped {color: #d8c58a;}
 			.history-filter-button,
 			.history-clear-button {
 				height: 20px;

@@ -1040,7 +1040,6 @@ function isInHistory(chatLine) {
 }
 // Add a new chat line to the history
 function updateChatHistory(chatLine, debugStatus) {
-    if (debugStatus === void 0) { debugStatus = "[IGNORED]"; }
     var debugLine = "".concat(chatLine, " ").concat(debugStatus);
     recentLines.push(debugLine);
     recentLineKeys.push(chatLine);
@@ -1072,7 +1071,7 @@ function isHistoryLineVisible(line) {
         return upper.includes("[COUNTED") || upper.includes("[DIALOG COUNTED");
     }
     if (historyFilter === "ignored") {
-        return upper.includes("[IGNORED") || upper.includes("[SKIPPED DUPLICATE");
+        return upper.includes("[IGNORED");
     }
     return true;
 }
@@ -1081,7 +1080,7 @@ function clearHistoryWindowDisplay() {
     updateHistoryWindow();
 }
 function renderHistoryLine(line) {
-    var match = line.match(/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED|SKIPPED DUPLICATE)[^\]]*\])$/i);
+    var match = line.match(/^(.*?)(\s+\[(?:DIALOG COUNTED|COUNTED|IGNORED)[^\]]*\])$/i);
     if (!match) {
         return escapeHtml(line);
     }
@@ -1100,9 +1099,6 @@ function getHistoryTagClass(tag) {
     if (normalized.startsWith("[IGNORED")) {
         return "history-tag history-tag-ignored";
     }
-    if (normalized.startsWith("[SKIPPED DUPLICATE")) {
-        return "history-tag history-tag-skipped";
-    }
     return "history-tag";
 }
 function updateHistoryWindow() {
@@ -1115,7 +1111,7 @@ function updateHistoryWindow() {
     }
     if (!doc.body.dataset.initialized) {
         var style = doc.createElement("style");
-        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-tag-skipped {color: #d8c58a;}\n\t\t\t.history-filter-button,\n\t\t\t.history-clear-button {\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\t\t\t.history-filter-button:hover,\n\t\t\t.history-clear-button:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}\n\t\t\t.history-filter-button.active {\n\t\t\t\tcolor: #fff2aa;\n\t\t\t\tborder-color: #d9a441;\n\t\t\t\tbackground: linear-gradient(#4a3518, #20170c);\n\t\t\t}";
+        style.textContent = "\n\t\t\t.history-tag {font-weight: bold;}\n\t\t\t.history-tag-counted {color: #7CFC7C;}\n\t\t\t.history-tag-dialog-counted {color: #43bc9e;}\n\t\t\t.history-tag-ignored {color: #b36b6b;}\n\t\t\t.history-filter-button,\n\t\t\t.history-clear-button {\n\t\t\t\theight: 20px;\n\t\t\t\tbox-sizing: border-box;\n\t\t\t\tpadding: 2px 6px;\n\t\t\t\tcolor: #d8c58a;\n\t\t\t\tbackground: linear-gradient(#262626, #1e1e1e);\n\t\t\t\tborder: 1px solid #4a4030;\n\t\t\t\tbox-shadow:\n\t\t\t\t\tinset 1px 1px 0 rgba(255, 255, 255, 0.06),\n\t\t\t\t\tinset -1px -1px 0 rgba(0, 0, 0, 0.75);\n\t\t\t\tcursor: pointer;\n\t\t\t\tfont-size: 10px;\n\t\t\t\ttext-shadow: 0 1px 0 #000;\n\t\t\t}\n\t\t\t.history-filter-button:hover,\n\t\t\t.history-clear-button:hover {\n\t\t\t\tcolor: #fff0bd;\n\t\t\t\tborder-color: #9b7a36;\n\t\t\t}\n\t\t\t.history-filter-button.active {\n\t\t\t\tcolor: #fff2aa;\n\t\t\t\tborder-color: #d9a441;\n\t\t\t\tbackground: linear-gradient(#4a3518, #20170c);\n\t\t\t}";
         doc.head.appendChild(style);
         doc.title = "Resource Tracker History";
         doc.body.style.margin = "0";
@@ -1581,14 +1577,10 @@ function recordSessionUpdates(updates) {
         if (!sessionItems[update.item]) {
             sessionItems[update.item] = {
                 count: 0,
-                skill: update.skill,
-                source: update.source,
                 lastUpdated: timestamp,
             };
         }
         sessionItems[update.item].count += update.amount;
-        sessionItems[update.item].skill = update.skill;
-        sessionItems[update.item].source = update.source;
         sessionItems[update.item].lastUpdated = timestamp;
         if (showGpValue) {
             void ensurePriceForItem(update.item);
@@ -7013,52 +7005,101 @@ function showSelectedChat(pos) {
         return;
     alt1.overLayRect(appColor, pos.mainbox.rect.x, pos.mainbox.rect.y, pos.mainbox.rect.width, pos.mainbox.rect.height, 2000, 3);
 }
-var activeDialogFindText = "";
-var lastDialogSeenAt = 0;
+var currentDialogCounted = false;
 var dialogReadFailCount = 0;
 var maxDialogReadFails = 3;
-var dialogGoneResetMs = 3000;
-var damagedArtifactDuplicateWindowMs = 3000;
-var recentDamagedArtifactCounts = new Map();
+var damagedArtifactDialogRegex = /^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
+function readLocatedDialogTexts() {
+    if (!dialogReader.pos)
+        return { visible: false, texts: [] };
+    var originalPos = dialogReader.pos;
+    var capturePadding = 40;
+    var captureX = Math.max(0, originalPos.x - capturePadding);
+    var captureRight = Math.min(alt1.rsWidth, originalPos.x + originalPos.width + capturePadding);
+    var image = alt1_base__WEBPACK_IMPORTED_MODULE_0__.captureHold(captureX, originalPos.y, captureRight - captureX, originalPos.height);
+    // A saved position can outlive the dialog. Do not run the permissive
+    // offset OCR against ordinary game pixels or they can look like text and
+    // keep the previous artifact marked as the still-open dialog.
+    if (!dialogReader.checkDialog(image)) {
+        return { visible: false, texts: [] };
+    }
+    var dialog = dialogReader.read(image);
+    var texts = [];
+    function addText(lines) {
+        var text = (lines || []).join(" ").replace(/\s+/g, " ").trim();
+        if (text && !texts.includes(text)) {
+            texts.push(text);
+        }
+    }
+    addText(dialog && dialog.text ? dialog.text : null);
+    if (texts.some(function (text) { return damagedArtifactDialogRegex.test(text); })) {
+        return { visible: true, texts: texts };
+    }
+    // DialogReader's fixed line-start probes can mistake a horizontal glyph
+    // stroke for "_", then skip past the real line. Small horizontal offsets
+    // move those probes while OCRing the same dialog pixels.
+    try {
+        for (var _i = 0, _a = [0, -30, -20, 5, 10, 20, 30]; _i < _a.length; _i++) {
+            var offsetX = _a[_i];
+            var shiftedX = originalPos.x + offsetX;
+            if (shiftedX < captureX ||
+                shiftedX + originalPos.width > captureRight) {
+                continue;
+            }
+            dialogReader.pos = __assign(__assign({}, originalPos), { x: shiftedX });
+            addText(dialogReader.readDialog(image, true));
+            if (texts.some(function (text) { return damagedArtifactDialogRegex.test(text); })) {
+                break;
+            }
+        }
+    }
+    finally {
+        dialogReader.pos = originalPos;
+    }
+    return { visible: true, texts: texts };
+}
 function readDialogBox() {
     if (!window.alt1)
         return;
-    var now = Date.now();
     if (!dialogReader.pos) {
         dialogReader.find();
         if (!dialogReader.pos) {
+            currentDialogCounted = false;
             return;
         }
     }
-    var dialog = dialogReader.read();
-    if (!dialog || !dialog.text || dialog.text.length === 0) {
+    var dialogResult = readLocatedDialogTexts();
+    if (!dialogResult.visible) {
         dialogReadFailCount++;
         if (dialogReadFailCount >= maxDialogReadFails) {
             dialogReader.pos = null;
             dialogReadFailCount = 0;
-        }
-        if (now - lastDialogSeenAt > dialogGoneResetMs) {
-            activeDialogFindText = "";
+            currentDialogCounted = false;
         }
         return;
     }
     dialogReadFailCount = 0;
-    var fullText = dialog.text.join(" ").replace(/\s+/g, " ").trim();
-    lastDialogSeenAt = now;
-    var match = fullText.match(/^You find:\s*(.+?\(damaged\))[!.]?$/i);
-    if (!match) {
+    if (currentDialogCounted || dialogResult.texts.length === 0) {
         return;
     }
-    if (fullText === activeDialogFindText) {
+    var fullText = "";
+    var match = null;
+    for (var _i = 0, _a = dialogResult.texts; _i < _a.length; _i++) {
+        var text = _a[_i];
+        var candidateMatch = text.match(damagedArtifactDialogRegex);
+        if (candidateMatch) {
+            fullText = text;
+            match = candidateMatch;
+            break;
+        }
+    }
+    if (!match || !fullText) {
         return;
     }
-    activeDialogFindText = fullText;
     var item = normalizeItemName(match[1]);
     if (!item)
         return;
-    if (!registerDamagedArtifactCount(item)) {
-        return;
-    }
+    currentDialogCounted = true;
     incrementItem(item, 1, "archaeology");
     setStatus("Added: ".concat(item));
     (0,_history__WEBPACK_IMPORTED_MODULE_5__.updateChatHistory)(fullText, "[DIALOG COUNTED: ".concat(item, " +1]"));
@@ -7124,9 +7165,6 @@ function processHarvestLine(chatLine) {
     // Invention materials
     var inventionResult = (0,_invention__WEBPACK_IMPORTED_MODULE_3__.processInventionMaterials)(cleanLine);
     if (inventionResult) {
-        if (inventionResult.updates.length === 0) {
-            return "[IGNORED]";
-        }
         incrementItems(inventionResult.updates, inventionResult.updates[inventionResult.updates.length - 1].item);
         setStatus(inventionResult.statusMessage);
         return "[COUNTED: ".concat(inventionResult.countedMaterials.join(", "), "]");
@@ -7155,9 +7193,6 @@ function processHarvestLine(chatLine) {
         if (skill === "fishing" && !fishingUsePorters) {
             return null;
         }
-        if (skill === "archaeology" && !registerDamagedArtifactCount(item)) {
-            return "[SKIPPED DUPLICATE: ".concat(item, "]");
-        }
         incrementItem(item, amount, skill);
         setStatus("Added: ".concat(amount, " x ").concat(item));
         return "[COUNTED: ".concat(item, " +").concat(amount, "]");
@@ -7174,9 +7209,6 @@ function processHarvestLine(chatLine) {
         var item = normalizeItemName(match[1]);
         if (!item)
             return "[IGNORED]";
-        if (entry.skill === "archaeology" && !registerDamagedArtifactCount(item)) {
-            return "[SKIPPED DUPLICATE: ".concat(item, "]");
-        }
         incrementItem(item, 1, entry.skill);
         setStatus("Added: ".concat(item));
         return "[COUNTED: ".concat(item, " +1]");
@@ -7241,54 +7273,30 @@ function normalizeItemName(item) {
         .trim();
 }
 function getItemDisplayPrefixHtml(itemData) {
-    // function getItemDisplayPrefix(itemData: TrackedItem) {
     if (activeSkillTab !== "all")
         return "";
-    if (itemData.skill === "mining") //return "⛏ ";
-     {
+    if (itemData.skill === "mining") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/mining.png\" alt=\"\"> ";
     }
-    if (itemData.skill === "woodcutting") //return "🪓 ";
-     {
+    if (itemData.skill === "woodcutting") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/woodcutting.png\" alt=\"\"> ";
     }
-    if (itemData.skill === "fishing") //return "🎣 ";
-     {
+    if (itemData.skill === "fishing") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/fishing.png\" alt=\"\"> ";
     }
-    if (itemData.skill === "archaeology") //return "🏺 ";
-     {
+    if (itemData.skill === "archaeology") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/archaeology.png\" alt=\"\"> ";
     }
-    if (itemData.skill === "invention") //return "💡 ";
-     {
+    if (itemData.skill === "invention") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/invention.png\" alt=\"\"> ";
     }
-    if (itemData.skill === "seren") //return "♦ ";
-     {
+    if (itemData.skill === "seren") {
         return "<img class=\"item-prefix-icon\" src=\"./icons/seren.png\" alt=\"\"> ";
     }
     return "";
 }
 function isDamagedArtefact(item) {
     return item.toLowerCase().includes("(damaged)");
-}
-function registerDamagedArtifactCount(item) {
-    if (!item.includes("(damaged)")) {
-        return true;
-    }
-    var now = Date.now();
-    recentDamagedArtifactCounts.forEach(function (seenAt, key) {
-        if (now - seenAt > damagedArtifactDuplicateWindowMs) {
-            recentDamagedArtifactCounts.delete(key);
-        }
-    });
-    var lastSeen = recentDamagedArtifactCounts.get(item);
-    if (lastSeen && now - lastSeen < damagedArtifactDuplicateWindowMs) {
-        return false;
-    }
-    recentDamagedArtifactCounts.set(item, now);
-    return true;
 }
 // Update the status message in the footer with a timestamp on when events occurred
 function getTimeStamp() {
@@ -7559,13 +7567,8 @@ function renderItemRow(item, itemData, highlightItems) {
             goalHtml = "\n    \t\t<div class=\"goal-row\" title=\"".concat(escapeAttr(goalTooltip), "\">\n        \t\t<span class=\"goal-text\">\n           \t\t\t ").concat(current, " / ").concat(goal, " (").concat(progress.toFixed(1), "%)\n        \t\t</span>\n\n\t\t\t\t<div class=\"progress-bar\">\n\t\t\t\t\t<div class=\"progress-fill\" style=\"width:").concat(progress, "%\"></div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t");
         }
     }
-    // Icons
-    /* Icons Display: ${displayPrefixHtml}${escapeHtml(displayName)} */
     var displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
     var displayName = titleCase(item);
-    /* Text Display: ${escapeHtml(displayPrefixHtml)} */
-    //const displayPrefix = getItemDisplayPrefix(itemData);
-    //const displayName = displayPrefix + titleCase(item);
     row.innerHTML = "\n\t\t<div class=\"item-main-row\">\n\t\t\t<div class=\"item-text\">\n\t\t\t\t<strong class=\"".concat(escapeAttr(itemData.colorClass || ""), "\">\n\t\t\t\t\t").concat(displayPrefixHtml).concat(escapeHtml(displayName), "\n\t\t\t\t</strong>\n\t\t\t</div>\n\n\t\t\t<div class=\"item-count\">\n    \t\t\t").concat(itemData.count.toLocaleString(), "\n\t\t\t</div>\n\n\t\t\t<button class=\"cog-btn\" data-item=\"").concat(escapeAttr(item), "\">\u2699</button>\n\t\t</div>\n\n\t\t").concat(goalHtml, "\n\n\t\t").concat(openSettingsItem === item ? "<div class=\"settings-separator\"></div>" : "", "\n\n\t\t<div class=\"settings-panel ").concat(openSettingsItem === item ? "open" : "", "\">\n\t\t\t<input type=\"number\"\n\t\t\t\t   id=\"goal-").concat(escapeAttr(item), "\"\n\t\t\t\t   placeholder=\"Goal\"\n\t\t\t\t   value=\"").concat(itemData.goal || "", "\">\n\n\t\t\t<button class=\"clear-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Clear Goal\">\n\t\t\t\t<img src=\"./icons/clear-goal.png\" alt=\"Clear Goal\">\n\t\t\t</button>\n\n\t\t\t<button class=\"save-goal icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Set Goal\">\n\t\t\t\t<img src=\"./icons/save-goal.png\" alt=\"Set Goal\">\n\t\t\t</button>\n\n\t\t\t<span class=\"button-separator\">\u2022</span>\n\n\t\t\t<button class=\"reset-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Reset Count\">\n\t\t\t\t<img src=\"./icons/reset-count.png\" alt=\"Reset Count\">\n\t\t\t</button>\n\n\t\t\t<button class=\"delete-item icon-btn\" data-item=\"").concat(escapeAttr(item), "\" title=\"Delete Item\">\n\t\t\t\t<img src=\"./icons/delete-item.png\" alt=\"Delete Item\">\n\t\t\t</button>\n\t\t</div>\n\t");
     if (highlightItems === null || highlightItems === void 0 ? void 0 : highlightItems.has(item)) {
         row.classList.add("highlight");

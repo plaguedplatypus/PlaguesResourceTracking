@@ -1,14 +1,11 @@
 
 // setting up the session window for you stats and money weirdos
 
-type InternalSessionStatus = "idle" | "running" | "paused";
 export type SessionStatus = "idle" | "running" | "paused";
 
 export type SessionItemUpdate = {
 	item: string;
 	amount: number;
-	skill: string;
-	source?: string;
 };
 
 export function getSessionStatus(): SessionStatus {
@@ -20,8 +17,6 @@ export function getSessionStatus(): SessionStatus {
 
 type SessionItem = {
 	count: number;
-	skill: string;
-	source?: string;
 	lastUpdated: number;
 };
 
@@ -37,10 +32,7 @@ type SessionSettings = {
 };
 
 type WeirdGloopLatestEntry = {
-	id?: string | number;
-	timestamp?: string;
 	price?: number;
-	volume?: number;
 };
 
 type WeirdGloopLatestResponse = Record<string, WeirdGloopLatestEntry>;
@@ -50,7 +42,7 @@ const sessionSettingsKey = `${appName}_SessionSettings`;
 const priceCacheKey = `${appName}_PriceCache`;
 const priceCacheDurationMs = 24 * 60 * 60 * 1000;
 
-let sessionStatus: InternalSessionStatus = "idle";
+let sessionStatus: SessionStatus = "idle";
 let sessionStartedAt: number | null = null;
 let activeStartedAt: number | null = null;
 let elapsedBeforePauseMs = 0;
@@ -73,15 +65,11 @@ export function recordSessionUpdates(updates: SessionItemUpdate[]) {
 		if (!sessionItems[update.item]) {
 			sessionItems[update.item] = {
 				count: 0,
-				skill: update.skill,
-				source: update.source,
 				lastUpdated: timestamp,
 			};
 		}
 
 		sessionItems[update.item].count += update.amount;
-		sessionItems[update.item].skill = update.skill;
-		sessionItems[update.item].source = update.source;
 		sessionItems[update.item].lastUpdated = timestamp;
 
 		if (showGpValue) {

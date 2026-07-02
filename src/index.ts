@@ -227,39 +227,101 @@ function showSelectedChat(pos: any) {
 	);
 }
 
-let activeDialogFindText = "";
-let lastDialogSeenAt = 0;
+let currentDialogCounted = false;
 let dialogReadFailCount = 0;
 const maxDialogReadFails = 3;
-const dialogGoneResetMs = 3000;
-const damagedArtifactDuplicateWindowMs = 3000;
-const recentDamagedArtifactCounts = new Map<string, number>();
+const damagedArtifactDialogRegex = /^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
+
+function readLocatedDialogTexts() {
+	if (!dialogReader.pos) return { visible: false, texts: [] as string[] };
+
+	const originalPos = dialogReader.pos;
+	const capturePadding = 40;
+	const captureX = Math.max(0, originalPos.x - capturePadding);
+	const captureRight = Math.min(
+		alt1.rsWidth,
+		originalPos.x + originalPos.width + capturePadding
+	);
+	const image = a1lib.captureHold(
+		captureX,
+		originalPos.y,
+		captureRight - captureX,
+		originalPos.height
+	);
+
+	// A saved position can outlive the dialog. Do not run the permissive
+	// offset OCR against ordinary game pixels or they can look like text and
+	// keep the previous artifact marked as the still-open dialog.
+	if (!dialogReader.checkDialog(image)) {
+		return { visible: false, texts: [] as string[] };
+	}
+
+	const dialog = dialogReader.read(image);
+	const texts: string[] = [];
+
+	function addText(lines: string[] | null) {
+		const text = (lines || []).join(" ").replace(/\s+/g, " ").trim();
+
+		if (text && !texts.includes(text)) {
+			texts.push(text);
+		}
+	}
+
+	addText(dialog && dialog.text ? dialog.text : null);
+
+	if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
+		return { visible: true, texts };
+	}
+
+	// DialogReader's fixed line-start probes can mistake a horizontal glyph
+	// stroke for "_", then skip past the real line. Small horizontal offsets
+	// move those probes while OCRing the same dialog pixels.
+	try {
+		for (const offsetX of [0, -30, -20, 5, 10, 20, 30]) {
+			const shiftedX = originalPos.x + offsetX;
+
+			if (
+				shiftedX < captureX ||
+				shiftedX + originalPos.width > captureRight
+			) {
+				continue;
+			}
+
+			dialogReader.pos = { ...originalPos, x: shiftedX };
+			addText(dialogReader.readDialog(image, true));
+
+			if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
+				break;
+			}
+		}
+	} finally {
+		dialogReader.pos = originalPos;
+	}
+
+	return { visible: true, texts };
+}
 
 function readDialogBox() {
 	if (!window.alt1) return;
-
-	const now = Date.now();
 
 	if (!dialogReader.pos) {
 		dialogReader.find();
 
 		if (!dialogReader.pos) {
+			currentDialogCounted = false;
 			return;
 		}
 	}
 
-	const dialog = dialogReader.read();
+	const dialogResult = readLocatedDialogTexts();
 
-	if (!dialog || !dialog.text || dialog.text.length === 0) {
+	if (!dialogResult.visible) {
 		dialogReadFailCount++;
 
 		if (dialogReadFailCount >= maxDialogReadFails) {
 			dialogReader.pos = null;
 			dialogReadFailCount = 0;
-		}
-
-		if (now - lastDialogSeenAt > dialogGoneResetMs) {
-			activeDialogFindText = "";
+			currentDialogCounted = false;
 		}
 
 		return;
@@ -267,28 +329,31 @@ function readDialogBox() {
 
 	dialogReadFailCount = 0;
 
-	const fullText = dialog.text.join(" ").replace(/\s+/g, " ").trim();
-
-	lastDialogSeenAt = now;
-
-	const match = fullText.match(/^You find:\s*(.+?\(damaged\))[!.]?$/i);
-
-	if (!match) {
+	if (currentDialogCounted || dialogResult.texts.length === 0) {
 		return;
 	}
 
-	if (fullText === activeDialogFindText) {
-		return;
+	let fullText = "";
+	let match: RegExpMatchArray | null = null;
+
+	for (const text of dialogResult.texts) {
+		const candidateMatch = text.match(damagedArtifactDialogRegex);
+
+		if (candidateMatch) {
+			fullText = text;
+			match = candidateMatch;
+			break;
+		}
 	}
 
-	activeDialogFindText = fullText;
+	if (!match || !fullText) {
+		return;
+	}
 
 	const item = normalizeItemName(match[1]);
 	if (!item) return;
 
-	if (!registerDamagedArtifactCount(item)) {
-		return;
-	}
+	currentDialogCounted = true;
 
 	incrementItem(item, 1, "archaeology");
 	setStatus(`Added: ${item}`);
@@ -375,10 +440,6 @@ function processHarvestLine(chatLine: string): string | null {
 		processInventionMaterials(cleanLine);
 
 	if (inventionResult) {
-		if (inventionResult.updates.length === 0) {
-			return "[IGNORED]";
-		}
-
 		incrementItems(
 			inventionResult.updates,
 			inventionResult.updates[
@@ -422,10 +483,6 @@ function processHarvestLine(chatLine: string): string | null {
 			return null;
 		}
 
-		if (skill === "archaeology" && !registerDamagedArtifactCount(item)) {
-			return `[SKIPPED DUPLICATE: ${item}]`;
-		}
-
 		incrementItem(item, amount, skill);
 		setStatus(`Added: ${amount} x ${item}`);
 
@@ -443,10 +500,6 @@ function processHarvestLine(chatLine: string): string | null {
 
 		const item = normalizeItemName(match[1]);
 		if (!item) return "[IGNORED]";
-
-		if (entry.skill === "archaeology" && !registerDamagedArtifactCount(item)) {
-			return `[SKIPPED DUPLICATE: ${item}]`;
-		}
 
 		incrementItem(item, 1, entry.skill);
 		setStatus(`Added: ${item}`);
@@ -527,20 +580,19 @@ function normalizeItemName(item: string) {
 }
 
 function getItemDisplayPrefixHtml(itemData: TrackedItem) {
-// function getItemDisplayPrefix(itemData: TrackedItem) {
 	if (activeSkillTab !== "all") return "";
 
-	if (itemData.skill === "mining") //return "⛏ ";
+	if (itemData.skill === "mining")
 		{ return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `; }
-	if (itemData.skill === "woodcutting") //return "🪓 ";
+	if (itemData.skill === "woodcutting")
 		{ return `<img class="item-prefix-icon" src="./icons/woodcutting.png" alt=""> `; }
-	if (itemData.skill === "fishing") //return "🎣 ";
+	if (itemData.skill === "fishing")
 		{ return `<img class="item-prefix-icon" src="./icons/fishing.png" alt=""> `; }
-	if (itemData.skill === "archaeology") //return "🏺 ";
+	if (itemData.skill === "archaeology")
 		{ return `<img class="item-prefix-icon" src="./icons/archaeology.png" alt=""> `; }
-	if (itemData.skill === "invention") //return "💡 ";
+	if (itemData.skill === "invention")
 		{ return `<img class="item-prefix-icon" src="./icons/invention.png" alt=""> `; }
-	if (itemData.skill === "seren") //return "♦ ";
+	if (itemData.skill === "seren")
 		{ return `<img class="item-prefix-icon" src="./icons/seren.png" alt=""> `; }
 
 	return "";
@@ -548,29 +600,6 @@ function getItemDisplayPrefixHtml(itemData: TrackedItem) {
 
 function isDamagedArtefact(item: string) {
 	return item.toLowerCase().includes("(damaged)");
-}
-
-function registerDamagedArtifactCount(item: string) {
-	if (!item.includes("(damaged)")) {
-		return true;
-	}
-
-	const now = Date.now();
-
-	recentDamagedArtifactCounts.forEach((seenAt, key) => {
-		if (now - seenAt > damagedArtifactDuplicateWindowMs) {
-			recentDamagedArtifactCounts.delete(key);
-		}
-	});
-
-	const lastSeen = recentDamagedArtifactCounts.get(item);
-
-	if (lastSeen && now - lastSeen < damagedArtifactDuplicateWindowMs) {
-		return false;
-	}
-
-	recentDamagedArtifactCounts.set(item, now);
-	return true;
 }
 
 // Update the status message in the footer with a timestamp on when events occurred
@@ -951,14 +980,8 @@ function renderItemRow(
 		}
 	}
 
-	// Icons
-	/* Icons Display: ${displayPrefixHtml}${escapeHtml(displayName)} */
 	const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
 	const displayName = titleCase(item);
-
-	/* Text Display: ${escapeHtml(displayPrefixHtml)} */
-	//const displayPrefix = getItemDisplayPrefix(itemData);
-	//const displayName = displayPrefix + titleCase(item);
 
 	row.innerHTML = `
 		<div class="item-main-row">
