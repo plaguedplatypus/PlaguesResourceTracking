@@ -1,9 +1,10 @@
 {
 	"scripts": {
-		"build": "webpack",
-		"build:prod": "webpack --mode production",
-		"watch": "webpack --watch",
-		"deploy": "gh-pages -d dist"
+		"build": "webpack --mode production",
+		"dev": "webpack --mode development --watch",
+		"local": "webpack --mode development && npx http-server .\\dist -p 8080",
+		"release": "webpack --mode production && powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -Path .\\dist\\* -Destination . -Recurse -Force\"",
+		"watch": "webpack --watch"
 	},
 	"dependencies": {
 		"alt1": "^0.1.3"

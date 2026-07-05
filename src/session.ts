@@ -235,6 +235,16 @@ function renderSessionWindowHtml() {
 				font-size: 12px;
 			}
 
+			::-webkit-scrollbar {width: 8px; height: 8px;}
+			::-webkit-scrollbar-button {
+				display: none;	
+				width: 0; 
+				height: 0;}
+			::-webkit-scrollbar-thumb {
+				min-height: 48px;
+				border: 1px solid #161a1d;
+				background: #9b7a36;}
+
 			.session-wrap {
 				box-sizing: border-box;
 				min-height: 100vh;

@@ -4,6 +4,8 @@ import DialogReader from "alt1/dialog";
 import { setupInventionNudges, processInventionMaterials, } from "./invention";
 import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./session";
 import { isInHistory, showChatHistory, updateChatHistory } from "./history";
+import { RT_VERSION } from "./updateNotes";
+import { maybeShowUpdateToast } from "./updateToast";
 
 import "./index.html";
 import "./appconfig.json";
@@ -60,6 +62,7 @@ const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
 
 const appCog = document.querySelector(".app-cog") as HTMLElement;
 const appSettingsPanel = document.querySelector(".app-settings-panel") as HTMLElement;
+const settingsVersion = document.querySelector(".settings-version") as HTMLElement | null;
 
 const chatSelector = document.querySelector(".chat") as HTMLSelectElement;
 const findChatButton = document.querySelector(".find-chat") as HTMLElement;
@@ -1407,7 +1410,6 @@ function bindRowEvents() {
 
 bindRowEvents();
 
-
 window.setInterval(function () {
 	if (!appSettingsPanel?.classList.contains("open")) return;
 
@@ -1437,8 +1439,15 @@ updateInventionFilterVisibility();
 updateSortButtonLabel();
 updateClearButtonLabel();
 updateSessionStatusMini();
+updateSettingsVersionLabel();
+maybeShowUpdateToast();
 updateTabsCollapsedUi();
 render();
+
+function updateSettingsVersionLabel() {
+	if (!settingsVersion) return;
+	settingsVersion.textContent = `Version ${RT_VERSION}`;
+}
 
 // App settings panel / session status refresh
 tabsToggleButton?.addEventListener("click", function () {

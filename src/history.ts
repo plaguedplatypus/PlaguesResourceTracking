@@ -119,6 +119,15 @@ function updateHistoryWindow() {
 	if (!doc.body.dataset.initialized) {
 		const style = doc.createElement("style");
 		style.textContent = `
+			::-webkit-scrollbar {width: 8px; height: 8px;}
+			::-webkit-scrollbar-button {
+				display: none;	
+				width: 0; 
+				height: 0;}
+			::-webkit-scrollbar-thumb {
+				min-height: 48px;
+				border: 1px solid #161a1d;
+				background: #9b7a36;}
 			.history-tag {font-weight: bold;}
 			.history-tag-counted {color: #7CFC7C;}
 			.history-tag-dialog-counted {color: #43bc9e;}
