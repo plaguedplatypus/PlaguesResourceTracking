@@ -347,9 +347,66 @@ function addMaterialContinuationNudge(reader: ChatboxReader): void {
 	});
 }
 
+function addTimestampMaterialContinuationNudge(reader: ChatboxReader): void {
+	reader.forwardnudges.push({
+		name: "timestamp-material-continuation",
+		match: /^\[\d{2}:\d{2}:\d{2}\]\s*$/,
+		fn: (ctx) => {
+			const addContinuation = (x: number, fragments: OCR.TextFragment[]) => {
+				ctx.addfrag({
+					color: [255, 255, 255],
+					index: -1,
+					text: " ",
+					xstart: ctx.rightx,
+					xend: x,
+				});
+
+				fragments.forEach((frag) => ctx.addfrag(frag));
+				return true;
+			};
+
+			const scanStart = ctx.rightx;
+			const scanEnd = ctx.rightx + ctx.font.spacewidth * 24;
+
+			for (let x = scanStart; x <= scanEnd; x++) {
+				for (const color of ctx.colors) {
+					const digit = OCR.readChar(
+						ctx.imgdata,
+						ctx.font,
+						color,
+						x,
+						ctx.baseliney,
+						false,
+						true
+					);
+
+					if (!digit || !/^\d$/.test(digit.chr)) {
+						continue;
+					}
+
+					const data = OCR.readLine(
+						ctx.imgdata,
+						ctx.font,
+						color,
+						digit.x,
+						ctx.baseliney,
+						true,
+						false
+					);
+
+					if (/^\d+\s*x\s+.+\b(?:components?|parts?)\b/i.test(data.text)) {
+						return addContinuation(digit.x, data.fragments);
+					}
+				}
+			}
+		},
+	});
+}
+
 export function setupInventionNudges(reader: ChatboxReader): void {
 	addCommaNudge(reader);
 	addMaterialContinuationNudge(reader);
+	addTimestampMaterialContinuationNudge(reader);
 	addTextBridgeNudge(
 		reader,
 		"component-bridge",

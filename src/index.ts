@@ -1,11 +1,11 @@
 import * as a1lib from "alt1/base";
-import ChatboxReader from "alt1/chatbox";
 import DialogReader from "alt1/dialog";
-import { setupInventionNudges, processInventionMaterials, } from "./invention";
+import { processInventionMaterials, } from "./invention";
 import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./session";
 import { isInHistory, showChatHistory, updateChatHistory } from "./history";
-import { RT_VERSION } from "./updateNotes";
-import { maybeShowUpdateToast } from "./updateToast";
+import { /*RT_DISCORD_INVITE_URL,*/ RT_VERSION } from "./updateNotes";
+import { maybeShowUpdateToast, showPatchNotesModal } from "./updateToast";
+import { ChatboxPosition, createResourceChatReader, processChatRows } from "./ChatReader";
 
 import "./index.html";
 import "./appconfig.json";
@@ -50,19 +50,17 @@ type SaveData = {
 	items: Record<string, TrackedItem>;
 };
 
-type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
-
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
 const tabsToggleButton = document.querySelector(".tabs-toggle") as HTMLElement | null;
 const compactSortButton = document.querySelector(".compact-sort-button") as HTMLElement | null;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
-const timestampLineRegex = /\[\d{2}:\d{2}:\d{2}\]/;
 
 const appCog = document.querySelector(".app-cog") as HTMLElement;
 const appSettingsPanel = document.querySelector(".app-settings-panel") as HTMLElement;
 const settingsVersion = document.querySelector(".settings-version") as HTMLElement | null;
+const settingsDiscord = document.querySelector(".settings-discord") as HTMLElement | null;
 
 const chatSelector = document.querySelector(".chat") as HTMLSelectElement;
 const findChatButton = document.querySelector(".find-chat") as HTMLElement;
@@ -98,7 +96,7 @@ let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
-let reader = createChatReader();
+let reader = createResourceChatReader();
 
 const savedActiveTab = savedData.activeTab as string | undefined;
 activeSkillTab =
@@ -152,33 +150,6 @@ if (window.alt1) {
 	status.innerHTML = `Alt1 not detected. <a href='${addappurl}'>Add this app to Alt1</a>`;
 }
 
-function createChatReader() {
-	const newReader = new ChatboxReader();
-	newReader.readargs.colors.push(
-		// anti aliasing sucks. These colors Alt1 does not have.
-		a1lib.mixColor(51, 197, 20), // faded Green messages
-		a1lib.mixColor(59, 181, 20), // Green messages
-		a1lib.mixColor(59, 181, 30), // Other Green messages
-
-		a1lib.mixColor(232, 47, 47), // pinkish red messages
-		a1lib.mixColor(190, 15, 6), // dark red messages
-
-		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
-		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
-
-		a1lib.mixColor(252, 174, 0), // Orange actions
-		a1lib.mixColor(253, 127, 0), // uncommon components
-		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
-
-		a1lib.mixColor(161, 53, 235), // what's this? Purple
-		a1lib.mixColor(51, 101, 252), // A random blue as entered the room
-	);
-
-	setupInventionNudges(newReader);
-
-	return newReader;
-}
-
 function populateChatSelector() {
 	if (!reader.pos) return;
 
@@ -218,6 +189,7 @@ function selectSavedChat() {
 
 function showSelectedChat(pos: any) {
 	if (!pos || !pos.mainbox) return;
+	if (!alt1.permissionOverlay) return;
 
 	alt1.overLayRect(
 		appColor,
@@ -367,7 +339,7 @@ function readDialogBox() {
 function readChatbox() {
 	const opts = reader.read() || [];
 
-	const chatArr = processChat(opts);
+	const chatArr = processChatRows(opts);
 
 	for (const chatLine of chatArr) {
 		const historyKey = chatLine.trim();
@@ -382,33 +354,6 @@ function readChatbox() {
 		}
 		updateChatHistory(historyKey, debugStatus);
 	}
-}
-
-function processChat(opts: Array<{ text: string }>) {
-	let chatStr = "";
-
-	for (let index = 0; index < opts.length; index++) {
-		const text = opts[index].text;
-		const hasTimestamp = timestampLineRegex.test(text);
-
-		if (!hasTimestamp && index === 0) {
-			continue;
-		}
-
-		if (hasTimestamp) {
-			if (index > 0) chatStr += "\n";
-			chatStr += text + " ";
-			continue;
-		}
-
-		chatStr += text + " ";
-	}
-
-	if (chatStr.trim() === "") return [];
-
-	return chatStr
-		.replace(/(\d) x x/g, "$1 x")
-		.split("\n");
 }
 
 // Process a single chat line to check for harvesting events
@@ -1266,7 +1211,7 @@ function deleteItem(item: string) {
 function refreshChatboxes() {
 	if (!window.alt1) return;
 
-	reader = createChatReader();
+	reader = createResourceChatReader();
 
 	const found = reader.find() as ChatboxPosition | null;
 
@@ -1447,6 +1392,9 @@ render();
 function updateSettingsVersionLabel() {
 	if (!settingsVersion) return;
 	settingsVersion.textContent = `Version ${RT_VERSION}`;
+	settingsVersion.setAttribute("role", "button");
+	settingsVersion.setAttribute("tabindex", "0");
+	settingsVersion.setAttribute("title", "Show Patch Notes");
 }
 
 // App settings panel / session status refresh
@@ -1459,6 +1407,17 @@ appCog?.addEventListener("click", function () {
 	appSettingsPanel?.classList.toggle("open");
 	updateSessionStatusMini();
 });
+
+settingsVersion?.addEventListener("click", showPatchNotesModal);
+settingsVersion?.addEventListener("keydown", event => {
+	if (event.key !== "Enter" && event.key !== " ") return;
+	event.preventDefault();
+	showPatchNotesModal();
+});
+
+/*settingsDiscord?.addEventListener("click", () => {
+	window.open(RT_DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
+});*/
 
 sortButton?.addEventListener("click", cycleSortMode);
 compactSortButton?.addEventListener("click", cycleSortMode);
