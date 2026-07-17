@@ -15,6 +15,7 @@ module.exports = {
     output: {
     path: path.resolve(__dirname, "dist"),
     library: { type: "umd", name: "TestApp" },
+    globalObject: "window",
     clean: true
     },
     devtool: false,
@@ -25,6 +26,9 @@ module.exports = {
         "canvas",
         "electron/common"
     ],
+	performance: {
+    hints: false,
+	},
     resolve: {
         extensions: [".wasm", ".tsx", ".ts", ".mjs", ".jsx", ".js"]
     },

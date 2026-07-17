@@ -1,4 +1,4 @@
-import { RT_UPDATE_ID, RT_UPDATE_NOTES, RT_UPDATE_TITLE } from "./updateNotes";
+import { allReleaseNotes, latestReleaseNote } from "./updateNotes";
 
 const UPDATE_TOAST_SEEN_KEY = "RT-update-toast-seen-id";
 
@@ -10,18 +10,22 @@ function getSeenReleaseId() {
 	}
 }
 
-function markReleaseSeen() {
+function markReleaseSeen(releaseId: string) {
 	try {
-		window.localStorage.setItem(UPDATE_TOAST_SEEN_KEY, RT_UPDATE_ID);
+		window.localStorage.setItem(UPDATE_TOAST_SEEN_KEY, releaseId);
 	} catch {
-		
+		// localStorage can be unavailable in some embedded contexts.
 	}
 }
 
 export function maybeShowUpdateToast() {
 	if (typeof window === "undefined" || typeof document === "undefined") return;
-	if (!RT_UPDATE_ID || !RT_UPDATE_NOTES.length) return;
-	if (getSeenReleaseId() === RT_UPDATE_ID) return;
+
+	const latest = latestReleaseNote();
+	if (!latest || !latest.version || !latest.items.length) return;
+
+	const latestVersion = latest.version;
+	if (getSeenReleaseId() === latestVersion) return;
 
 	const existingToast = document.querySelector(".update-toast");
 	if (existingToast) existingToast.remove();
@@ -31,12 +35,12 @@ export function maybeShowUpdateToast() {
 
 	const title = document.createElement("div");
 	title.className = "update-toast-title";
-	title.textContent = RT_UPDATE_TITLE;
+	title.textContent = `Update ${latestVersion}`;
 
 	const list = document.createElement("ul");
 	list.className = "update-toast-list";
 
-	for (const note of RT_UPDATE_NOTES) {
+	for (const note of latest.items) {
 		const item = document.createElement("li");
 		item.textContent = note;
 		list.appendChild(item);
@@ -48,7 +52,7 @@ export function maybeShowUpdateToast() {
 	close.textContent = "Got it";
 
 	function dismiss() {
-		markReleaseSeen();
+		markReleaseSeen(latestVersion);
 		toast.remove();
 	}
 
@@ -56,4 +60,79 @@ export function maybeShowUpdateToast() {
 
 	toast.append(title, list, close);
 	document.body.appendChild(toast);
+}
+
+export function showPatchNotesModal() {
+	if (typeof window === "undefined" || typeof document === "undefined") return;
+
+	const existing = document.getElementById("rt-patch-notes-modal");
+	if (existing) {
+		existing.removeAttribute("hidden");
+		existing.querySelector<HTMLElement>("button")?.focus?.();
+		return;
+	}
+
+	const modal = document.createElement("section");
+	modal.id = "rt-patch-notes-modal";
+	modal.className = "patch-notes-modal";
+	modal.setAttribute("role", "dialog");
+	modal.setAttribute("aria-modal", "true");
+	modal.setAttribute("aria-label", "Patch Notes");
+
+	const header = document.createElement("div");
+	header.className = "patch-notes-header";
+
+	const title = document.createElement("strong");
+	title.textContent = "Patch Notes";
+
+	const close = document.createElement("button");
+	close.className = "patch-notes-close";
+	close.type = "button";
+	close.title = "Close patch notes";
+	close.setAttribute("aria-label", "Close patch notes");
+	close.textContent = "X";
+
+	header.append(title, close);
+
+	const content = document.createElement("div");
+	content.className = "patch-notes-content";
+
+	for (const note of allReleaseNotes()) {
+		const entry = document.createElement("section");
+		entry.className = "patch-notes-entry";
+
+		const version = document.createElement("div");
+		version.className = "patch-notes-version";
+		version.textContent = `Version: ${note.version}`;
+		entry.appendChild(version);
+
+		if (note.title) {
+			const entryTitle = document.createElement("div");
+			entryTitle.className = "patch-notes-entry-title";
+			entryTitle.textContent = note.title;
+			entry.appendChild(entryTitle);
+		}
+
+		const list = document.createElement("ul");
+		list.className = "patch-notes-list";
+
+		for (const itemText of note.items) {
+			const item = document.createElement("li");
+			item.textContent = itemText;
+			list.appendChild(item);
+		}
+
+		entry.appendChild(list);
+		content.appendChild(entry);
+	}
+
+	function dismiss() {
+		modal.setAttribute("hidden", "");
+	}
+
+	close.addEventListener("click", dismiss);
+
+	modal.append(header, content);
+	document.body.appendChild(modal);
+	close.focus?.();
 }
