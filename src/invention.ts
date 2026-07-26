@@ -87,6 +87,12 @@ const uncommonComponents = new Set([
 	"variable components",
 ]);
 
+const knownComponents = [
+	...Array.from(ancientComponents),
+	...Array.from(rareComponents),
+	...Array.from(uncommonComponents),
+];
+
 function normalizeItemName(item: string): string {
 	return item
 		.toLowerCase()
@@ -111,16 +117,60 @@ function repairComponentName(text: string, componentSet: Set<string>): string | 
 			.replace(/[^a-z]/g, "");
 
 		const componentBase = componentNormalized.replace(/components$/, "");
+		const componentBaseWithoutFirstLetter = componentBase.slice(1);
 
 		if (
 			normalized.length >= 4 &&
-			componentBase.startsWith(normalized)
+			(
+				componentBase.startsWith(normalized) ||
+				componentBaseWithoutFirstLetter.startsWith(normalized)
+			)
 		) {
 			return component;
 		}
 	}
 
 	return null;
+}
+
+function normalizeComponentText(text: string): string {
+	return text
+		.toLowerCase()
+		.replace(/-/g, "e")
+		.replace(/\./g, "p")
+		.replace(/[^a-z]/g, "");
+}
+
+function matchesKnownComponentText(text: string): boolean {
+	const normalized = normalizeComponentText(text);
+
+	if (normalized.length < 6) return false;
+
+	return knownComponents.some((component) => {
+		const componentNormalized = normalizeComponentText(component);
+		const componentWithoutFirstLetter = componentNormalized.slice(1);
+
+		return (
+			componentNormalized.startsWith(normalized) ||
+			normalized.startsWith(componentNormalized) ||
+			componentWithoutFirstLetter.startsWith(normalized) ||
+			normalized.startsWith(componentWithoutFirstLetter)
+		);
+	});
+}
+
+function isKnownMaterialText(text: string): boolean {
+	const match = text.match(/^\s*\d+\s*x\s+(.+?)\s*$/i);
+
+	if (!match) return false;
+
+	const item = normalizeItemName(match[1]);
+
+	return (
+		item === "junk" ||
+		item.endsWith("parts") ||
+		matchesKnownComponentText(item)
+	);
 }
 
 function repairMaterialText(materialText: string): string {
@@ -220,6 +270,194 @@ function addTextBridgeNudge(
 
 					return true;
 				}
+			}
+		},
+	});
+}
+
+function addMaterialAfterHeaderNudge(reader: ChatboxReader): void {
+	reader.forwardnudges.push({
+		name: "material-after-header",
+		match: /Materials gained:\s*$/i,
+		fn: (ctx) => {
+			const addMaterial = (x: number, fragments: OCR.TextFragment[]) => {
+				if (!ctx.text.endsWith(" ")) {
+					ctx.addfrag({
+						color: [255, 255, 255],
+						index: -1,
+						text: " ",
+						xstart: ctx.rightx,
+						xend: x,
+					});
+				}
+
+				fragments.forEach((frag) => ctx.addfrag(frag));
+				return true;
+			};
+
+			const acceptsRecoveredMaterial = (text: string) =>
+				isKnownMaterialText(text) ||
+				/^\s*\d+\s*x\s*$/i.test(text);
+
+			const scanStart = ctx.rightx - ctx.font.spacewidth;
+			const scanEnd = ctx.rightx + ctx.font.spacewidth * 40;
+			const baselineYs = [
+				ctx.baseliney,
+				ctx.baseliney - 1,
+				ctx.baseliney + 1,
+				ctx.baseliney - 2,
+				ctx.baseliney + 2,
+			];
+			const triedStarts = new Set<number>();
+
+			for (const y of baselineYs) {
+				for (let x = scanStart; x <= scanEnd; x++) {
+					const data = OCR.readLine(
+						ctx.imgdata,
+						ctx.font,
+						ctx.colors,
+						x,
+						y,
+						true,
+						false
+					);
+
+					if (acceptsRecoveredMaterial(data.text)) {
+						return addMaterial(x, data.fragments);
+					}
+				}
+			}
+
+			for (const y of baselineYs) {
+				for (let x = scanStart; x <= scanEnd; x++) {
+					for (const color of ctx.colors) {
+					const digit = OCR.readChar(
+						ctx.imgdata,
+						ctx.font,
+						color,
+						x,
+						y,
+						false,
+						true
+					);
+
+					if (!digit || !/^\d$/.test(digit.chr)) {
+						continue;
+					}
+
+					if (triedStarts.has(digit.x)) {
+						continue;
+					}
+
+					triedStarts.add(digit.x);
+
+					const data = OCR.readLine(
+						ctx.imgdata,
+						ctx.font,
+						ctx.colors,
+						digit.x,
+						y,
+						true,
+						false
+					);
+
+					if (acceptsRecoveredMaterial(data.text)) {
+						return addMaterial(digit.x, data.fragments);
+					}
+				}
+			}
+			}
+		},
+	});
+}
+
+function addComponentAfterAmountNudge(reader: ChatboxReader): void {
+	reader.forwardnudges.push({
+		name: "component-after-amount",
+		match: /Materials gained:[\s\S]*\d+\s*x\s*$/i,
+		fn: (ctx) => {
+			const addComponentName = (x: number, fragments: OCR.TextFragment[]) => {
+				if (!ctx.text.endsWith(" ")) {
+					ctx.addfrag({
+						color: [255, 255, 255],
+						index: -1,
+						text: " ",
+						xstart: ctx.rightx,
+						xend: x,
+					});
+				}
+
+				fragments.forEach((frag) => ctx.addfrag(frag));
+				return true;
+			};
+
+			const scanStart = ctx.rightx - ctx.font.spacewidth;
+			const scanEnd = ctx.rightx + ctx.font.spacewidth * 40;
+			const baselineYs = [
+				ctx.baseliney,
+				ctx.baseliney - 1,
+				ctx.baseliney + 1,
+				ctx.baseliney - 2,
+				ctx.baseliney + 2,
+			];
+			const triedStarts = new Set<number>();
+
+			for (const y of baselineYs) {
+				for (let x = scanStart; x <= scanEnd; x++) {
+					const data = OCR.readLine(
+						ctx.imgdata,
+						ctx.font,
+						ctx.colors,
+						x,
+						y,
+						true,
+						false
+					);
+
+					if (matchesKnownComponentText(data.text)) {
+						return addComponentName(x, data.fragments);
+					}
+				}
+			}
+
+			for (const y of baselineYs) {
+				for (let x = scanStart; x <= scanEnd; x++) {
+					for (const color of ctx.colors) {
+					const letter = OCR.readChar(
+						ctx.imgdata,
+						ctx.font,
+						color,
+						x,
+						y,
+						false,
+						true
+					);
+
+					if (!letter || !/^[a-z]$/i.test(letter.chr)) {
+						continue;
+					}
+
+					if (triedStarts.has(letter.x)) {
+						continue;
+					}
+
+					triedStarts.add(letter.x);
+
+					const data = OCR.readLine(
+						ctx.imgdata,
+						ctx.font,
+						ctx.colors,
+						letter.x,
+						y,
+						true,
+						false
+					);
+
+					if (matchesKnownComponentText(data.text)) {
+						return addComponentName(letter.x, data.fragments);
+					}
+				}
+			}
 			}
 		},
 	});
@@ -405,6 +643,8 @@ function addTimestampMaterialContinuationNudge(reader: ChatboxReader): void {
 
 export function setupInventionNudges(reader: ChatboxReader): void {
 	addCommaNudge(reader);
+	addMaterialAfterHeaderNudge(reader);
+	addComponentAfterAmountNudge(reader);
 	addMaterialContinuationNudge(reader);
 	addTimestampMaterialContinuationNudge(reader);
 	addTextBridgeNudge(

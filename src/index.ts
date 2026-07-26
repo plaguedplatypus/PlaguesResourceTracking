@@ -523,7 +523,8 @@ function normalizeItemName(item: string) {
 	return item
 		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
 		.toLowerCase()
-		.replace(/[.!]$/, "")
+		.trim()
+		.replace(/[\s.,;:\[\]]+$/g, "")
 		.trim();
 }
 

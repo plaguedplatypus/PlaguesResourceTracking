@@ -37,14 +37,23 @@ export function createResourceChatReader(): ResourceChatReader {
 		a1lib.mixColor(59, 181, 30), // Other Green messages
 
 		a1lib.mixColor(232, 47, 47), // pinkish red messages
+		a1lib.mixColor(255, 64, 64), // Rare/red component text at larger chat fonts
+		a1lib.mixColor(220, 32, 32), // Rare/red component text at larger chat fonts
 		a1lib.mixColor(190, 15, 6), // dark red messages
 
 		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
 		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
 
 		a1lib.mixColor(252, 174, 0), // Orange actions
+		a1lib.mixColor(255, 160, 0), // Orange/yellow item text at larger chat fonts
+		a1lib.mixColor(255, 144, 0), // Orange/yellow item text at larger chat fonts
+		a1lib.mixColor(255, 128, 0), // Orange/yellow item text at larger chat fonts
+		a1lib.mixColor(238, 116, 0), // Darker orange antialiasing at larger chat fonts
 		a1lib.mixColor(253, 127, 0), // uncommon components
 		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
+		a1lib.mixColor(80, 205, 205), // Ancient/cyan component text at larger chat fonts
+		a1lib.mixColor(45, 170, 190), // Ancient/cyan component antialiasing
+		a1lib.mixColor(35, 145, 220), // Blue-tinted component antialiasing
 
 		a1lib.mixColor(161, 53, 235), // what's this? Purple
 		a1lib.mixColor(51, 101, 252), // A random blue as entered the room

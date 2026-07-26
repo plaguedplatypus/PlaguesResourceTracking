@@ -8,6 +8,14 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.6",
+		title: "Component Font Size",
+		items: [
+			"Fixed some components not being seen at different font sizes.",
+			"Select 'Find Chat' in settings after changing font sizes.",
+		],
+	},
+	{
 		version: "v1.5",
 		title: "Dissasembling Fix",
 		items: [
