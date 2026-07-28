@@ -1,7 +1,4 @@
-import ChatboxReader from "alt1/chatbox";
-import * as OCR from "alt1/ocr";
-
-type InventionMaterialUpdate = {
+export type InventionMaterialUpdate = {
 	item: string;
 	amount: number;
 	skill: "invention";
@@ -9,13 +6,14 @@ type InventionMaterialUpdate = {
 	source?: string;
 };
 
-type InventionMaterialResult = {
+export type InventionParseResult = {
 	updates: InventionMaterialUpdate[];
 	countedMaterials: string[];
 	statusMessage: string;
 };
 
-// List of ancient components.
+type ComponentTier = "ancient" | "rare" | "uncommon";
+
 const ancientComponents = new Set([
 	"classic components",
 	"historic components",
@@ -23,7 +21,6 @@ const ancientComponents = new Set([
 	"vintage components",
 ]);
 
-// List of rare components.
 const rareComponents = new Set([
 	"armadyl components",
 	"ascended components",
@@ -60,7 +57,6 @@ const rareComponents = new Set([
 	"zaros components",
 ]);
 
-// List of uncommon components.
 const uncommonComponents = new Set([
 	"dextrous components",
 	"direct components",
@@ -87,621 +83,55 @@ const uncommonComponents = new Set([
 	"variable components",
 ]);
 
-const knownComponents = [
-	...Array.from(ancientComponents),
-	...Array.from(rareComponents),
-	...Array.from(uncommonComponents),
-];
-
-function normalizeItemName(item: string): string {
-	return item
-		.toLowerCase()
-		.replace(/\.$/, "")
-		.trim();
-}
-
-function titleCase(text: string): string {
-	return text.replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function repairComponentName(text: string, componentSet: Set<string>): string | null {
-	const normalized = text
-		.toLowerCase()
-		.replace(/-/g, "e")
-		.replace(/\./g, "p")
-		.replace(/[^a-z]/g, "");
-
-	for (const component of Array.from(componentSet)) {
-		const componentNormalized = component
-			.toLowerCase()
-			.replace(/[^a-z]/g, "");
-
-		const componentBase = componentNormalized.replace(/components$/, "");
-		const componentBaseWithoutFirstLetter = componentBase.slice(1);
-
-		if (
-			normalized.length >= 4 &&
-			(
-				componentBase.startsWith(normalized) ||
-				componentBaseWithoutFirstLetter.startsWith(normalized)
-			)
-		) {
-			return component;
-		}
-	}
-
-	return null;
-}
-
-function normalizeComponentText(text: string): string {
-	return text
-		.toLowerCase()
-		.replace(/-/g, "e")
-		.replace(/\./g, "p")
-		.replace(/[^a-z]/g, "");
-}
-
-function matchesKnownComponentText(text: string): boolean {
-	const normalized = normalizeComponentText(text);
-
-	if (normalized.length < 6) return false;
-
-	return knownComponents.some((component) => {
-		const componentNormalized = normalizeComponentText(component);
-		const componentWithoutFirstLetter = componentNormalized.slice(1);
-
-		return (
-			componentNormalized.startsWith(normalized) ||
-			normalized.startsWith(componentNormalized) ||
-			componentWithoutFirstLetter.startsWith(normalized) ||
-			normalized.startsWith(componentWithoutFirstLetter)
-		);
-	});
-}
-
-function isKnownMaterialText(text: string): boolean {
-	const match = text.match(/^\s*\d+\s*x\s+(.+?)\s*$/i);
-
+export function startsWithKnownInventionComponent(text: string): boolean {
+	const match = text.match(
+		/^\s*([A-Za-z]+(?:-[A-Za-z]+)?\s+components?)\b/i
+	);
 	if (!match) return false;
 
-	const item = normalizeItemName(match[1]);
+	const componentName = match[1]
+		.toLowerCase()
+		.replace(/\bcomponent$/, "components");
 
-	return (
-		item === "junk" ||
-		item.endsWith("parts") ||
-		matchesKnownComponentText(item)
-	);
-}
-
-function repairMaterialText(materialText: string): string {
-	let finalMaterialText = materialText;
-
-	// Clean badly chopped "components" endings, like "Subtle co...po. --."
-	finalMaterialText = finalMaterialText.replace(
-		/\b([A-Za-z-]+)\s+co[\.\-a-z\s]*$/gi,
-		"$1"
-	);
-
-	// Repair chopped component names, like "Prot- ctiv-" or "H- avy".
-	finalMaterialText = finalMaterialText.replace(
-		/(\d+\s*x\s+)([A-Za-z- ]+?)(?=,|\.|$)/gi,
-		(match, prefix, brokenName) => {
-			const repaired =
-				repairComponentName(brokenName, ancientComponents) ||
-				repairComponentName(brokenName, rareComponents) ||
-				repairComponentName(brokenName, uncommonComponents);
-
-			return repaired ? `${prefix}${repaired}` : match;
-		}
-	);
-
-	// Remove orphan tails like ", components" or ", parts".
-	finalMaterialText = finalMaterialText.replace(
-		/,\s*(components|parts)$/i,
-		","
-	);
-
-	return finalMaterialText;
-}
-
-function addTextBridgeNudge(
-	reader: ChatboxReader,
-	name: string,
-	match: RegExp
-): void {
-	reader.forwardnudges.push({
-		name,
-		match,
-		fn: (ctx) => {
-			const startx = ctx.rightx;
-
-			for (const color of ctx.colors) {
-				for (const offset of [
-					0,
-					ctx.font.spacewidth,
-					ctx.font.spacewidth * 2,
-					ctx.font.spacewidth * 3,
-					1, 2, 3, 4, 5, 6,
-				]) {
-					const one = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						startx + offset,
-						ctx.baseliney,
-						false,
-						true
-					);
-
-					if (one?.chr !== "1") continue;
-
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						one.x,
-						ctx.baseliney,
-						true,
-						false
-					);
-
-					if (/^1\s*x\s+/i.test(data.text)) {
-						data.fragments.forEach((frag) => ctx.addfrag(frag));
-						return true;
-					}
-
-					const x = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						one.x + one.basechar.width + ctx.font.spacewidth,
-						ctx.baseliney,
-						false,
-						true
-					);
-
-					ctx.addfrag({
-						color,
-						index: -1,
-						text: x?.chr === "x" ? "1 x" : "1",
-						xstart: startx,
-						xend: one.x + one.basechar.width,
-					});
-
-					return true;
-				}
-			}
-		},
-	});
-}
-
-function addMaterialAfterHeaderNudge(reader: ChatboxReader): void {
-	reader.forwardnudges.push({
-		name: "material-after-header",
-		match: /Materials gained:\s*$/i,
-		fn: (ctx) => {
-			const addMaterial = (x: number, fragments: OCR.TextFragment[]) => {
-				if (!ctx.text.endsWith(" ")) {
-					ctx.addfrag({
-						color: [255, 255, 255],
-						index: -1,
-						text: " ",
-						xstart: ctx.rightx,
-						xend: x,
-					});
-				}
-
-				fragments.forEach((frag) => ctx.addfrag(frag));
-				return true;
-			};
-
-			const acceptsRecoveredMaterial = (text: string) =>
-				isKnownMaterialText(text) ||
-				/^\s*\d+\s*x\s*$/i.test(text);
-
-			const scanStart = ctx.rightx - ctx.font.spacewidth;
-			const scanEnd = ctx.rightx + ctx.font.spacewidth * 40;
-			const baselineYs = [
-				ctx.baseliney,
-				ctx.baseliney - 1,
-				ctx.baseliney + 1,
-				ctx.baseliney - 2,
-				ctx.baseliney + 2,
-			];
-			const triedStarts = new Set<number>();
-
-			for (const y of baselineYs) {
-				for (let x = scanStart; x <= scanEnd; x++) {
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						ctx.colors,
-						x,
-						y,
-						true,
-						false
-					);
-
-					if (acceptsRecoveredMaterial(data.text)) {
-						return addMaterial(x, data.fragments);
-					}
-				}
-			}
-
-			for (const y of baselineYs) {
-				for (let x = scanStart; x <= scanEnd; x++) {
-					for (const color of ctx.colors) {
-					const digit = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						x,
-						y,
-						false,
-						true
-					);
-
-					if (!digit || !/^\d$/.test(digit.chr)) {
-						continue;
-					}
-
-					if (triedStarts.has(digit.x)) {
-						continue;
-					}
-
-					triedStarts.add(digit.x);
-
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						ctx.colors,
-						digit.x,
-						y,
-						true,
-						false
-					);
-
-					if (acceptsRecoveredMaterial(data.text)) {
-						return addMaterial(digit.x, data.fragments);
-					}
-				}
-			}
-			}
-		},
-	});
-}
-
-function addComponentAfterAmountNudge(reader: ChatboxReader): void {
-	reader.forwardnudges.push({
-		name: "component-after-amount",
-		match: /Materials gained:[\s\S]*\d+\s*x\s*$/i,
-		fn: (ctx) => {
-			const addComponentName = (x: number, fragments: OCR.TextFragment[]) => {
-				if (!ctx.text.endsWith(" ")) {
-					ctx.addfrag({
-						color: [255, 255, 255],
-						index: -1,
-						text: " ",
-						xstart: ctx.rightx,
-						xend: x,
-					});
-				}
-
-				fragments.forEach((frag) => ctx.addfrag(frag));
-				return true;
-			};
-
-			const scanStart = ctx.rightx - ctx.font.spacewidth;
-			const scanEnd = ctx.rightx + ctx.font.spacewidth * 40;
-			const baselineYs = [
-				ctx.baseliney,
-				ctx.baseliney - 1,
-				ctx.baseliney + 1,
-				ctx.baseliney - 2,
-				ctx.baseliney + 2,
-			];
-			const triedStarts = new Set<number>();
-
-			for (const y of baselineYs) {
-				for (let x = scanStart; x <= scanEnd; x++) {
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						ctx.colors,
-						x,
-						y,
-						true,
-						false
-					);
-
-					if (matchesKnownComponentText(data.text)) {
-						return addComponentName(x, data.fragments);
-					}
-				}
-			}
-
-			for (const y of baselineYs) {
-				for (let x = scanStart; x <= scanEnd; x++) {
-					for (const color of ctx.colors) {
-					const letter = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						x,
-						y,
-						false,
-						true
-					);
-
-					if (!letter || !/^[a-z]$/i.test(letter.chr)) {
-						continue;
-					}
-
-					if (triedStarts.has(letter.x)) {
-						continue;
-					}
-
-					triedStarts.add(letter.x);
-
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						ctx.colors,
-						letter.x,
-						y,
-						true,
-						false
-					);
-
-					if (matchesKnownComponentText(data.text)) {
-						return addComponentName(letter.x, data.fragments);
-					}
-				}
-			}
-			}
-		},
-	});
-}
-
-function addCommaNudge(reader: ChatboxReader): void {
-	reader.forwardnudges.push({
-		name: "material-comma",
-		match: /Materials gained:[\s\S]*(parts|components)$/i,
-		fn: (ctx) => {
-			for (const offset of [0, 1, 2, 3, 4, 5, ctx.font.spacewidth]) {
-				for (const color of ctx.colors) {
-					const comma = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						ctx.rightx + offset,
-						ctx.baseliney,
-						false,
-						true
-					);
-
-					if (comma?.chr !== ",") continue;
-
-					ctx.addfrag({
-						color,
-						index: -1,
-						text: ", ",
-						xstart: ctx.rightx,
-						xend: comma.x + comma.basechar.width + ctx.font.spacewidth,
-					});
-
-					return true;
-				}
-			}
-		},
-	});
-}
-
-function addMaterialContinuationNudge(reader: ChatboxReader): void {
-	reader.forwardnudges.push({
-		name: "material-color-continuation",
-		match: /Materials gained:[\s\S]*(?:,|\bparts|\bcomponents)\s*$/i,
-		fn: (ctx) => {
-			const addContinuation = (x: number, fragments: OCR.TextFragment[]) => {
-				if (!ctx.text.endsWith(" ")) {
-					ctx.addfrag({
-						color: [255, 255, 255],
-						index: -1,
-						text: " ",
-						xstart: ctx.rightx,
-						xend: x,
-					});
-				}
-
-				fragments.forEach((frag) => ctx.addfrag(frag));
-				return true;
-			};
-
-			const candidateStarts = [
-				ctx.rightx - ctx.font.spacewidth * 4,
-				ctx.rightx - ctx.font.spacewidth * 3,
-				ctx.rightx - ctx.font.spacewidth * 2,
-				ctx.rightx - ctx.font.spacewidth,
-				ctx.rightx,
-				ctx.rightx + ctx.font.spacewidth,
-				ctx.rightx + ctx.font.spacewidth * 2,
-				ctx.rightx + ctx.font.spacewidth * 3,
-				ctx.rightx + ctx.font.spacewidth * 4,
-			];
-
-			for (const x of candidateStarts) {
-				const data = OCR.readLine(
-					ctx.imgdata,
-					ctx.font,
-					ctx.colors,
-					x,
-					ctx.baseliney,
-					true,
-					false
-				);
-
-				if (!/^\s*\d+\s*x\s+/i.test(data.text)) {
-					continue;
-				}
-
-				return addContinuation(x, data.fragments);
-			}
-
-			const scanStart = ctx.rightx - ctx.font.spacewidth * 4;
-			const scanEnd = ctx.rightx + ctx.font.spacewidth * 12;
-
-			for (let x = scanStart; x <= scanEnd; x++) {
-				for (const color of ctx.colors) {
-					const digit = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						x,
-						ctx.baseliney,
-						false,
-						true
-					);
-
-					if (!digit || !/^\d$/.test(digit.chr)) {
-						continue;
-					}
-
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						digit.x,
-						ctx.baseliney,
-						true,
-						false
-					);
-
-					if (/^\d+\s*x\s+/i.test(data.text)) {
-						return addContinuation(digit.x, data.fragments);
-					}
-				}
-			}
-		},
-	});
-}
-
-function addTimestampMaterialContinuationNudge(reader: ChatboxReader): void {
-	reader.forwardnudges.push({
-		name: "timestamp-material-continuation",
-		match: /^\[\d{2}:\d{2}:\d{2}\]\s*$/,
-		fn: (ctx) => {
-			const addContinuation = (x: number, fragments: OCR.TextFragment[]) => {
-				ctx.addfrag({
-					color: [255, 255, 255],
-					index: -1,
-					text: " ",
-					xstart: ctx.rightx,
-					xend: x,
-				});
-
-				fragments.forEach((frag) => ctx.addfrag(frag));
-				return true;
-			};
-
-			const scanStart = ctx.rightx;
-			const scanEnd = ctx.rightx + ctx.font.spacewidth * 24;
-
-			for (let x = scanStart; x <= scanEnd; x++) {
-				for (const color of ctx.colors) {
-					const digit = OCR.readChar(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						x,
-						ctx.baseliney,
-						false,
-						true
-					);
-
-					if (!digit || !/^\d$/.test(digit.chr)) {
-						continue;
-					}
-
-					const data = OCR.readLine(
-						ctx.imgdata,
-						ctx.font,
-						color,
-						digit.x,
-						ctx.baseliney,
-						true,
-						false
-					);
-
-					if (/^\d+\s*x\s+.+\b(?:components?|parts?)\b/i.test(data.text)) {
-						return addContinuation(digit.x, data.fragments);
-					}
-				}
-			}
-		},
-	});
-}
-
-export function setupInventionNudges(reader: ChatboxReader): void {
-	addCommaNudge(reader);
-	addMaterialAfterHeaderNudge(reader);
-	addComponentAfterAmountNudge(reader);
-	addMaterialContinuationNudge(reader);
-	addTimestampMaterialContinuationNudge(reader);
-	addTextBridgeNudge(
-		reader,
-		"component-bridge",
-		/Materials gained:[\s\S]*(?:parts|components)/i
-	);
+	return getComponentTier(componentName) !== null;
 }
 
 export function processInventionMaterials(
 	cleanLine: string
-): InventionMaterialResult | null {
+): InventionParseResult | null {
 	const materialsMatch = cleanLine.match(/Materials gained:\s*(.+)$/i);
-
 	if (!materialsMatch) return null;
 
-	const materialText = materialsMatch[1];
-	const finalMaterialText = repairMaterialText(materialText);
-	const materialRegex = /(\d+)\s*x\s*([^,\.]+?)(?:,|\.|$)/gi;
-	let materialMatch: RegExpExecArray | null;
-	const countedMaterials: string[] = [];
+	const materialText = materialsMatch[1].trim();
+	if (/,\s*$/.test(materialText)) {
+		return null;
+	}
+
+	const materialRegex = /(\d+)\s*x\s*([^,.]+?)(?:,|\.|$)/gi;
 	const updates: InventionMaterialUpdate[] = [];
+	const countedMaterials: string[] = [];
 	let statusMessage = "";
+	let materialMatch: RegExpExecArray | null;
 
-	while ((materialMatch = materialRegex.exec(finalMaterialText)) !== null) {
-		const amount = parseInt(materialMatch[1], 10);
-		const item = normalizeItemName(materialMatch[2]);
+	const addMaterial = (item: string, amount: number): void => {
+		if (!item || !Number.isFinite(amount)) {
+			return;
+		}
 
-		if (!item || isNaN(amount)) continue;
-		if (item === "junk") continue;
+		const componentTier = getComponentTier(item);
+		const isCommonMaterial =
+			/\bparts$/.test(item) || item === "junk";
 
-		const isAncientComponent = ancientComponents.has(item);
-		const isRareComponent = rareComponents.has(item);
-		const isComponent = item.includes("components");
-		const isPart = item.includes("parts");
+		if (!componentTier && !isCommonMaterial) {
+			return;
+		}
 
-		const isInventionMaterial =
-			isComponent ||
-			isPart;
-
-		if (!isInventionMaterial) continue;
-
-		const colorClass = isAncientComponent
-			? "ancient-component"
-			: isRareComponent
-				? "rare-component"
-				: isComponent
-					? "uncommon-component"
-					: undefined;
-
-		const source = isAncientComponent
-			? "ancient-components"
-			: isRareComponent
-				? "rare-components"
-				: isComponent
-					? "uncommon-components"
-					: "invention";
+		const colorClass = componentTier
+			? `${componentTier}-component`
+			: undefined;
+		const source = componentTier
+			? `${componentTier}-components`
+			: "invention";
 
 		updates.push({
 			item,
@@ -713,6 +143,31 @@ export function processInventionMaterials(
 
 		countedMaterials.push(`${titleCase(item)} +${amount}`);
 		statusMessage = `💡: ${amount} x ${item}`;
+	};
+
+	while ((materialMatch = materialRegex.exec(materialText)) !== null) {
+		const amount = parseInt(materialMatch[1], 10);
+		const item = normalizeMaterialName(materialMatch[2]);
+
+		addMaterial(item, amount);
+	}
+
+	for (const segment of materialText.split(",")) {
+		const orphanText = segment.trim();
+		if (
+			!orphanText ||
+			/^\d+\s*x\b/i.test(orphanText) ||
+			!/\bcomponents?\.?$/i.test(orphanText)
+		) {
+			continue;
+		}
+
+		const orphanComponent = normalizeMaterialName(orphanText);
+		if (!getComponentTier(orphanComponent)) {
+			continue;
+		}
+
+		addMaterial(orphanComponent, 1);
 	}
 
 	if (updates.length === 0) return null;
@@ -722,4 +177,34 @@ export function processInventionMaterials(
 		countedMaterials,
 		statusMessage,
 	};
+}
+
+function normalizeMaterialName(item: string): string {
+	const normalized = item
+		.toLowerCase()
+		.replace(/\.$/, "")
+		.replace(/\bcomponent$/, "components")
+		.replace(/\bpart$/, "parts")
+		.trim();
+
+	if (getComponentTier(normalized)) {
+		return normalized;
+	}
+
+	const completedComponent = `${normalized} components`;
+	return getComponentTier(completedComponent)
+		? completedComponent
+		: normalized;
+}
+
+function getComponentTier(item: string): ComponentTier | null {
+	if (ancientComponents.has(item)) return "ancient";
+	if (rareComponents.has(item)) return "rare";
+	if (uncommonComponents.has(item)) return "uncommon";
+
+	return null;
+}
+
+function titleCase(text: string): string {
+	return text.replace(/\b\w/g, (char) => char.toUpperCase());
 }

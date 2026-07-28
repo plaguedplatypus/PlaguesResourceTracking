@@ -1,242 +1,206 @@
-import * as a1lib from "alt1/base";
-import ChatboxReader from "alt1/chatbox";
-import { setupInventionNudges } from "./invention";
+import Alt1ChatboxSource, {
+	ChatboxPosition,
+	repairInventionOcrText,
+	VisualChatRow,
+} from "./Alt1ChatboxSource";
+import { startsWithKnownInventionComponent } from "./invention";
 
-export type ResourceChatReader = ChatboxReader;
-export type ChatboxPosition = NonNullable<ChatboxReader["pos"]>;
+export { ChatboxPosition };
 
-const leadingTimestampRegex = /^\[\d{2}:\d{2}:\d{2}\]\s*/;
-const timestampValueRegex = /^\[(\d{2}:\d{2}:\d{2})\]\s*/;
-const materialLineRegex = /\bMaterials gained:/i;
-const materialContinuationRegex =
-	/^\d+\s*x\s+.+\b(?:components?|parts?)\b[,.! ]*$/i;
-const materialTailRegex =
-	/^(?:(?:[a-z][a-z' -]*\s+)?(?:components?|parts?))[,.! ]*$/i;
-const continuationStartRegex =
-	/^(?:and|to|sent|yielding|granting|giving|with)\b/i;
-const unfinishedLineRegex =
-	/(?:[,;:]|\b(?:following items?|following item|receive|received|adds?|contains?|including|yielding|granting|gives you|sent it to your bank)\s*:?\s*|\b\d+\s*x\s*)$/i;
-const recentMaterialContextMs = 10000;
+type GroupedRows = {
+	messages: string[];
+	lastTimestamp: string | null;
+};
 
-let recentMaterialContext: { timestamp: string; updatedAt: number } | null = null;
+const timestampRegex =
+	/\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]/;
+const leadingTimestampRegex =
+	/^\[\s*\d{2}\s*:\s*\d{2}\s*:\s*\d{2}\s*\]\s*/;
+const quantityContinuationRegex = /^\d+\s*x(?:\s+|$)/i;
+const continuationWordRegex =
+	/^(?:and|another|continuation|from|into|or|sent|to|with|yielding)\b/i;
+const incompleteMessageRegex =
+	/(?:[,;:]|\b\d+\s*x)\s*$/i;
+const terminalPunctuationRegex = /[.!?)]\s*$/;
 
-export function createResourceChatReader(): ResourceChatReader {
-	recentMaterialContext = null;
-
-	const reader = new ChatboxReader();
-
-	// Do not use Alt1's timestamp cutoff: wrapped continuation rows can share the
-	// same timestamp as the parent material line and arrive slightly later.
-	reader.diffRead = true;
-	reader.diffReadUseTimestamps = false;
-
-	reader.readargs.colors.push(
-		// anti aliasing sucks. These colors Alt1 does not have.
-		a1lib.mixColor(51, 197, 20), // faded Green messages
-		a1lib.mixColor(59, 181, 20), // Green messages
-		a1lib.mixColor(59, 181, 30), // Other Green messages
-
-		a1lib.mixColor(232, 47, 47), // pinkish red messages
-		a1lib.mixColor(255, 64, 64), // Rare/red component text at larger chat fonts
-		a1lib.mixColor(220, 32, 32), // Rare/red component text at larger chat fonts
-		a1lib.mixColor(190, 15, 6), // dark red messages
-
-		a1lib.mixColor(252, 140, 56), // broadcasts we don't need
-		a1lib.mixColor(245, 135, 55), // broadcasts we don't need
-
-		a1lib.mixColor(252, 174, 0), // Orange actions
-		a1lib.mixColor(255, 160, 0), // Orange/yellow item text at larger chat fonts
-		a1lib.mixColor(255, 144, 0), // Orange/yellow item text at larger chat fonts
-		a1lib.mixColor(255, 128, 0), // Orange/yellow item text at larger chat fonts
-		a1lib.mixColor(238, 116, 0), // Darker orange antialiasing at larger chat fonts
-		a1lib.mixColor(253, 127, 0), // uncommon components
-		a1lib.mixColor(67, 188, 188), // Cotton candy? or ancient?
-		a1lib.mixColor(80, 205, 205), // Ancient/cyan component text at larger chat fonts
-		a1lib.mixColor(45, 170, 190), // Ancient/cyan component antialiasing
-		a1lib.mixColor(35, 145, 220), // Blue-tinted component antialiasing
-
-		a1lib.mixColor(161, 53, 235), // what's this? Purple
-		a1lib.mixColor(51, 101, 252), // A random blue as entered the room
-	);
-
-	setupInventionNudges(reader);
-
-	return reader;
+/**
+ * Converts Alt1 visual rows into complete logical messages.
+ *
+ * Examples:
+ * - Same timestamp:
+ *   ["[17:16:04] Materials gained: 9 x Metallic parts,",
+ *    "[17:16:04] 8 x Timeworn components"]
+ * - Untimestamped wrapping:
+ *   ["[12:00:00] Main message begins",
+ *    "continuation line one", "continuation line two"]
+ */
+export function groupVisualRowsIntoMessages(rows: string[]): string[] {
+	return groupRows(rows, null).messages;
 }
 
-export function processChatRows(opts: Array<{ text: string }>): string[] {
-	const groupedRows: string[] = [];
-	let activeLine = "";
-	let activeTimestamp: string | null = null;
-	let pendingTimestampOnly: string | null = null;
+export default class ResourceChatReader {
+	private readonly source = new Alt1ChatboxSource();
+	private lastTimestamp: string | null = null;
 
-	const flushActiveLine = () => {
-		if (!activeLine) return;
+	get pos(): ChatboxPosition | null {
+		return this.source.pos;
+	}
 
-		groupedRows.push(activeLine);
-		activeLine = "";
-		activeTimestamp = null;
+	set pos(value: ChatboxPosition | null) {
+		this.source.pos = value;
+	}
+
+	get readargs(): { colors: number[] } {
+		return this.source.readargs;
+	}
+
+	find(): ChatboxPosition | null {
+		return this.source.find();
+	}
+
+	read(): Array<{ text: string }> {
+		const rows = this.readVisualRows().map((row) => row.text);
+		const grouped = groupRows(rows, this.lastTimestamp);
+
+		this.lastTimestamp = grouped.lastTimestamp;
+
+		return grouped.messages.map((text) => ({ text }));
+	}
+
+	private readVisualRows(): VisualChatRow[] {
+		return this.source.read();
+	}
+}
+
+function groupRows(
+	rows: string[],
+	previousTimestamp: string | null
+): GroupedRows {
+	const messages: string[] = [];
+	let currentMessage = "";
+	let currentTimestamp: string | null = null;
+	let lastTimestamp = previousTimestamp;
+
+	const flushCurrent = () => {
+		if (!currentMessage) return;
+
+		messages.push(repairInventionOcrText(currentMessage));
+		currentMessage = "";
+		currentTimestamp = null;
 	};
 
-	const preservePendingTimestamp = () => {
-		if (!pendingTimestampOnly) return;
-
-		flushActiveLine();
-		groupedRows.push(`[${pendingTimestampOnly}]`);
-		pendingTimestampOnly = null;
-	};
-
-	for (let row of opts.map((option) => normalizeChatWhitespace(option.text))) {
+	for (const rawRow of rows) {
+		const row = normalizeChatWhitespace(rawRow);
 		if (!row) continue;
 
-		let timestamp = getTimestamp(row);
-		let body = stripLeadingTimestamp(row);
+		const timestamp = getTimestamp(row);
+		const body = stripTimestamp(row);
 
-		if (!timestamp && pendingTimestampOnly) {
-			row = `[${pendingTimestampOnly}] ${body}`;
-			timestamp = pendingTimestampOnly;
-			body = stripLeadingTimestamp(row);
-			pendingTimestampOnly = null;
-		} else if (timestamp && pendingTimestampOnly) {
-			preservePendingTimestamp();
-		}
+		if (timestamp) {
+			lastTimestamp = timestamp;
 
-		if (timestamp && !body) {
-			pendingTimestampOnly = timestamp;
+			if (
+				currentMessage &&
+				currentTimestamp === timestamp &&
+				looksLikeContinuation(body, currentMessage, true)
+			) {
+				currentMessage = joinContinuation(currentMessage, body);
+				continue;
+			}
+
+			flushCurrent();
+			currentMessage = `${timestamp} ${body}`.trim();
+			currentTimestamp = timestamp;
 			continue;
-		}
-
-		if (!timestamp) {
-			if (activeLine) {
-				activeLine = joinChatContinuation(activeLine, row);
-				continue;
-			}
-
-			groupedRows.push(
-				createSyntheticMaterialContinuation(body) ?? row
-			);
-			continue;
-		}
-
-		if (isStandaloneMaterialContinuation(body)) {
-			if (activeLine && activeTimestamp === timestamp && isMaterialLine(activeLine)) {
-				rememberMaterialContext(timestamp);
-				groupedRows.push(activeLine);
-				groupedRows.push(formatSyntheticMaterialContinuation(timestamp, body));
-				activeLine = "";
-				activeTimestamp = null;
-				continue;
-			}
-
-			const contextTimestamp = getRecentMaterialTimestamp(timestamp);
-
-			if (contextTimestamp) {
-				flushActiveLine();
-				groupedRows.push(formatSyntheticMaterialContinuation(contextTimestamp, body));
-				continue;
-			}
 		}
 
 		if (
-			activeLine &&
-			activeTimestamp === timestamp &&
-			shouldJoinTimestampedContinuation(activeLine, body)
+			currentMessage &&
+			looksLikeContinuation(body, currentMessage, false)
 		) {
-			activeLine = joinChatContinuation(activeLine, body);
-
-			if (isMaterialLine(activeLine)) {
-				rememberMaterialContext(timestamp);
-			}
-
+			currentMessage = joinContinuation(currentMessage, body);
 			continue;
 		}
 
-		flushActiveLine();
-
-		activeLine = row;
-		activeTimestamp = timestamp;
-
-		if (isMaterialLine(activeLine)) {
-			rememberMaterialContext(timestamp);
-		}
+		flushCurrent();
+		currentMessage = lastTimestamp
+			? `${lastTimestamp} ${body}`.trim()
+			: body;
+		currentTimestamp = lastTimestamp;
 	}
 
-	flushActiveLine();
-	preservePendingTimestamp();
+	flushCurrent();
 
-	return groupedRows
-		.map((text) => text.replace(/(\d)\s*x\s+x\b/gi, "$1 x").trim())
-		.filter(Boolean);
+	return { messages, lastTimestamp };
 }
 
-function normalizeChatWhitespace(text: string): string {
-	return text.replace(/\s+/g, " ").trim();
+export function hasTimestamp(text: string): boolean {
+	return timestampRegex.test(text);
 }
 
-function getTimestamp(text: string): string | null {
-	return text.match(timestampValueRegex)?.[1] ?? null;
+export function getTimestamp(text: string): string | null {
+	const match = text.match(timestampRegex);
+	if (!match) return null;
+
+	return `[${match[1]}:${match[2]}:${match[3]}]`;
 }
 
-function stripLeadingTimestamp(text: string): string {
+export function stripTimestamp(text: string): string {
 	return text.replace(leadingTimestampRegex, "").trim();
 }
 
-function shouldJoinTimestampedContinuation(activeLine: string, body: string): boolean {
-	const activeBody = stripLeadingTimestamp(activeLine);
-
-	return (
-		continuationStartRegex.test(body) ||
-		materialTailRegex.test(body) ||
-		unfinishedLineRegex.test(activeBody)
-	);
+export function normalizeChatWhitespace(text: string): string {
+	return text
+		.replace(timestampRegex, (_match, hour, minute, second) =>
+			`[${hour}:${minute}:${second}]`
+		)
+		.replace(/\s+/g, " ")
+		.trim();
 }
 
-function createSyntheticMaterialContinuation(body: string): string | null {
-	if (!isStandaloneMaterialContinuation(body)) return null;
+export function looksLikeContinuation(
+	rowText: string,
+	currentMessage: string,
+	rowHasTimestamp = false
+): boolean {
+	const row = stripTimestamp(rowText);
+	const currentBody = stripTimestamp(currentMessage);
 
-	const timestamp = getRecentMaterialTimestamp();
-	if (!timestamp) return null;
+	if (!row) return false;
 
-	return formatSyntheticMaterialContinuation(timestamp, body);
-}
-
-function formatSyntheticMaterialContinuation(timestamp: string, body: string): string {
-	return `[${timestamp}] Materials gained: ${body}`;
-}
-
-function isMaterialLine(text: string): boolean {
-	return materialLineRegex.test(text);
-}
-
-function isStandaloneMaterialContinuation(text: string): boolean {
-	return !isMaterialLine(text) && materialContinuationRegex.test(text);
-}
-
-function rememberMaterialContext(timestamp: string): void {
-	recentMaterialContext = {
-		timestamp,
-		updatedAt: Date.now(),
-	};
-}
-
-function getRecentMaterialTimestamp(timestamp?: string | null): string | null {
-	if (!recentMaterialContext) return null;
-
-	if (Date.now() - recentMaterialContext.updatedAt > recentMaterialContextMs) {
-		recentMaterialContext = null;
-		return null;
+	if (
+		quantityContinuationRegex.test(row) ||
+		continuationWordRegex.test(row) ||
+		incompleteMessageRegex.test(currentBody)
+	) {
+		return true;
 	}
 
-	if (timestamp && recentMaterialContext.timestamp !== timestamp) {
-		return null;
+	if (/^[a-z]/.test(row) && !terminalPunctuationRegex.test(currentBody)) {
+		return true;
 	}
 
-	return recentMaterialContext.timestamp;
+	return !rowHasTimestamp && !terminalPunctuationRegex.test(currentBody);
 }
 
-function joinChatContinuation(base: string, continuation: string): string {
-	const cleanContinuation = stripLeadingTimestamp(continuation);
-	if (!cleanContinuation) return base;
+export function joinContinuation(
+	currentMessage: string,
+	continuationText: string
+): string {
+	const continuation = stripTimestamp(continuationText);
+	if (!continuation) return normalizeChatWhitespace(currentMessage);
 
-	return `${base.trimEnd()} ${cleanContinuation}`.replace(/\s+/g, " ").trim();
+	const base = currentMessage.trimEnd();
+	const startsKnownComponent =
+		/\bMaterials gained:/i.test(base) &&
+		/\b(?:parts?|components?)\s*$/i.test(base) &&
+		startsWithKnownInventionComponent(continuation);
+	const separator =
+		(quantityContinuationRegex.test(continuation) ||
+			startsKnownComponent) &&
+		!/,\s*$/.test(base)
+			? ", "
+			: " ";
+
+	return normalizeChatWhitespace(`${base}${separator}${continuation}`);
 }
