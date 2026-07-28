@@ -8,6 +8,16 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.6-2",
+		title: "Component Wrapping",
+		items: [
+			"Fixed some wrapped line issues for components/parts.",
+			"'E' components should still be captured when split between lines.",
+			"Junk will now appear in 'Common Components'.",
+			"Select 'Find Chat' in settings after changing font sizes.",
+		],
+	},
+	{
 		version: "v1.6",
 		title: "Component Font Size",
 		items: [

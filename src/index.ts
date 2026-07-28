@@ -5,7 +5,7 @@ import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./se
 import { isInHistory, showChatHistory, updateChatHistory } from "./history";
 import { /*RT_DISCORD_INVITE_URL,*/ RT_VERSION } from "./updateNotes";
 import { maybeShowUpdateToast, showPatchNotesModal } from "./updateToast";
-import { ChatboxPosition, createResourceChatReader, processChatRows } from "./ChatReader";
+import ResourceChatReader, { ChatboxPosition } from "./ChatReader";
 
 import "./index.html";
 import "./appconfig.json";
@@ -96,7 +96,7 @@ let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
-let reader = createResourceChatReader();
+let reader = new ResourceChatReader();
 
 const savedActiveTab = savedData.activeTab as string | undefined;
 activeSkillTab =
@@ -131,15 +131,33 @@ window.setTimeout(function () {
 		status.innerText = "Chat found. Tracking started.";
 		render();
 
-		setInterval(function () {
+		const runReaderPoll = (
+			readerName: "chat" | "dialog",
+			read: () => void
+		) => {
 			try {
-				readChatbox();
-				readDialogBox();
+				read();
 			} catch (error) {
-				console.warn("Tracker read failed", error);
-				status.innerText = "Tracking read failed. Click Find Chat if tracking stopped.";
+				console.warn(`${readerName} reader failed`, error);
+				status.innerText =
+					"Tracking read failed. Click Find Chat if tracking stopped.";
 			}
-		}, 600);
+		};
+
+		setInterval(
+			() => runReaderPoll("chat", readChatbox),
+			600
+		);
+
+		// Keep both readers at 600 ms, but avoid blocking the UI by running
+		// their synchronous OCR captures in the same interval callback.
+		setTimeout(() => {
+			runReaderPoll("dialog", readDialogBox);
+			setInterval(
+				() => runReaderPoll("dialog", readDialogBox),
+				600
+			);
+		}, 300);
 	}, 1000);
 }, 50);
 
@@ -337,11 +355,7 @@ function readDialogBox() {
 }
 
 function readChatbox() {
-	const opts = reader.read() || [];
-
-	const chatArr = processChatRows(opts);
-
-	for (const chatLine of chatArr) {
+	for (const { text: chatLine } of reader.read()) {
 		const historyKey = chatLine.trim();
 		if (!historyKey) continue;
 
@@ -1212,7 +1226,7 @@ function deleteItem(item: string) {
 function refreshChatboxes() {
 	if (!window.alt1) return;
 
-	reader = createResourceChatReader();
+	reader = new ResourceChatReader();
 
 	const found = reader.find() as ChatboxPosition | null;
 
