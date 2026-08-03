@@ -10,9 +10,6 @@ export type TrackerChatFontCandidate = ChatFontSetting & {
   badgey: number;
 };
 
-// Resource Tracker intentionally supports only the compact RuneScape chat
-// fonts that are actively tested. Alt1 keeps these definitions private, so
-// the application loads the official metadata directly through its font loader.
 export const trackerChatFontCandidates: readonly TrackerChatFontCandidate[] = [
   font("chatbox-10pt", "10pt", 14, -9, -2, asLoadedFont(font10pt)),
   font("chatbox-12pt", "12pt", 16, -9, -3, asLoadedFont(font12pt)),
@@ -21,7 +18,7 @@ export const trackerChatFontCandidates: readonly TrackerChatFontCandidate[] = [
 ];
 
 function asLoadedFont(source: unknown): OCR.FontDefinition {
-  // alt1/font-loader transforms the metadata JSON into a runtime FontDefinition.
+
   return source as OCR.FontDefinition;
 }
 

@@ -1,7 +1,6 @@
 import * as a1lib from "alt1/base";
 
-// Ordered by OCR priority. Each color is retained only for tracker text or
-// timestamp structure proven by existing fixtures or live captures.
+// Ordered by OCR priority. Each color is retained only for tracker text
 export const trackerChatColors = [
   a1lib.mixColor(255, 255, 255), // Normal tracked text and timestamp brackets.
   a1lib.mixColor(127, 169, 255), // Timestamp digits.
