@@ -12,6 +12,7 @@ export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 		title: "Forged in fire",
 		items: [
 			"Added tracking for Forge Phoenix/Fire Spirits, they will appear in the Spirits tab.",
+			"Added tracking for Auto Disassembler messages.",
 			"Added Session Button on main Tracker window.",
 			"Added Mini-Settings Button in compact mode.",
 			"Moved the Fishing 'Sign of the Porter' toggle to the settings menu.",
