@@ -34,7 +34,8 @@ body {
 }
 
 .tabs-toggle,
-.compact-sort-button {
+.compact-sort-button,
+.compact-settings-button {
     width: 11px;
     height: 11px;
     padding: 0;
@@ -48,7 +49,6 @@ body {
 }
 
 .tabs-collapsed .skill-tabs,
-.tabs-collapsed .fishing-porters-cycle,
 .tabs-collapsed .footer,
 .tabs-collapsed .footer-separator {
     display: none;
@@ -71,6 +71,7 @@ body {
 
 .skill-tab,
 .sort-button,
+.session-quick-button,
 .app-cog {
     display: flex;
     align-items: center;
@@ -94,6 +95,7 @@ body {
 }
 
 .sort-button,
+.session-quick-button,
 .app-cog {
     width: 20px;
     height: 20px;
@@ -119,14 +121,8 @@ body {
     pointer-events: none;
 }
 
-.fishing-mode,
 .invention-filters {
     display: none;
-}
-
-.fishing-mode.visible {
-    display: block;
-    margin-bottom: 3px;
 }
 
 .invention-filters.visible {
@@ -134,7 +130,6 @@ body {
     margin-bottom: 3px;
 }
 
-.fishing-porters-cycle,
 .invention-filter-cycle {
     align-self: flex-start;
     font-size: 11px;
@@ -411,7 +406,7 @@ select {
 }
 
 .app-settings {
-    gap: 6px;
+    gap: 3px;
 }
 
 .status {
@@ -464,8 +459,56 @@ select {
     padding: 3px 4px;
 }
 
+.settings-skill-toggle-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+}
+
+.settings-skill-toggle {
+    gap: 3px;
+    overflow: hidden;
+    padding: 2px !important;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.settings-skill-toggle img {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.settings-toggle-label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+@media (max-width: 185px) {
+    .settings-skill-toggle {
+        gap: 2px;
+        padding: 2px 1px !important;
+        font-size: 9px;
+    }
+
+    .settings-skill-toggle img {
+        flex-basis: 14px;
+        width: 14px;
+        height: 14px;
+    }
+}
+
 .find-chat {
     white-space: nowrap;
+}
+
+.chat-font-support {
+    margin: -2px 0 3px;
+    color: #999;
+    font-size: 10px;
+    text-align: center;
 }
 
 .import {
@@ -489,10 +532,12 @@ select {
     font-style: normal;
 }
 
-.session-status-line.running .session-status-value {
+.session-status-line.running .session-status-value,
+.session-quick-button.running {
     color: #7CFC7C;
 }
-.session-status-line.paused .session-status-value {
+.session-status-line.paused .session-status-value,
+.session-quick-button.paused {
     color: #ffd700;
 }
 .session-status-line.idle .session-status-value {
@@ -514,6 +559,14 @@ select {
 .ancient-component { color: #43bcbc; }
 .seren-item { color: #66ffff; }
 .seren-item-rare { color: #ffd700; }
+.spirit-item-green { color: rgb(0, 235, 0); }
+
+.spirit-source {
+	display: block;
+	margin-top: 1px;
+	font-size: 9px;
+	opacity: 0.85;
+}
 
 .empty {
     color: #d0ff00;

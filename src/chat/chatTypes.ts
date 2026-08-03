@@ -1,0 +1,53 @@
+import type * as OCR from "alt1/ocr";
+
+export interface ChatRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LocalChatbox {
+  rect: ChatRect;
+  leftfound: boolean;
+  line0x: number;
+  line0y: number;
+}
+
+export interface ChatboxPosition {
+  mainbox: LocalChatbox;
+  boxes: LocalChatbox[];
+}
+
+export interface ChatFontSetting {
+  name: string;
+  lineheight: number;
+  dy: number;
+  def: OCR.FontDefinition;
+}
+
+export interface CapturedChatBuffer {
+  buf: ImageData;
+  x: number;
+  y: number;
+}
+
+export interface ChatReaderState {
+  pos: ChatboxPosition | null;
+  font: ChatFontSetting | null;
+}
+
+export interface PhysicalChatLine {
+  text: string;
+  fragments: OCR.TextFragment[];
+  basey: number;
+}
+
+export type LogicalChatMessage = { text: string };
+
+export type PhysicalChatSource = {
+  pos: ChatboxPosition | null;
+  readonly selectedFontName?: string | null;
+  find(): ChatboxPosition | null;
+  read(): PhysicalChatLine[] | null;
+};

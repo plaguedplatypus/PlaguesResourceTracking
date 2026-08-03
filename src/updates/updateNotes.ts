@@ -8,6 +8,18 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.7",
+		title: "Forged in fire",
+		items: [
+			"Added tracking for Forge Phoenix/Fire Spirits, they will appear in the Spirits tab.",
+			"Added Session Button on main Tracker window.",
+			"Added Mini-Settings Button in compact mode.",
+			"Moved the Fishing 'Sign of the Porter' toggle to the settings menu.",
+			"Notes:",
+			"Resource Tracker currently only supports chat sizes 10pt-16pt.",
+		],
+	},
+	{
 		version: "v1.6-2",
 		title: "Component Wrapping",
 		items: [

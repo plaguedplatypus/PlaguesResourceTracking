@@ -48,7 +48,7 @@ Tracks Invention material messages from disassembly and Divine Blessings, includ
 ### Fishing Mode
 Fishing can produce duplicate chat messages when using Porters or Grace of the Elves.
 
-The Fishing tab includes a toggle to switch between porter-based tracking and direct fishing-message tracking to help prevent duplicate counts.
+The Settings panel includes a Fishing Porters toggle to switch between porter-based tracking and direct fishing-message tracking to help prevent duplicate counts.
 
 ## Requirements
 - RuneScape chatbox visible on screen

@@ -4,6 +4,7 @@
 		"dev": "webpack --mode development --watch",
 		"local": "webpack --mode development && npx http-server .\\dist -p 8080",
 		"release": "webpack --mode production && powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -Path .\\dist\\* -Destination . -Recurse -Force\"",
+		"test:chat": "tsc -p tests/tsconfig.json && node tests/.build/tests/chat.test.js",
 		"watch": "webpack --watch"
 	},
 	"dependencies": {

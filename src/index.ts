@@ -1,92 +1,101 @@
 import * as a1lib from "alt1/base";
-import DialogReader from "alt1/dialog";
-import { processInventionMaterials, } from "./invention";
-import { recordSessionUpdates, showSessionWindow, getSessionStatus, } from "./session";
-import { isInHistory, showChatHistory, updateChatHistory } from "./history";
-import { /*RT_DISCORD_INVITE_URL,*/ RT_VERSION } from "./updateNotes";
-import { maybeShowUpdateToast, showPatchNotesModal } from "./updateToast";
-import ResourceChatReader, { ChatboxPosition } from "./ChatReader";
+import { processInventionMaterials } from "./invention/InventionParser";
+import { parseSkillTrackerMessage } from "./tracking/SkillTracker";
+import {
+  recordSessionUpdates,
+  showSessionWindow,
+  getSessionStatus,
+} from "./ui/session";
+import {
+  addTrackedHistoryEntry,
+  hasProcessedChatMessage,
+  rememberProcessedChatMessage,
+  showChatHistory,
+} from "./ui/history";
+import { /*RT_DISCORD_INVITE_URL,*/ RT_VERSION } from "./updates/updateNotes";
+import {
+  maybeShowUpdateToast,
+  showPatchNotesModal,
+} from "./updates/updateToast";
+import ResourceChatReader, { ChatboxPosition } from "./chat/ChatReader";
+import { createArtifactCaptureReader } from "./dialog/artifactCapture";
+import { processChatPollMessages } from "./chatPoll";
+import { createSettingsWindowController } from "./ui/Settings";
 
 import "./index.html";
 import "./appconfig.json";
-import "./css/style.css";
+import "./ui/style.css";
 
 type SkillType =
-	| "all"
-	| "mining"
-	| "woodcutting"
-	| "fishing"
-	| "archaeology"
-	| "seren"
-	| "invention";
+  | "all"
+  | "mining"
+  | "woodcutting"
+  | "fishing"
+  | "archaeology"
+  | "seren"
+  | "invention";
 
 type InternalSkillType = SkillType | "other";
 
 type TrackedItem = {
-	count: number;
-	goal: number | null;
-	skill?: InternalSkillType;
-	source?: string;
-	colorClass?: string;
-	lastUpdated?: number;
+  count: number;
+  goal: number | null;
+  displayName?: string;
+  skill?: InternalSkillType;
+  source?: string;
+  colorClass?: string;
+  lastUpdated?: number;
 };
 
 type ItemUpdate = {
-	item: string;
-	amount: number;
-	skill: InternalSkillType;
-	colorClass?: string;
-	source?: string;
+  item: string;
+  amount: number;
+  skill: InternalSkillType;
+  colorClass?: string;
+  source?: string;
+  storageKey?: string;
 };
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type SortMode = "recent" | "alpha" | "count";
 
 type SaveData = {
-	chat?: string;
-	activeTab?: InternalSkillType;
-	fishingUsePorters?: boolean;
-	sortMode?: SortMode;
-	items: Record<string, TrackedItem>;
+  chat?: string;
+  activeTab?: InternalSkillType;
+  fishingUsePorters?: boolean;
+  sortMode?: SortMode;
+  items: Record<string, TrackedItem>;
 };
 
 const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
-const tabsToggleButton = document.querySelector(".tabs-toggle") as HTMLElement | null;
-const compactSortButton = document.querySelector(".compact-sort-button") as HTMLElement | null;
+const tabsToggleButton = document.querySelector(
+  ".tabs-toggle",
+) as HTMLElement | null;
+const compactSortButton = document.querySelector(
+  ".compact-sort-button",
+) as HTMLElement | null;
+const compactSettingsButton = document.querySelector(
+  ".compact-settings-button",
+) as HTMLElement | null;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 
 const appCog = document.querySelector(".app-cog") as HTMLElement;
-const appSettingsPanel = document.querySelector(".app-settings-panel") as HTMLElement;
-const settingsVersion = document.querySelector(".settings-version") as HTMLElement | null;
-const settingsDiscord = document.querySelector(".settings-discord") as HTMLElement | null;
-
-const chatSelector = document.querySelector(".chat") as HTMLSelectElement;
-const findChatButton = document.querySelector(".find-chat") as HTMLElement;
-
-const historyButton = document.querySelector(".history-button") as HTMLElement;
-const exportButton = document.querySelector(".export") as HTMLElement;
-const importInput = document.querySelector(".import") as HTMLInputElement;
-const sessionButton = document.querySelector(".session-button") as HTMLElement;
-const sessionStatusMini = document.querySelector(".session-status-line, .session-status-mini") as HTMLElement | null;
-const sessionStatusValue = document.querySelector(".session-status-value") as HTMLElement | null;
-const clearButton = document.querySelector(".clear") as HTMLElement;
+const sessionQuickButton = document.querySelector(
+  ".session-quick-button",
+) as HTMLElement | null;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
 const status = document.querySelector(".status") as HTMLElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 
-const fishingMode = document.querySelector(".fishing-mode") as HTMLElement;
-const fishingPortersButton = document.querySelector(".fishing-porters-cycle") as HTMLElement;
-
-const inventionFilters = document.querySelector(".invention-filters") as HTMLElement;
-const inventionFilterButton = document.querySelector(".invention-filter-cycle") as HTMLElement;
-
-// *********************************************
-// Temporary migration:
-cleanupBakedSerenPrefixes();
-// *********************************************
+const inventionFilters = document.querySelector(
+  ".invention-filters",
+) as HTMLElement;
+const inventionFilterButton = document.querySelector(
+  ".invention-filter-cycle",
+) as HTMLElement;
 
 const savedData = getSaveData();
 
@@ -97,839 +106,606 @@ let fishingUsePorters = true;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
 let reader = new ResourceChatReader();
+let chatFontState: "waiting" | "ready" = "waiting";
+let activeChatFontName: string | null = null;
 
 const savedActiveTab = savedData.activeTab as string | undefined;
 activeSkillTab =
-	savedActiveTab === "other"
-		? "all"
-		: ((savedData.activeTab || "all") as SkillType);
+  savedActiveTab === "other"
+    ? "all"
+    : ((savedData.activeTab || "all") as SkillType);
 fishingUsePorters = savedData.fishingUsePorters ?? true;
 sortMode = savedData.sortMode || "recent";
 
-
-const dialogReader = new DialogReader();
+const artifactCaptureReader = createArtifactCaptureReader();
+const settingsWindow = createSettingsWindowController({
+  getState: () => ({
+    chatCount: reader.pos?.boxes.length || 0,
+    selectedChat: getSaveData().chat || "0",
+    fishingUsePorters,
+    sessionStatus: getSessionStatus(),
+    clearLabel: `Clear ${getActiveTabLabel()}`,
+    version: RT_VERSION,
+  }),
+  selectChat,
+  findChat: refreshChatboxes,
+  showHistory: showChatHistory,
+  showSession: showSessionWindow,
+  toggleFishingPorters,
+  exportData,
+  importData,
+  clearCurrentTab,
+  showPatchNotes: showPatchNotesModal,
+});
 
 window.setTimeout(function () {
-	if (!window.alt1) {
-		render();
-		return;
-	}
+  if (!window.alt1) {
+    render();
+    return;
+  }
 
-	reader.find();
+  reader.find();
 
-	const findChat = setInterval(function () {
-		if (reader.pos === null) {
-			reader.find();
-			status.innerText = "Looking for chatbox...";
-			return;
-		}
+  const findChat = setInterval(function () {
+    if (reader.pos === null) {
+      reader.find();
+      status.innerText = "Looking for chatbox...";
+      return;
+    }
 
-		clearInterval(findChat);
-		populateChatSelector();
-		selectSavedChat();
-		showSelectedChat(reader.pos);
-		status.innerText = "Chat found. Tracking started.";
-		render();
+    clearInterval(findChat);
+    populateChatSelector();
+    selectSavedChat();
+    showSelectedChat(reader.pos);
+    chatFontState = "waiting";
+    activeChatFontName = null;
+    status.innerText = supportedChatFontWaitingMessage();
+    render();
 
-		const runReaderPoll = (
-			readerName: "chat" | "dialog",
-			read: () => void
-		) => {
-			try {
-				read();
-			} catch (error) {
-				console.warn(`${readerName} reader failed`, error);
-				status.innerText =
-					"Tracking read failed. Click Find Chat if tracking stopped.";
-			}
-		};
+    const runReaderPoll = (readerName: "chat" | "dialog", read: () => void) => {
+      try {
+        read();
+      } catch (error) {
+        console.warn(`${readerName} reader failed`, error);
+        status.innerText =
+          "Tracking read failed. Click Find Chat if tracking stopped.";
+      }
+    };
 
-		setInterval(
-			() => runReaderPoll("chat", readChatbox),
-			600
-		);
+    setInterval(() => runReaderPoll("chat", readChatbox), 600);
 
-		// Keep both readers at 600 ms, but avoid blocking the UI by running
-		// their synchronous OCR captures in the same interval callback.
-		setTimeout(() => {
-			runReaderPoll("dialog", readDialogBox);
-			setInterval(
-				() => runReaderPoll("dialog", readDialogBox),
-				600
-			);
-		}, 300);
-	}, 1000);
+    // Keep both readers at 600 ms, but avoid blocking the UI by running
+    // their synchronous OCR captures in the same interval callback.
+    setTimeout(() => {
+      runReaderPoll("dialog", readDialogBox);
+      setInterval(
+        () => runReaderPoll("dialog", readDialogBox),
+        600,
+      );
+    }, 300);
+  }, 1000);
 }, 50);
 
 if (window.alt1) {
-	alt1.identifyAppUrl("./appconfig.json");
+  alt1.identifyAppUrl("./appconfig.json");
 } else {
-	const addappurl = `alt1://addapp/${new URL("./appconfig.json", document.location.href).href}`;
-	status.innerHTML = `Alt1 not detected. <a href='${addappurl}'>Add this app to Alt1</a>`;
+  const addappurl = `alt1://addapp/${new URL("./appconfig.json", document.location.href).href}`;
+  status.innerHTML = `Alt1 not detected. <a href='${addappurl}'>Add this app to Alt1</a>`;
 }
 
 function populateChatSelector() {
-	if (!reader.pos) return;
+  settingsWindow.refresh();
+}
 
-	chatSelector.innerHTML = `<option value="">Select Chat</option>`;
+function selectChat(value: string) {
+  if (!reader.pos || !reader.pos.boxes[Number(value)]) return;
 
-	reader.pos.boxes.forEach((_box, i) => {
-		chatSelector.insertAdjacentHTML("beforeend", `<option value="${i}">Chat ${i}</option>`);
-	});
+  reader.pos.mainbox = reader.pos.boxes[Number(value)];
+  showSelectedChat(reader.pos);
 
-	chatSelector.onchange = function () {
-		if (chatSelector.value === "") return;
-		if (!reader.pos) return;
-
-		reader.pos.mainbox = reader.pos.boxes[Number(chatSelector.value)];
-		showSelectedChat(reader.pos);
-
-		const data = getSaveData();
-		data.chat = chatSelector.value;
-		saveData(data);
-
-		status.innerText = `Using Chat ${chatSelector.value}.`;
-	};
+  const data = getSaveData();
+  data.chat = value;
+  saveData(data);
+  settingsWindow.refresh();
+  status.innerText = `Using Chat ${value}.`;
 }
 
 function selectSavedChat() {
-	if (!reader.pos) return;
+  if (!reader.pos) return;
 
-	const data = getSaveData();
-	const savedChat = data.chat || "0";
+  const data = getSaveData();
+  const savedChat = data.chat || "0";
 
-	reader.pos.mainbox = reader.pos.boxes[Number(savedChat)] || reader.pos.boxes[0];
-	chatSelector.value = savedChat;
+  reader.pos.mainbox =
+    reader.pos.boxes[Number(savedChat)] || reader.pos.boxes[0];
 
-	data.chat = savedChat;
-	saveData(data);
+  data.chat = savedChat;
+  saveData(data);
+  settingsWindow.refresh();
 }
 
 function showSelectedChat(pos: any) {
-	if (!pos || !pos.mainbox) return;
-	if (!alt1.permissionOverlay) return;
+  if (!pos || !pos.mainbox) return;
+  if (!alt1.permissionOverlay) return;
 
-	alt1.overLayRect(
-		appColor,
-		pos.mainbox.rect.x,
-		pos.mainbox.rect.y,
-		pos.mainbox.rect.width,
-		pos.mainbox.rect.height,
-		2000,
-		3
-	);
-}
-
-let currentDialogCounted = false;
-let dialogReadFailCount = 0;
-const maxDialogReadFails = 3;
-const damagedArtifactDialogRegex = /^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
-
-function readLocatedDialogTexts() {
-	if (!dialogReader.pos) return { visible: false, texts: [] as string[] };
-
-	const originalPos = dialogReader.pos;
-	const capturePadding = 40;
-	const captureX = Math.max(0, originalPos.x - capturePadding);
-	const captureRight = Math.min(
-		alt1.rsWidth,
-		originalPos.x + originalPos.width + capturePadding
-	);
-	const image = a1lib.captureHold(
-		captureX,
-		originalPos.y,
-		captureRight - captureX,
-		originalPos.height
-	);
-
-	// A saved position can outlive the dialog. Do not run the permissive
-	// offset OCR against ordinary game pixels or they can look like text and
-	// keep the previous artifact marked as the still-open dialog.
-	if (!dialogReader.checkDialog(image)) {
-		return { visible: false, texts: [] as string[] };
-	}
-
-	const dialog = dialogReader.read(image);
-	const texts: string[] = [];
-
-	function addText(lines: string[] | null) {
-		const text = (lines || []).join(" ").replace(/\s+/g, " ").trim();
-
-		if (text && !texts.includes(text)) {
-			texts.push(text);
-		}
-	}
-
-	addText(dialog && dialog.text ? dialog.text : null);
-
-	if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
-		return { visible: true, texts };
-	}
-
-	// DialogReader's fixed line-start probes can mistake a horizontal glyph
-	// stroke for "_", then skip past the real line. Small horizontal offsets
-	// move those probes while OCRing the same dialog pixels.
-	try {
-		for (const offsetX of [0, -30, -20, 5, 10, 20, 30]) {
-			const shiftedX = originalPos.x + offsetX;
-
-			if (
-				shiftedX < captureX ||
-				shiftedX + originalPos.width > captureRight
-			) {
-				continue;
-			}
-
-			dialogReader.pos = { ...originalPos, x: shiftedX };
-			addText(dialogReader.readDialog(image, true));
-
-			if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
-				break;
-			}
-		}
-	} finally {
-		dialogReader.pos = originalPos;
-	}
-
-	return { visible: true, texts };
+  alt1.overLayRect(
+    appColor,
+    pos.mainbox.rect.x,
+    pos.mainbox.rect.y,
+    pos.mainbox.rect.width,
+    pos.mainbox.rect.height,
+    2000,
+    3,
+  );
 }
 
 function readDialogBox() {
-	if (!window.alt1) return;
+  const result = artifactCaptureReader.poll();
+  if (!result) return;
 
-	if (!dialogReader.pos) {
-		dialogReader.find();
+  incrementItem(result.item, result.quantity, result.source);
+  setStatus(`Added: ${result.item}`);
 
-		if (!dialogReader.pos) {
-			currentDialogCounted = false;
-			return;
-		}
-	}
+  rememberProcessedChatMessage(result.rawText);
+  addTrackedHistoryEntry(result.rawText, "dialog");
+}
 
-	const dialogResult = readLocatedDialogTexts();
+type IncrementItems = (updates: ItemUpdate[], highlightItem?: string) => void;
 
-	if (!dialogResult.visible) {
-		dialogReadFailCount++;
+function createChatPollMainTransaction() {
+  let data: SaveData | null = null;
+  let dirty = false;
+  const highlightedItems = new Set<string>();
 
-		if (dialogReadFailCount >= maxDialogReadFails) {
-			dialogReader.pos = null;
-			dialogReadFailCount = 0;
-			currentDialogCounted = false;
-		}
+  return {
+    incrementItems(updates: ItemUpdate[], highlightItem?: string) {
+      if (updates.length === 0) return;
 
-		return;
-	}
-
-	dialogReadFailCount = 0;
-
-	if (currentDialogCounted || dialogResult.texts.length === 0) {
-		return;
-	}
-
-	let fullText = "";
-	let match: RegExpMatchArray | null = null;
-
-	for (const text of dialogResult.texts) {
-		const candidateMatch = text.match(damagedArtifactDialogRegex);
-
-		if (candidateMatch) {
-			fullText = text;
-			match = candidateMatch;
-			break;
-		}
-	}
-
-	if (!match || !fullText) {
-		return;
-	}
-
-	const item = normalizeItemName(match[1]);
-	if (!item) return;
-
-	currentDialogCounted = true;
-
-	incrementItem(item, 1, "archaeology");
-	setStatus(`Added: ${item}`);
-
-	updateChatHistory(fullText, `[DIALOG COUNTED: ${item} +1]`);
+      data ??= getSaveData();
+      applyItemUpdatesToData(data, updates);
+      recordSessionUpdatesSafely(updates);
+      buildHighlightedItems(updates, highlightItem).forEach((item) =>
+        highlightedItems.add(item),
+      );
+      dirty = true;
+    },
+    commit() {
+      if (!dirty || !data) return;
+      saveData(data);
+      render(highlightedItems, data);
+    },
+  };
 }
 
 function readChatbox() {
-	for (const { text: chatLine } of reader.read()) {
-		const historyKey = chatLine.trim();
-		if (!historyKey) continue;
+  const messages = reader.read();
+  const selectedFontName = reader.selectedFontName;
 
-		if (isInHistory(historyKey)) continue;
+  if (!selectedFontName) {
+    if (chatFontState !== "waiting") {
+      chatFontState = "waiting";
+      activeChatFontName = null;
+      status.innerText = supportedChatFontWaitingMessage();
+    }
+    return;
+  }
 
-		const debugStatus = processHarvestLine(chatLine);
-		if (debugStatus === null) {
-			updateChatHistory(historyKey, "[IGNORED]");
-			continue;
-		}
-		updateChatHistory(historyKey, debugStatus);
-	}
+  if (chatFontState !== "ready" || activeChatFontName !== selectedFontName) {
+    chatFontState = "ready";
+    activeChatFontName = selectedFontName;
+    status.innerText = `Tracking ${selectedFontName} chat.`;
+  }
+
+  const transaction = createChatPollMainTransaction();
+  processChatPollMessages(messages, {
+    hasProcessedMessage: hasProcessedChatMessage,
+    processMessage: (message) =>
+      processHarvestLine(message, transaction.incrementItems),
+    rememberProcessedMessage: rememberProcessedChatMessage,
+    addTrackedHistory: (message) => addTrackedHistoryEntry(message, "chat"),
+    commitMainChanges: transaction.commit,
+  });
+}
+
+function supportedChatFontWaitingMessage(): string {
+  return "Waiting for readable 10pt, 12pt, 14pt, or 16pt chat. Change the RuneScape chat font, then click Find Chat.";
 }
 
 // Process a single chat line to check for harvesting events
-function processHarvestLine(chatLine: string): string | null {
-	const cleanLine = chatLine.replace(timestampRegex, "").trim();
+function processHarvestLine(
+  chatLine: string,
+  incrementTrackedItems: IncrementItems,
+): boolean {
+  const cleanLine = chatLine.replace(timestampRegex, "").trim();
 
-	// Check for Seren spirit's
-	const serenMatch = cleanLine.match(
-		/The Seren spirit gifts you:\s*(\d+)\s*x\s*(.+?)\./i
-	);
+  // Invention materials
+  const inventionResult = processInventionMaterials(cleanLine);
 
-	if (serenMatch) {
-		const amount = parseInt(serenMatch[1], 10);
-		const normalizedItem = normalizeItemName(serenMatch[2]);
+  if (inventionResult) {
+    incrementTrackedItems(
+      inventionResult.updates,
+      inventionResult.updates[inventionResult.updates.length - 1].item,
+    );
 
-		if (!normalizedItem || isNaN(amount)) return "[IGNORED]";
+    setStatus(inventionResult.statusMessage);
 
-		const item = normalizedItem;
+    return true;
+  }
 
-		const colorClass = rareSerenItems.has(normalizedItem)
-			? "seren-item-rare"
-			: "seren-item";
+  const trackingResult = parseSkillTrackerMessage(cleanLine, {
+    fishingUsePorters,
+  });
+  if (!trackingResult) return false;
 
-		incrementItem(item, amount, "seren", colorClass, "seren-spirit");
-		setStatus(`Seren: ${amount} x ${item}`);
-
-		return `[COUNTED: ${item} +${amount}]`;
-	}
-
-	// Invention materials
-	const inventionResult =
-		processInventionMaterials(cleanLine);
-
-	if (inventionResult) {
-		incrementItems(
-			inventionResult.updates,
-			inventionResult.updates[
-				inventionResult.updates.length - 1
-			].item
-		);
-
-		setStatus(inventionResult.statusMessage);
-
-		return `[COUNTED: ${inventionResult.countedMaterials.join(", ")}]`;
-	}
-
-	// GOTE / Porters / Perks in those lines?
-	// Check for item/perk transports
-	const transportMatch = cleanLine.match(
-		/(?:You transport|sent it|transports your items) to your\s+(.+?):\s*(?:(\d+)\s*x\s*)?([\s\S]+?)\.?$/i
-	);
-
-	if (transportMatch) {
-		const destination = transportMatch[1].toLowerCase();
-
-		const amount = transportMatch[2]
-			? parseInt(transportMatch[2], 10)
-			: 1;
-
-		const item = normalizeItemName(transportMatch[3]);
-
-		if (!item || isNaN(amount)) return "[IGNORED]";
-
-		let skill: InternalSkillType = "other";
-
-		if (destination.includes("metal bank")) {
-			skill = "mining";
-		} else if (destination.includes("material storage")) {
-			skill = "archaeology";
-		} else if (destination.includes("bank")) {
-			skill = getSkillForItem(item);
-		}
-
-		if (skill === "fishing" && !fishingUsePorters) {
-			return null;
-		}
-
-		incrementItem(item, amount, skill);
-		setStatus(`Added: ${amount} x ${item}`);
-
-		return `[COUNTED: ${item} +${amount}]`;
-	}
-
-	// Checking for mining, woodcutting, fishing, and archaeology skill patterns
-	for (const entry of skillPatterns) {
-		const match = cleanLine.match(entry.pattern);
-		if (!match) continue;
-
-		if (entry.skill === "fishing" && fishingUsePorters) {
-			continue;
-		}
-
-		const item = normalizeItemName(match[1]);
-		if (!item) return "[IGNORED]";
-
-		incrementItem(item, 1, entry.skill);
-		setStatus(`Added: ${item}`);
-		return `[COUNTED: ${item} +1]`;
-	}
-
-	return null;
-}
-
-function getSkillForItem(item: string): InternalSkillType {
-	// For those artifacts that are tracked. It can happen.
-	if (item.includes("(damaged)")) return "archaeology";
-
-	if (miningItems.some((keyword) => item.includes(keyword))) {
-		return "mining";
-	}
-
-	if (woodcuttingItems.some((keyword) => item.includes(keyword))) {
-		return "woodcutting";
-	}
-
-	if (fishingItems.some((keyword) => item.includes(keyword))) {
-		return "fishing";
-	}
-	// What did you find? Was it farming related? I'm not sorting those.
-	return "other";
-}
-
-const skillPatterns: Array<{
-	pattern: RegExp;
-	skill: SkillType;
-}> = [
-		{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
-		{ pattern: /You find (?:a|an)\s+((?:enchanted\s+)?bird's nest)(?:[.!]|\s+You pick it up\b|$)/i, skill: "woodcutting" },
-		{ pattern: /You find (?:a|an)\s+(eternal magic tree branch)[!.]/i, skill: "woodcutting" },
-		{ pattern: /You catch (?:a|an|some)\s+(.+?)\./i, skill: "fishing" },
-		{ pattern: /^You find:\s*(.+?\(damaged\))[!.]?$/i, skill: "archaeology" },
-		{ pattern: /You find some\s+(.+?)[!.]/i, skill: "archaeology" },
-	];
-
-// Sorting the items not caught by skillPatterns/transportMatch
-
-// List of rare Seren spirit items that should be highlighted in the tracker.
-// We both know you'll never see them
-const rareSerenItems = new Set([
-	"hazelmere's signet ring",
-	"blurberry special", // maybe this one, about 15 times.
-	"cheese+tom batta" // should have been wearing that ring...
-]);
-
-const miningItems = [
-	"limestone", "essence",
-	"clay", "sandstone", "granite",
-	"calcified", // croesus front
-];
-
-const woodcuttingItems = [
-	"logs",
-	"bird's nest",
-	"crystal geode",
-	"bamboo", // uncharted isles
-	"timber", // croesus front
-	"eternal magic tree branch",
-];
-
-const fishingItems = [
-	"raw ",
-	"leaping ", // barbarian fishing
-	"algae",   // croesus front
-];
-
-function normalizeItemName(item: string) {
-	return item
-		.replace(/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/, "")
-		.toLowerCase()
-		.trim()
-		.replace(/[\s.,;:\[\]]+$/g, "")
-		.trim();
+  incrementTrackedItems(
+    trackingResult.updates,
+    trackingResult.updates[trackingResult.updates.length - 1].item,
+  );
+  setStatus(trackingResult.statusMessage);
+  return true;
 }
 
 function getItemDisplayPrefixHtml(itemData: TrackedItem) {
-	if (activeSkillTab !== "all") return "";
+  if (activeSkillTab !== "all") return "";
 
-	if (itemData.skill === "mining")
-		{ return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `; }
-	if (itemData.skill === "woodcutting")
-		{ return `<img class="item-prefix-icon" src="./icons/woodcutting.png" alt=""> `; }
-	if (itemData.skill === "fishing")
-		{ return `<img class="item-prefix-icon" src="./icons/fishing.png" alt=""> `; }
-	if (itemData.skill === "archaeology")
-		{ return `<img class="item-prefix-icon" src="./icons/archaeology.png" alt=""> `; }
-	if (itemData.skill === "invention")
-		{ return `<img class="item-prefix-icon" src="./icons/invention.png" alt=""> `; }
-	if (itemData.skill === "seren")
-		{ return `<img class="item-prefix-icon" src="./icons/seren.png" alt=""> `; }
+  if (itemData.skill === "mining") {
+    return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `;
+  }
+  if (itemData.skill === "woodcutting") {
+    return `<img class="item-prefix-icon" src="./icons/woodcutting.png" alt=""> `;
+  }
+  if (itemData.skill === "fishing") {
+    return `<img class="item-prefix-icon" src="./icons/fishing.png" alt=""> `;
+  }
+  if (itemData.skill === "archaeology") {
+    return `<img class="item-prefix-icon" src="./icons/archaeology.png" alt=""> `;
+  }
+  if (itemData.skill === "invention") {
+    return `<img class="item-prefix-icon" src="./icons/invention.png" alt=""> `;
+  }
+  if (itemData.skill === "seren") {
+    return `<img class="item-prefix-icon" src="./icons/seren.png" alt=""> `;
+  }
 
-	return "";
+  return "";
 }
 
 function isDamagedArtefact(item: string) {
-	return item.toLowerCase().includes("(damaged)");
+  return item.toLowerCase().includes("(damaged)");
 }
 
 // Update the status message in the footer with a timestamp on when events occurred
 function getTimeStamp() {
-	return new Date().toLocaleTimeString("en-US", {
-		hour12: false,
-	});
+  return new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+  });
 }
 function setStatus(message: string) {
-	status.innerText = `${message} @ ${getTimeStamp()}`;
+  status.innerText = `${message} @ ${getTimeStamp()}`;
 }
 
 function getSaveData(): SaveData {
-	const raw = localStorage.getItem(appName);
+  const raw = localStorage.getItem(appName);
 
-	if (!raw) {
-		return {
-			sortMode: "recent",
-			items: {},
-		};
-	}
+  if (!raw) {
+    return {
+      sortMode: "recent",
+      items: {},
+    };
+  }
 
-	try {
-		const data = JSON.parse(raw);
-		return {
-			chat: data.chat,
-			activeTab: data.activeTab || "all",
-			fishingUsePorters: data.fishingUsePorters ?? true,
-			sortMode: data.sortMode || "recent",
-			items: data.items || {},
-		};
-	} catch {
-		return {
-			sortMode: "recent",
-			items: {},
-		};
-	}
+  try {
+    const data = JSON.parse(raw);
+    return {
+      chat: data.chat,
+      activeTab: data.activeTab || "all",
+      fishingUsePorters: data.fishingUsePorters ?? true,
+      sortMode: data.sortMode || "recent",
+      items: data.items || {},
+    };
+  } catch {
+    return {
+      sortMode: "recent",
+      items: {},
+    };
+  }
 }
 
 function saveData(data: SaveData) {
-	localStorage.setItem(appName, JSON.stringify(data));
+  localStorage.setItem(appName, JSON.stringify(data));
 }
-
-// *********************************************
-// Temporary migration:
-// Older saves stored the Seren Spirit marker as part of the item name.
-// Clean those item names so the marker can be handled by renderItemRow instead.
-// Safe to remove after this version has been live for a while.
-function cleanupBakedSerenPrefixes() {
-	const data = getSaveData();
-	let changed = false;
-
-	for (const item of Object.keys(data.items)) {
-		if (!item.startsWith("﴾♦﴿ ")) continue;
-
-		const cleanItem = item.replace(/^﴾♦﴿\s*/, "").trim();
-		if (!cleanItem) continue;
-
-		const oldItemData = data.items[item];
-
-		if (data.items[cleanItem]) {
-			const existingItemData = data.items[cleanItem];
-
-			existingItemData.count += oldItemData.count;
-
-			if (existingItemData.goal === null && oldItemData.goal !== null) {
-				existingItemData.goal = oldItemData.goal;
-			}
-
-			existingItemData.skill = existingItemData.skill || oldItemData.skill || "seren";
-			existingItemData.source = existingItemData.source || oldItemData.source || "seren-spirit";
-			existingItemData.colorClass = existingItemData.colorClass || oldItemData.colorClass;
-
-			existingItemData.lastUpdated = Math.max(
-				existingItemData.lastUpdated || 0,
-				oldItemData.lastUpdated || 0
-			);
-		} else {
-			data.items[cleanItem] = {
-				...oldItemData,
-				skill: oldItemData.skill || "seren",
-				source: oldItemData.source || "seren-spirit",
-			};
-		}
-
-		delete data.items[item];
-		changed = true;
-	}
-
-	if (changed) {
-		saveData(data);
-	}
-}
-// *********************************************
 
 function ensureItem(data: SaveData, item: string) {
-	if (!data.items[item]) {
-		data.items[item] = {
-			count: 0,
-			goal: null,
-		};
-	}
+  if (!data.items[item]) {
+    data.items[item] = {
+      count: 0,
+      goal: null,
+    };
+  }
 }
 
-function applyItemUpdate(data: SaveData, update: ItemUpdate, timestamp: number) {
-	ensureItem(data, update.item);
+function applyItemUpdate(
+  data: SaveData,
+  update: ItemUpdate,
+  timestamp: number,
+) {
+  const key = update.storageKey || update.item;
+  ensureItem(data, key);
 
-	data.items[update.item].count += update.amount;
-	data.items[update.item].skill = update.skill;
-	data.items[update.item].lastUpdated = timestamp;
+  data.items[key].count += update.amount;
+  data.items[key].skill = update.skill;
+  data.items[key].lastUpdated = timestamp;
+  if (update.storageKey) {
+    data.items[key].displayName = update.item;
+  }
 
-	if (update.colorClass) {
-		data.items[update.item].colorClass = update.colorClass;
-	}
+  if (update.colorClass) {
+    data.items[key].colorClass = update.colorClass;
+  }
 
-	if (update.source) {
-		data.items[update.item].source = update.source;
-	}
+  if (update.source) {
+    data.items[key].source = update.source;
+  }
+}
+
+function applyItemUpdatesToData(data: SaveData, updates: ItemUpdate[]) {
+  const timestamp = Date.now();
+  for (const update of updates) applyItemUpdate(data, update, timestamp);
+}
+
+function recordSessionUpdatesSafely(updates: ItemUpdate[]) {
+  try {
+    recordSessionUpdates(updates);
+  } catch (error) {
+    console.warn("Session update failed", error);
+  }
+}
+
+function buildHighlightedItems(updates: ItemUpdate[], highlightItem?: string) {
+  const highlightedItems = new Set(
+    updates.map((update) => update.storageKey || update.item),
+  );
+
+  if (highlightItem) {
+    const highlightedUpdate = updates.find(
+      (update) => update.item === highlightItem,
+    );
+    highlightedItems.add(highlightedUpdate?.storageKey || highlightItem);
+  }
+
+  return highlightedItems;
 }
 
 function incrementItems(updates: ItemUpdate[], highlightItem?: string) {
-	if (updates.length === 0) return;
+  if (updates.length === 0) return;
 
-	const data = getSaveData();
-	const timestamp = Date.now();
-
-	for (const update of updates) {
-		applyItemUpdate(data, update, timestamp);
-	}
-
-	try {
-		recordSessionUpdates(updates);
-	} catch (error) {
-		console.warn("Session update failed", error);
-	}
-
-	saveData(data);
-
-	const highlightedItems = new Set(
-		updates.map((update) => update.item)
-	);
-
-	if (highlightItem) {
-		highlightedItems.add(highlightItem);
-	}
-
-	render(highlightedItems, data);
+  const data = getSaveData();
+  applyItemUpdatesToData(data, updates);
+  recordSessionUpdatesSafely(updates);
+  saveData(data);
+  render(buildHighlightedItems(updates, highlightItem), data);
 }
 
 function incrementItem(
-	item: string,
-	amount: number = 1,
-	skill: InternalSkillType = "other",
-	colorClass?: string,
-	source?: string
+  item: string,
+  amount: number = 1,
+  skill: InternalSkillType = "other",
+  colorClass?: string,
+  source?: string,
 ) {
-	incrementItems([{
-		item,
-		amount,
-		skill,
-		colorClass,
-		source,
-	}], item);
+  incrementItems(
+    [
+      {
+        item,
+        amount,
+        skill,
+        colorClass,
+        source,
+      },
+    ],
+    item,
+  );
 }
 
 // Rendering the UI
 function render(highlightItems?: Set<string>, data = getSaveData()) {
-	const items = Object.keys(data.items)
-		.filter((item) => {
-			if (activeSkillTab === "all") return true;
-			return (data.items[item].skill || "other") === activeSkillTab;
-		});
+  const items = Object.keys(data.items).filter((item) => {
+    if (activeSkillTab === "all") return true;
+    return (data.items[item].skill || "other") === activeSkillTab;
+  });
 
-	sortItems(items, data);
+  sortItems(items, data);
 
-	tracker.innerHTML = "";
+  tracker.innerHTML = "";
 
-	if (items.length === 0) {
-		tracker.innerHTML = `<div class="empty">No tracked items yet...</div>`;
-		return;
-	}
+  if (items.length === 0) {
+    tracker.innerHTML = `<div class="empty">No tracked items yet...</div>`;
+    return;
+  }
 
-	if (activeSkillTab === "all") {
-		renderAllTab(items, data, highlightItems);
-		return;
-	}
+  if (activeSkillTab === "all") {
+    renderAllTab(items, data, highlightItems);
+    return;
+  }
 
-	if (activeSkillTab === "archaeology") {
-		const materials = items.filter(function (item) {
-			return !isDamagedArtefact(item);
-		});
+  if (activeSkillTab === "archaeology") {
+    const materials = items.filter(function (item) {
+      return !isDamagedArtefact(item);
+    });
 
-		const artefacts = items.filter(function (item) {
-			return isDamagedArtefact(item);
-		});
+    const artefacts = items.filter(function (item) {
+      return isDamagedArtefact(item);
+    });
 
-		if (materials.length > 0) {
-			renderItemGroup("Materials", materials, data, highlightItems);
-		}
+    if (materials.length > 0) {
+      renderItemGroup("Materials", materials, data, highlightItems);
+    }
 
-		if (artefacts.length > 0) {
-			renderItemGroup("Artefacts", artefacts, data, highlightItems);
-		}
+    if (artefacts.length > 0) {
+      renderItemGroup("Artefacts", artefacts, data, highlightItems);
+    }
 
-		return;
-	}
+    return;
+  }
 
-	if (activeSkillTab === "invention") {
-		if (inventionFilter === "all") {
-			for (const item of items) {
-				renderItemRow(item, data.items[item], highlightItems);
-			}
+  if (activeSkillTab === "invention") {
+    if (inventionFilter === "all") {
+      for (const item of items) {
+        renderItemRow(item, data.items[item], highlightItems);
+      }
 
-			return;
-		}
+      return;
+    }
 
-		const ancientItems = items.filter(
-			(item) => data.items[item].source === "ancient-components"
-		);
+    const ancientItems = items.filter(
+      (item) => data.items[item].source === "ancient-components",
+    );
 
-		const rareItems = items.filter(
-			(item) => data.items[item].source === "rare-components"
-		);
+    const rareItems = items.filter(
+      (item) => data.items[item].source === "rare-components",
+    );
 
-		const uncommonItems = items.filter(
-			(item) => data.items[item].source === "uncommon-components"
-		);
+    const uncommonItems = items.filter(
+      (item) => data.items[item].source === "uncommon-components",
+    );
 
-		const commonItems = items.filter(
-			(item) => data.items[item].source === "invention" || !data.items[item].source
-		);
+    const commonItems = items.filter(
+      (item) =>
+        data.items[item].source === "invention" || !data.items[item].source,
+    );
 
-		if (inventionFilter === "ancient") {
-			renderItemGroup("Ancient Components", ancientItems, data, highlightItems);
-		}
+    if (inventionFilter === "ancient") {
+      renderItemGroup("Ancient Components", ancientItems, data, highlightItems);
+    }
 
-		if (inventionFilter === "rare") {
-			renderItemGroup("Rare Components", rareItems, data, highlightItems);
-		}
+    if (inventionFilter === "rare") {
+      renderItemGroup("Rare Components", rareItems, data, highlightItems);
+    }
 
-		if (inventionFilter === "uncommon") {
-			renderItemGroup("Uncommon Components", uncommonItems, data, highlightItems);
-		}
+    if (inventionFilter === "uncommon") {
+      renderItemGroup(
+        "Uncommon Components",
+        uncommonItems,
+        data,
+        highlightItems,
+      );
+    }
 
-		if (inventionFilter === "common") {
-			renderItemGroup("Common Components", commonItems, data, highlightItems);
-		}
+    if (inventionFilter === "common") {
+      renderItemGroup("Common Components", commonItems, data, highlightItems);
+    }
 
-		return;
-	}
+    return;
+  }
 
-	renderGoalSortedTab(items, data, highlightItems);
+  renderGoalSortedTab(items, data, highlightItems);
 }
 
 function updateTabsCollapsedUi() {
-	document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
+  document.body.classList.toggle("tabs-collapsed", tabsCollapsed);
 
-	if (tabsCollapsed) {
-		appSettingsPanel?.classList.remove("open");
-	}
+  if (!tabsToggleButton) return;
 
-	if (!tabsToggleButton) return;
-
-	tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
-	tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
+  tabsToggleButton.innerText = tabsCollapsed ? "+" : "−";
+  tabsToggleButton.title = tabsCollapsed ? "Exit Compact Mode" : "Compact Mode";
 }
 
 function renderAllTab(
-	items: string[],
-	data: SaveData,
-	highlightItems?: Set<string>
+  items: string[],
+  data: SaveData,
+  highlightItems?: Set<string>,
 ) {
-	renderGoalSortedTab(items, data, highlightItems, true);
+  renderGoalSortedTab(items, data, highlightItems, true);
 }
 function renderGoalSortedTab(
-	items: string[],
-	data: SaveData,
-	highlightItems?: Set<string>,
-	includeUnknown = false
+  items: string[],
+  data: SaveData,
+  highlightItems?: Set<string>,
+  includeUnknown = false,
 ) {
-	const goalItems = items.filter((item) =>
-		data.items[item].goal !== null
-	);
+  const goalItems = items.filter((item) => data.items[item].goal !== null);
 
-	const unknownItems = includeUnknown
-		? items.filter((item) =>
-			data.items[item].goal === null &&
-			(data.items[item].skill || "other") === "other"
-		)
-		: [];
+  const unknownItems = includeUnknown
+    ? items.filter(
+        (item) =>
+          data.items[item].goal === null &&
+          (data.items[item].skill || "other") === "other",
+      )
+    : [];
 
-	const sortedItems = items.filter((item) =>
-		data.items[item].goal === null &&
-		(!includeUnknown || (data.items[item].skill || "other") !== "other")
-	);
+  const sortedItems = items.filter(
+    (item) =>
+      data.items[item].goal === null &&
+      (!includeUnknown || (data.items[item].skill || "other") !== "other"),
+  );
 
-	sortItems(goalItems, data);
-	sortItems(sortedItems, data);
-	sortItems(unknownItems, data);
+  sortItems(goalItems, data);
+  sortItems(sortedItems, data);
+  sortItems(unknownItems, data);
 
-	if (goalItems.length > 0) {
-		renderItemGroup("Goals", goalItems, data, highlightItems);
-	}
+  if (goalItems.length > 0) {
+    renderItemGroup("Goals", goalItems, data, highlightItems);
+  }
 
-	if (sortedItems.length > 0) {
-		renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItems);
-	}
+  if (sortedItems.length > 0) {
+    renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItems);
+  }
 
-	if (unknownItems.length > 0) {
-		renderItemGroup("Unknown", unknownItems, data, highlightItems);
-	}
+  if (unknownItems.length > 0) {
+    renderItemGroup("Unknown", unknownItems, data, highlightItems);
+  }
 }
 
 function renderItemGroup(
-	label: string,
-	items: string[],
-	data: SaveData,
-	highlightItems?: Set<string>
+  label: string,
+  items: string[],
+  data: SaveData,
+  highlightItems?: Set<string>,
 ) {
-	if (items.length === 0) return;
+  if (items.length === 0) return;
 
-	const header = document.createElement("div");
-	header.className = "group-header";
-	header.innerText = label;
-	tracker.appendChild(header);
+  const header = document.createElement("div");
+  header.className = "group-header";
+  header.innerText = label;
+  tracker.appendChild(header);
 
-	for (const item of items) {
-		renderItemRow(item, data.items[item], highlightItems);
-	}
+  for (const item of items) {
+    renderItemRow(item, data.items[item], highlightItems);
+  }
 }
 
 function renderItemRow(
-	item: string,
-	itemData: TrackedItem,
-	highlightItems?: Set<string>
+  item: string,
+  itemData: TrackedItem,
+  highlightItems?: Set<string>,
 ) {
-	const row = document.createElement("div");
-	row.className = `item-row ${openSettingsItem === item ? "settings-active" : ""}`;
+  const row = document.createElement("div");
+  row.className = `item-row ${openSettingsItem === item ? "settings-active" : ""}`;
 
-	let goalHtml = "";
-	let goalTooltip = "";
+  let goalHtml = "";
+  let goalTooltip = "";
 
-	if (itemData.goal) {
-		const goalReached = itemData.count >= itemData.goal;
-		const overage = itemData.count - itemData.goal;
-		const overageText =
-			overage > 0
-				? ` (+${overage.toLocaleString()})`
-				: "";
+  if (itemData.goal) {
+    const goalReached = itemData.count >= itemData.goal;
+    const overage = itemData.count - itemData.goal;
+    const overageText = overage > 0 ? ` (+${overage.toLocaleString()})` : "";
 
-		const remaining = Math.max(itemData.goal - itemData.count, 0);
+    const remaining = Math.max(itemData.goal - itemData.count, 0);
 
-		goalTooltip = goalReached
-			? `Goal reached. ${overage > 0 ? `${overage.toLocaleString()} over goal.` : "Exactly at goal."}`
-			: `${remaining.toLocaleString()} remaining to goal.`;
+    goalTooltip = goalReached
+      ? `Goal reached. ${overage > 0 ? `${overage.toLocaleString()} over goal.` : "Exactly at goal."}`
+      : `${remaining.toLocaleString()} remaining to goal.`;
 
-		if (goalReached) {
-			goalHtml = `
+    if (goalReached) {
+      goalHtml = `
 			<div class="goal-complete" title="${escapeAttr(goalTooltip)}">★ Goal Reached!${overageText}</div>
 		`;
+    } else {
+      const progress = Math.min((itemData.count / itemData.goal) * 100, 100);
+      const current = itemData.count.toLocaleString();
+      const goal = itemData.goal.toLocaleString();
 
-		} else {
-			const progress = Math.min((itemData.count / itemData.goal) * 100, 100);
-			const current = itemData.count.toLocaleString();
-			const goal = itemData.goal.toLocaleString();
-
-			goalHtml = `
+      goalHtml = `
     		<div class="goal-row" title="${escapeAttr(goalTooltip)}">
         		<span class="goal-text">
            			 ${current} / ${goal} (${progress.toFixed(1)}%)
@@ -940,18 +716,25 @@ function renderItemRow(
 				</div>
 			</div>
 		`;
-		}
-	}
+    }
+  }
 
-	const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
-	const displayName = titleCase(item);
+  const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
+  const displayName = titleCase(itemData.displayName || item);
+  const sourceLabel =
+    itemData.skill === "seren" ? getSpiritSourceLabel(itemData.source) : "";
 
-	row.innerHTML = `
+  row.innerHTML = `
 		<div class="item-main-row">
 			<div class="item-text">
 				<strong class="${escapeAttr(itemData.colorClass || "")}">
 					${displayPrefixHtml}${escapeHtml(displayName)}
 				</strong>
+				${
+          sourceLabel
+            ? `<span class="spirit-source ${escapeAttr(itemData.colorClass || "")}">${escapeHtml(sourceLabel)}</span>`
+            : ""
+        }
 			</div>
 
 			<div class="item-count">
@@ -991,408 +774,379 @@ function renderItemRow(
 		</div>
 	`;
 
-	if (highlightItems?.has(item)) {
-		row.classList.add("highlight");
-	}
+  if (highlightItems?.has(item)) {
+    row.classList.add("highlight");
+  }
 
-	tracker.appendChild(row);
+  tracker.appendChild(row);
 }
 
 function sortItems(items: string[], data: SaveData) {
-	if (sortMode === "recent") {
-		items.sort((a, b) =>
-			(data.items[b].lastUpdated || 0) -
-			(data.items[a].lastUpdated || 0)
-		);
-		return;
-	}
+  if (sortMode === "recent") {
+    items.sort(
+      (a, b) =>
+        (data.items[b].lastUpdated || 0) - (data.items[a].lastUpdated || 0),
+    );
+    return;
+  }
 
-	if (sortMode === "count") {
-		items.sort((a, b) =>
-			data.items[b].count - data.items[a].count
-		);
-		return;
-	}
+  if (sortMode === "count") {
+    items.sort((a, b) => data.items[b].count - data.items[a].count);
+    return;
+  }
 
-	items.sort();
+  items.sort((a, b) =>
+    (data.items[a].displayName || a).localeCompare(
+      data.items[b].displayName || b,
+    ),
+  );
 }
 
-// Toggles/Buttons inside tabs
-// Show/hide fishing mode based on active tab
-function updateFishingModeVisibility() {
-	if (!fishingMode) return;
-
-	if (activeSkillTab === "fishing") {
-		fishingMode.classList.add("visible");
-	} else {
-		fishingMode.classList.remove("visible");
-	}
+function getSpiritSourceLabel(source?: string): string {
+  if (source === "seren-spirit") return "Seren Spirit";
+  if (source === "Forge/Fire Spirit") return "Forge/Fire Spirit";
+  return "";
 }
 
 // Set state of fishing porters
 function updateFishingPortersButton() {
-	if (!fishingPortersButton) return;
+  settingsWindow.refresh();
+}
 
-	fishingPortersButton.innerText = fishingUsePorters
-		? "Porters / GOTE: ON"
-		: "Porters / GOTE: OFF";
+function toggleFishingPorters() {
+  fishingUsePorters = !fishingUsePorters;
 
-	fishingPortersButton.title = fishingUsePorters
-		? "Counting fishing items from porter/bank transport lines."
-		: "Counting fishing items from direct catch lines.";
+  const data = getSaveData();
+  data.fishingUsePorters = fishingUsePorters;
+  saveData(data);
+
+  updateFishingPortersButton();
+  render();
 }
 
 // Hide invention filters when not on invention tab
 function updateInventionFilterVisibility() {
-	if (!inventionFilters) return;
+  if (!inventionFilters) return;
 
-	if (activeSkillTab === "invention") {
-		inventionFilters.classList.add("visible");
-	} else {
-		inventionFilters.classList.remove("visible");
-	}
+  if (activeSkillTab === "invention") {
+    inventionFilters.classList.add("visible");
+  } else {
+    inventionFilters.classList.remove("visible");
+  }
 }
 
 // Invention filter button handlers
 function updateInventionFilterButton() {
-	if (!inventionFilterButton) return;
+  if (!inventionFilterButton) return;
 
-	inventionFilterButton.innerText =
-		inventionFilter === "all"
-			? "Filter: All"
-			: inventionFilter === "ancient"
-				? "Filter: Ancient"
-				: inventionFilter === "rare"
-					? "Filter: Rare"
-					: inventionFilter === "uncommon"
-						? "Filter: Uncommon"
-						: "Filter: Common";
+  inventionFilterButton.innerText =
+    inventionFilter === "all"
+      ? "Filter: All"
+      : inventionFilter === "ancient"
+        ? "Filter: Ancient"
+        : inventionFilter === "rare"
+          ? "Filter: Rare"
+          : inventionFilter === "uncommon"
+            ? "Filter: Uncommon"
+            : "Filter: Common";
 }
 
 function updateSortButtonLabel() {
-	const sortTitle =
-		sortMode === "recent"
-			? "Sort: Recent"
-			: sortMode === "alpha"
-				? "Sort: A-Z"
-				: "Sort: Count";
+  const sortTitle =
+    sortMode === "recent"
+      ? "Sort: Recent"
+      : sortMode === "alpha"
+        ? "Sort: A-Z"
+        : "Sort: Count";
 
-	if (sortButton) {
-		sortButton.title = sortTitle;
-	}
+  if (sortButton) {
+    sortButton.title = sortTitle;
+  }
 
-	if (compactSortButton) {
-		compactSortButton.title = sortTitle;
-	}
+  if (compactSortButton) {
+    compactSortButton.title = sortTitle;
+  }
 }
 
 function updateClearButtonLabel() {
-	if (!clearButton) return;
-
-	clearButton.innerText = `Clear ${getActiveTabLabel()}`;
-	clearButton.title = `Clear ${getActiveTabLabel()}`;
+  settingsWindow.refresh();
 }
 
 function updateSessionStatusMini() {
-	if (!sessionStatusMini || !sessionStatusValue) return;
-
-	const currentSessionStatus = getSessionStatus();
-
-	sessionStatusMini.classList.remove("running", "paused", "idle");
-	sessionStatusMini.classList.add(currentSessionStatus);
-
-	sessionStatusValue.innerText =
-		currentSessionStatus === "running"
-			? "Running"
-			: currentSessionStatus === "paused"
-				? "Paused"
-				: "Not Running";
+  settingsWindow.refresh();
 }
 
 function getActiveTabLabel() {
-	if (activeSkillTab === "all") return "ALL";
-	if (activeSkillTab === "seren") return "Seren Spirits";
+  if (activeSkillTab === "all") return "ALL";
+  if (activeSkillTab === "seren") return "Spirits";
 
-	return titleCase(activeSkillTab);
+  return titleCase(activeSkillTab);
 }
 
 function getSortedGroupLabel() {
-	if (sortMode === "recent") return "Recent";
-	if (sortMode === "alpha") return "A-Z";
-	return "Count";
+  if (sortMode === "recent") return "Recent";
+  if (sortMode === "alpha") return "A-Z";
+  return "Count";
 }
 
 document.querySelectorAll(".skill-tab").forEach((tab) => {
-	tab.addEventListener("click", (e: Event) => {
-		const target = e.currentTarget as HTMLElement;
+  tab.addEventListener("click", (e: Event) => {
+    const target = e.currentTarget as HTMLElement;
 
-		activeSkillTab = (target.dataset.skill as SkillType) || "all";
+    activeSkillTab = (target.dataset.skill as SkillType) || "all";
 
-		const data = getSaveData();
-		data.activeTab = activeSkillTab;
-		saveData(data);
+    const data = getSaveData();
+    data.activeTab = activeSkillTab;
+    saveData(data);
 
-		document.querySelectorAll(".skill-tab").forEach((btn) => {
-			btn.classList.remove("active");
-		});
+    document.querySelectorAll(".skill-tab").forEach((btn) => {
+      btn.classList.remove("active");
+    });
 
-		target.classList.add("active");
+    target.classList.add("active");
 
-		updateFishingModeVisibility();
-		updateInventionFilterVisibility();
-		updateClearButtonLabel();
-		render();
-	});
+    updateInventionFilterVisibility();
+    updateClearButtonLabel();
+    render();
+  });
 });
 
-// Toggle the settings panel when the cog button is clicked
 function toggleSettings(item: string) {
-	const data = getSaveData();
-	if (!data.items[item]) return;
-	openSettingsItem = openSettingsItem === item ? null : item;
+  const data = getSaveData();
+  if (!data.items[item]) return;
+  openSettingsItem = openSettingsItem === item ? null : item;
 
-	render();
+  render();
 }
 
 function cycleSortMode() {
-	sortMode =
-		sortMode === "recent"
-			? "alpha"
-			: sortMode === "alpha"
-				? "count"
-				: "recent";
+  sortMode =
+    sortMode === "recent" ? "alpha" : sortMode === "alpha" ? "count" : "recent";
 
-	const data = getSaveData();
-	data.sortMode = sortMode;
-	saveData(data);
+  const data = getSaveData();
+  data.sortMode = sortMode;
+  saveData(data);
 
-	updateSortButtonLabel();
-	render();
+  updateSortButtonLabel();
+  render();
 }
 
 function clearGoal(item: string) {
-	const data = getSaveData();
-	if (!data.items[item]) return;
+  const data = getSaveData();
+  if (!data.items[item]) return;
 
-	data.items[item].goal = null;
+  data.items[item].goal = null;
 
-	saveData(data);
-	render();
+  saveData(data);
+  render();
 }
 
 function setGoal(item: string) {
-	const data = getSaveData();
-	if (!data.items[item]) return;
+  const data = getSaveData();
+  if (!data.items[item]) return;
 
-	const input = document.getElementById(`goal-${item}`) as HTMLInputElement;
-	if (!input) return;
+  const input = document.getElementById(`goal-${item}`) as HTMLInputElement;
+  if (!input) return;
 
-	const value = input.value.trim();
+  const value = input.value.trim();
 
-	if (value === "") {
-		data.items[item].goal = null;
-	} else {
-		const goal = parseInt(value, 10);
-		if (isNaN(goal) || goal <= 0) {
-			status.innerText = "Goal must be a positive number.";
-			return;
-		}
-		data.items[item].goal = goal;
-	}
+  if (value === "") {
+    data.items[item].goal = null;
+  } else {
+    const goal = parseInt(value, 10);
+    if (isNaN(goal) || goal <= 0) {
+      status.innerText = "Goal must be a positive number.";
+      return;
+    }
+    data.items[item].goal = goal;
+  }
 
-	saveData(data);
-	render();
+  saveData(data);
+  render();
 }
 
 function resetItem(item: string) {
-	const data = getSaveData();
-	if (!data.items[item]) return;
+  const data = getSaveData();
+  if (!data.items[item]) return;
 
-	data.items[item].count = 0;
-	saveData(data);
-	render();
+  data.items[item].count = 0;
+  saveData(data);
+  render();
 }
 
 function deleteItem(item: string) {
-	const data = getSaveData();
-	if (openSettingsItem === item) {
-		openSettingsItem = null;
-	}
-	delete data.items[item];
-	saveData(data);
-	render();
+  const data = getSaveData();
+  if (openSettingsItem === item) {
+    openSettingsItem = null;
+  }
+  delete data.items[item];
+  saveData(data);
+  render();
 }
 
 function refreshChatboxes() {
-	if (!window.alt1) return;
+  if (!window.alt1) return;
 
-	reader = new ResourceChatReader();
+  reader = new ResourceChatReader();
+  chatFontState = "waiting";
+  activeChatFontName = null;
 
-	const found = reader.find() as ChatboxPosition | null;
+  const found = reader.find() as ChatboxPosition | null;
 
-	if (!found || found.boxes.length === 0) {
-		status.innerText = "No chatbox found.";
-		return;
-	}
+  if (!found || found.boxes.length === 0) {
+    status.innerText = "No chatbox found.";
+    return;
+  }
 
-	reader.pos = found;
-	populateChatSelector();
+  reader.pos = found;
+  populateChatSelector();
 
-	const data = getSaveData();
-	const savedChat = data.chat || "0";
-	const selectedChat = chatSelector.value || savedChat;
-	const selectedIndex = Number(selectedChat);
+  const data = getSaveData();
+  const savedChat = data.chat || "0";
+  const selectedIndex = Number(savedChat);
 
-	const validIndex = found.boxes[selectedIndex] ? selectedIndex : 0;
-	const validChat = String(validIndex);
+  const validIndex = found.boxes[selectedIndex] ? selectedIndex : 0;
+  const validChat = String(validIndex);
 
-	found.mainbox = found.boxes[validIndex];
-	chatSelector.value = validChat;
+  found.mainbox = found.boxes[validIndex];
 
-	data.chat = validChat;
-	saveData(data);
+  data.chat = validChat;
+  saveData(data);
+  settingsWindow.refresh();
 
-	showSelectedChat(found);
-	status.innerText = `Chatbox refreshed. Using Chat ${validChat}.`;
+  showSelectedChat(found);
+  status.innerText = supportedChatFontWaitingMessage();
 }
 
 function clearCurrentTab() {
-	const data = getSaveData();
+  const data = getSaveData();
 
-	if (activeSkillTab === "all") {
-		data.items = {};
-		openSettingsItem = null;
+  if (activeSkillTab === "all") {
+    data.items = {};
+    openSettingsItem = null;
 
-		saveData(data);
-		render();
+    saveData(data);
+    render();
 
-		status.innerText = "All items cleared.";
-		return;
-	}
+    status.innerText = "All items cleared.";
+    return;
+  }
 
-	for (const item of Object.keys(data.items)) {
-		if ((data.items[item].skill || "other") === activeSkillTab) {
-			delete data.items[item];
+  for (const item of Object.keys(data.items)) {
+    if ((data.items[item].skill || "other") === activeSkillTab) {
+      delete data.items[item];
 
-			if (openSettingsItem === item) {
-				openSettingsItem = null;
-			}
-		}
-	}
+      if (openSettingsItem === item) {
+        openSettingsItem = null;
+      }
+    }
+  }
 
-	saveData(data);
-	render();
+  saveData(data);
+  render();
 
-	status.innerText = `${getActiveTabLabel()} cleared.`;
+  status.innerText = `${getActiveTabLabel()} cleared.`;
 }
 
 function exportData() {
-	const data = getSaveData();
+  const data = getSaveData();
 
-	const blob = new Blob([JSON.stringify(data, null, 2)], {
-		type: "application/json",
-	});
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
 
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = "Resource-Tracker-save.json";
-	a.click();
-	URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Resource-Tracker-save.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function importData(file: File) {
-	const reader = new FileReader();
+  const reader = new FileReader();
 
-	reader.onload = function () {
-		try {
-			const imported = JSON.parse(reader.result as string);
-			const data: SaveData = {
-				chat: imported.chat,
-				activeTab: imported.activeTab || "all",
-				fishingUsePorters: imported.fishingUsePorters ?? true,
-				sortMode: imported.sortMode || "recent",
-				items: imported.items || {},
-			};
+  reader.onload = function () {
+    try {
+      const imported = JSON.parse(reader.result as string);
+      const data: SaveData = {
+        chat: imported.chat,
+        activeTab: imported.activeTab || "all",
+        fishingUsePorters: imported.fishingUsePorters ?? true,
+        sortMode: imported.sortMode || "recent",
+        items: imported.items || {},
+      };
 
-			saveData(data);
-			openSettingsItem = null;
+      saveData(data);
+      openSettingsItem = null;
 
-			render();
-			status.innerText = "Save imported.";
-		} catch {
-			status.innerText = "Import failed.";
-		}
-	};
+      render();
+      status.innerText = "Save imported.";
+    } catch {
+      status.innerText = "Import failed.";
+    }
+  };
 
-	reader.readAsText(file);
+  reader.readAsText(file);
 }
 
 function escapeHtml(value: string) {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#039;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function titleCase(text: string) {
-	return text.replace(/(^|[\s\-\(])([a-z])/g, (_match, prefix, char) => {
-		return prefix + char.toUpperCase();
-	});
+  return text.replace(/(^|[\s\-\(])([a-z])/g, (_match, prefix, char) => {
+    return prefix + char.toUpperCase();
+  });
 }
 
 function escapeAttr(value: string) {
-	return escapeHtml(value);
+  return escapeHtml(value);
 }
 
 function bindRowEvents() {
-	tracker.addEventListener("click", (e: Event) => {
-		const target = (e.target as HTMLElement).closest("button[data-item]") as HTMLElement | null;
-		if (!target) return;
+  tracker.addEventListener("click", (e: Event) => {
+    const target = (e.target as HTMLElement).closest(
+      "button[data-item]",
+    ) as HTMLElement | null;
+    if (!target) return;
 
-		const item = target.dataset.item || "";
+    const item = target.dataset.item || "";
 
-		if (target.classList.contains("cog-btn")) {
-			toggleSettings(item);
-		} else if (target.classList.contains("clear-goal")) {
-			clearGoal(item);
-		} else if (target.classList.contains("save-goal")) {
-			setGoal(item);
-		} else if (target.classList.contains("reset-item")) {
-			resetItem(item);
-		} else if (target.classList.contains("delete-item")) {
-			deleteItem(item);
-		}
-	});
+    if (target.classList.contains("cog-btn")) {
+      toggleSettings(item);
+    } else if (target.classList.contains("clear-goal")) {
+      clearGoal(item);
+    } else if (target.classList.contains("save-goal")) {
+      setGoal(item);
+    } else if (target.classList.contains("reset-item")) {
+      resetItem(item);
+    } else if (target.classList.contains("delete-item")) {
+      deleteItem(item);
+    }
+  });
 }
 
 bindRowEvents();
 
-window.setInterval(function () {
-	if (!appSettingsPanel?.classList.contains("open")) return;
-
-	updateSessionStatusMini();
-}, 1000);
-
-// Set initial sort button label
 document.querySelectorAll(".skill-tab").forEach((btn) => {
-	btn.classList.remove("active");
+  btn.classList.remove("active");
 });
 
-// Activate the saved skill tab or default to "all"
 const savedTabButton = document.querySelector(
-	`.skill-tab[data-skill="${activeSkillTab}"]`
+  `.skill-tab[data-skill="${activeSkillTab}"]`,
 );
 
-// If the saved active tab is "other", default to "all", how old is that save file?
 if (savedTabButton) {
-	savedTabButton.classList.add("active");
+  savedTabButton.classList.add("active");
 }
 
 // Initial UI setup
-updateFishingModeVisibility();
 updateFishingPortersButton();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
@@ -1405,81 +1159,40 @@ updateTabsCollapsedUi();
 render();
 
 function updateSettingsVersionLabel() {
-	if (!settingsVersion) return;
-	settingsVersion.textContent = `Version ${RT_VERSION}`;
-	settingsVersion.setAttribute("role", "button");
-	settingsVersion.setAttribute("tabindex", "0");
-	settingsVersion.setAttribute("title", "Show Patch Notes");
+  settingsWindow.refresh();
 }
 
 // App settings panel / session status refresh
 tabsToggleButton?.addEventListener("click", function () {
-	tabsCollapsed = !tabsCollapsed;
-	updateTabsCollapsedUi();
+  tabsCollapsed = !tabsCollapsed;
+  updateTabsCollapsedUi();
 });
 
 appCog?.addEventListener("click", function () {
-	appSettingsPanel?.classList.toggle("open");
-	updateSessionStatusMini();
+  settingsWindow.show();
 });
 
-settingsVersion?.addEventListener("click", showPatchNotesModal);
-settingsVersion?.addEventListener("keydown", event => {
-	if (event.key !== "Enter" && event.key !== " ") return;
-	event.preventDefault();
-	showPatchNotesModal();
+compactSettingsButton?.addEventListener("click", function () {
+  settingsWindow.show();
 });
 
-/*settingsDiscord?.addEventListener("click", () => {
-	window.open(RT_DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
-});*/
+sessionQuickButton?.addEventListener("click", showSessionWindow);
 
 sortButton?.addEventListener("click", cycleSortMode);
 compactSortButton?.addEventListener("click", cycleSortMode);
 
 inventionFilterButton?.addEventListener("click", () => {
-	inventionFilter =
-		inventionFilter === "all"
-			? "ancient"
-			: inventionFilter === "ancient"
-				? "rare"
-				: inventionFilter === "rare"
-					? "uncommon"
-					: inventionFilter === "uncommon"
-						? "common"
-						: "all";
+  inventionFilter =
+    inventionFilter === "all"
+      ? "ancient"
+      : inventionFilter === "ancient"
+        ? "rare"
+        : inventionFilter === "rare"
+          ? "uncommon"
+          : inventionFilter === "uncommon"
+            ? "common"
+            : "all";
 
-	updateInventionFilterButton();
-	render();
-});
-
-fishingPortersButton?.addEventListener("click", function () {
-	fishingUsePorters = !fishingUsePorters;
-
-	const data = getSaveData();
-	data.fishingUsePorters = fishingUsePorters;
-	saveData(data);
-
-	updateFishingPortersButton();
-	render();
-});
-
-sessionButton?.addEventListener("click", function () {
-	showSessionWindow();
-	setTimeout(updateSessionStatusMini, 100);
-});
-
-clearButton?.addEventListener("click", clearCurrentTab);
-
-findChatButton?.addEventListener("click", refreshChatboxes);
-
-historyButton?.addEventListener("click", showChatHistory);
-
-exportButton?.addEventListener("click", exportData);
-
-importInput?.addEventListener("change", function () {
-	if (this.files && this.files[0]) {
-		importData(this.files[0]);
-		this.value = "";
-	}
+  updateInventionFilterButton();
+  render();
 });

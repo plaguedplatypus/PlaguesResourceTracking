@@ -13,6 +13,7 @@
             <div class="title">
                 <button class="tabs-toggle" title="Compact Mode">-</button>
                 <button class="compact-sort-button compact-only" title="Sort">⇵</button>
+                <button class="compact-settings-button compact-only" title="Settings">⚙</button>
                 Resource Tracker
             </div>
         </div>
@@ -38,7 +39,7 @@
                 <img src="./icons/invention.png" alt="Invention">
             </button>
 
-            <button class="skill-tab" data-skill="seren" title="Seren Spirits">
+            <button class="skill-tab" data-skill="seren" title="Spirits">
                 <img src="./icons/seren.png" alt="Seren">
             </button>
 
@@ -46,12 +47,6 @@
 
         <div class="invention-filters">
             <button class="invention-filter-cycle">Filter: All</button>
-        </div>
-
-        <div class="fishing-mode">
-            <button class="fishing-porters-cycle" title="Toggle fishing tracking mode">
-                Porters / GOTE: ON
-            </button>
         </div>
 
         <div class="tracker"></div>
@@ -63,42 +58,8 @@
 
             <div class="app-settings">
                 <button class="sort-button" title="Sort">⇵</button>
+                <button class="session-quick-button" title="Session">S</button>
                 <button class="app-cog" title="Settings">⚙</button>
-            </div>
-        </div>
-
-        <div class="app-settings-panel">
-            <div class="settings-row">
-                <select class="chat">
-                    <option value="">Select Chat</option>
-                </select>
-                <button class="find-chat">Find Chat</button>
-            </div>
-
-            <div class="settings-row">
-                <button class="history-button">History</button>
-                <button class="session-button">Session</button>
-            </div>
-
-
-            <div class="settings-row">
-                <button class="export">Export</button>
-
-                <label class="import-label">
-                    Import
-                    <input class="import" type="file" accept=".json">
-                </label>
-            </div>
-            <div class="session-status-line idle">
-                <span class="session-status-label">Session:</span>
-                <span class="session-status-value">Not Running</span>
-            </div>
-
-            <div class="settings-separator"></div>
-            <button class="clear">Clear Tab</button>
-            <div class="settings-footer-links">
-            <!--<button class="settings-text-link settings-discord" type="button">Join the Discord</button>
-            --><button class="settings-text-link settings-version" type="button"></button>
             </div>
         </div>
 

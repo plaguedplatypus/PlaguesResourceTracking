@@ -62,30 +62,31 @@ export function maybeShowUpdateToast() {
 	document.body.appendChild(toast);
 }
 
-export function showPatchNotesModal() {
+export function showPatchNotesModal(targetDocument?: Document) {
 	if (typeof window === "undefined" || typeof document === "undefined") return;
+	const modalDocument = targetDocument || document;
 
-	const existing = document.getElementById("rt-patch-notes-modal");
+	const existing = modalDocument.getElementById("rt-patch-notes-modal");
 	if (existing) {
 		existing.removeAttribute("hidden");
 		existing.querySelector<HTMLElement>("button")?.focus?.();
 		return;
 	}
 
-	const modal = document.createElement("section");
+	const modal = modalDocument.createElement("section");
 	modal.id = "rt-patch-notes-modal";
 	modal.className = "patch-notes-modal";
 	modal.setAttribute("role", "dialog");
 	modal.setAttribute("aria-modal", "true");
 	modal.setAttribute("aria-label", "Patch Notes");
 
-	const header = document.createElement("div");
+	const header = modalDocument.createElement("div");
 	header.className = "patch-notes-header";
 
-	const title = document.createElement("strong");
+	const title = modalDocument.createElement("strong");
 	title.textContent = "Patch Notes";
 
-	const close = document.createElement("button");
+	const close = modalDocument.createElement("button");
 	close.className = "patch-notes-close";
 	close.type = "button";
 	close.title = "Close patch notes";
@@ -94,30 +95,30 @@ export function showPatchNotesModal() {
 
 	header.append(title, close);
 
-	const content = document.createElement("div");
+	const content = modalDocument.createElement("div");
 	content.className = "patch-notes-content";
 
 	for (const note of allReleaseNotes()) {
-		const entry = document.createElement("section");
+		const entry = modalDocument.createElement("section");
 		entry.className = "patch-notes-entry";
 
-		const version = document.createElement("div");
+		const version = modalDocument.createElement("div");
 		version.className = "patch-notes-version";
 		version.textContent = `Version: ${note.version}`;
 		entry.appendChild(version);
 
 		if (note.title) {
-			const entryTitle = document.createElement("div");
+			const entryTitle = modalDocument.createElement("div");
 			entryTitle.className = "patch-notes-entry-title";
 			entryTitle.textContent = note.title;
 			entry.appendChild(entryTitle);
 		}
 
-		const list = document.createElement("ul");
+		const list = modalDocument.createElement("ul");
 		list.className = "patch-notes-list";
 
 		for (const itemText of note.items) {
-			const item = document.createElement("li");
+			const item = modalDocument.createElement("li");
 			item.textContent = itemText;
 			list.appendChild(item);
 		}
@@ -133,6 +134,6 @@ export function showPatchNotesModal() {
 	close.addEventListener("click", dismiss);
 
 	modal.append(header, content);
-	document.body.appendChild(modal);
+	modalDocument.body.appendChild(modal);
 	close.focus?.();
 }

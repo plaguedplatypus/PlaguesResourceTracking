@@ -1,24 +1,8 @@
 /*! . */
 
-/*! ../fonts/aa_8px.fontmeta.json */
-
 /*! ../fonts/aa_8px_mono.fontmeta.json */
 
 /*! ../fonts/aa_8px_mono_allcaps.fontmeta.json */
-
-/*! ../fonts/chatbox/10pt.fontmeta.json */
-
-/*! ../fonts/chatbox/12pt.fontmeta.json */
-
-/*! ../fonts/chatbox/14pt.fontmeta.json */
-
-/*! ../fonts/chatbox/16pt.fontmeta.json */
-
-/*! ../fonts/chatbox/18pt.fontmeta.json */
-
-/*! ../fonts/chatbox/20pt.fontmeta.json */
-
-/*! ../fonts/chatbox/22pt.fontmeta.json */
 
 /*! ./alt1api */
 
@@ -32,40 +16,6 @@
 
 /*! ./imgs/12pt.fontmeta.json */
 
-/*! ./imgs/badges/broadcast_bronze.data.png */
-
-/*! ./imgs/badges/broadcast_death.data.png */
-
-/*! ./imgs/badges/broadcast_gold.data.png */
-
-/*! ./imgs/badges/broadcast_silver.data.png */
-
-/*! ./imgs/badges/gim.data.png */
-
-/*! ./imgs/badges/hcim.data.png */
-
-/*! ./imgs/badges/ironman.data.png */
-
-/*! ./imgs/badges/league_addy.data.png */
-
-/*! ./imgs/badges/league_dragon.data.png */
-
-/*! ./imgs/badges/league_mith.data.png */
-
-/*! ./imgs/badges/league_rune.data.png */
-
-/*! ./imgs/badges/league_steel.data.png */
-
-/*! ./imgs/badges/link.data.png */
-
-/*! ./imgs/badges/pmod.data.png */
-
-/*! ./imgs/badges/pmodvip.data.png */
-
-/*! ./imgs/badges/rgim.data.png */
-
-/*! ./imgs/badges/vip.data.png */
-
 /*! ./imgs/boxtl.data.png */
 
 /*! ./imgs/boxtl_leg.data.png */
@@ -73,10 +23,6 @@
 /*! ./imgs/boxtr.data.png */
 
 /*! ./imgs/boxtr_leg.data.png */
-
-/*! ./imgs/chatLegacyBorder.data.png */
-
-/*! ./imgs/chatbubble.data.png */
 
 /*! ./imgs/chatimg.data.png */
 
@@ -90,8 +36,6 @@
 
 /*! ./imgs/chatimghover_leg.data.png */
 
-/*! ./imgs/clanchat.data.png */
-
 /*! ./imgs/continueimg.data.png */
 
 /*! ./imgs/continueimg_leg.data.png */
@@ -99,38 +43,6 @@
 /*! ./imgs/continueimgdown.data.png */
 
 /*! ./imgs/continueimgdown_leg.data.png */
-
-/*! ./imgs/entertochat.data.png */
-
-/*! ./imgs/filterbutton.data.png */
-
-/*! ./imgs/friendschat.data.png */
-
-/*! ./imgs/gameall.data.png */
-
-/*! ./imgs/gamefilter.data.png */
-
-/*! ./imgs/gameoff.data.png */
-
-/*! ./imgs/gimchat.data.png */
-
-/*! ./imgs/groupchat.data.png */
-
-/*! ./imgs/guestclan.data.png */
-
-/*! ./imgs/legacyreport.data.png */
-
-/*! ./imgs/minusbutton.data.png */
-
-/*! ./imgs/plusbutton.data.png */
-
-/*! ./imgs/privateRecent.data.png */
-
-/*! ./imgs/privatechat.data.png */
-
-/*! ./imgs/publicchat.data.png */
-
-/*! ./imgs/reportbutton.data.png */
 
 /*! ./index */
 
