@@ -12,11 +12,14 @@ export const trackerChatColors = [
 
   a1lib.mixColor(67, 188, 188), // Teal invention component names.
   a1lib.mixColor(0, 255, 0), // Bright green Forge Phoenix/Fire Spirit rewards.
-
+  
+  a1lib.mixColor(51, 197, 20), // Faded green spirit reward variant.
+  a1lib.mixColor(59, 181, 20), // Green spirit reward variant.
+  a1lib.mixColor(59, 181, 30), // Green reward anti-aliasing variant.
   a1lib.mixColor(59, 176, 30), // 10pt-12pt Green spirit reward variant.
-  a1lib.mixColor(60, 183, 30), // 14pt Green spirit reward variant.
+  a1lib.mixColor(41, 77, 27), // Green Anti-aliasing.
   a1lib.mixColor(40, 67, 28), // Green Anti-aliasing
-
+  
   a1lib.mixColor(0, 255, 255), // Seren spirit reward text.
   a1lib.mixColor(127, 255, 255), // Seren reward anti-aliasing variant.
 ];
