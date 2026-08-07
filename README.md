@@ -17,6 +17,10 @@ Tracked resources are categorized into skill tabs when the chat message or item 
 - Invention
 - Seren Spirits
 
+### Session Tracking
+- Track your per-hour rate + GP per hour
+- Track total value of gathered materials that have a GE value.
+
 ### Invention Tracking
 Tracks Invention material messages from disassembly and Divine Blessings, including:
 
@@ -43,7 +47,7 @@ Tracks Invention material messages from disassembly and Divine Blessings, includ
 - Scrollable item list
 - Timestamped status updates
 - Compact Alt1-friendly UI
-- Debug/history window for checking tracked and ignored chat lines (Found an item not tracked that you think should be? Let me know)
+- History window for showing tracked chat lines
 
 ### Fishing Mode
 Fishing can produce duplicate chat messages when using Porters or Grace of the Elves.
