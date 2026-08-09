@@ -63,6 +63,7 @@ type SaveData = {
   chat?: string;
   activeTab?: InternalSkillType;
   fishingUsePorters?: boolean;
+  shortInventionNames?: boolean;
   sortMode?: SortMode;
   items: Record<string, TrackedItem>;
 };
@@ -103,6 +104,7 @@ let inventionFilter: InventionFilter = "all";
 let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
+let shortInventionNames = false;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
 let reader = new ResourceChatReader();
@@ -115,6 +117,7 @@ activeSkillTab =
     ? "all"
     : ((savedData.activeTab || "all") as SkillType);
 fishingUsePorters = savedData.fishingUsePorters ?? true;
+shortInventionNames = savedData.shortInventionNames ?? false;
 sortMode = savedData.sortMode || "recent";
 
 const artifactCaptureReader = createArtifactCaptureReader();
@@ -123,6 +126,7 @@ const settingsWindow = createSettingsWindowController({
     chatCount: reader.pos?.boxes.length || 0,
     selectedChat: getSaveData().chat || "0",
     fishingUsePorters,
+    shortInventionNames,
     sessionStatus: getSessionStatus(),
     clearLabel: `Clear ${getActiveTabLabel()}`,
     version: RT_VERSION,
@@ -132,6 +136,7 @@ const settingsWindow = createSettingsWindowController({
   showHistory: showChatHistory,
   showSession: showSessionWindow,
   toggleFishingPorters,
+  toggleShortInventionNames,
   exportData,
   importData,
   clearCurrentTab,
@@ -400,6 +405,7 @@ function getSaveData(): SaveData {
       chat: data.chat,
       activeTab: data.activeTab || "all",
       fishingUsePorters: data.fishingUsePorters ?? true,
+      shortInventionNames: data.shortInventionNames ?? false,
       sortMode: data.sortMode || "recent",
       items: data.items || {},
     };
@@ -720,7 +726,13 @@ function renderItemRow(
   }
 
   const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
-  const displayName = titleCase(itemData.displayName || item);
+  const displayName = titleCase(
+    getDisplayItemName(
+      itemData.displayName || item,
+      itemData.skill,
+      shortInventionNames,
+    ),
+  );
   
   row.innerHTML = `
 		<div class="item-main-row">
@@ -808,6 +820,17 @@ function toggleFishingPorters() {
   saveData(data);
 
   updateFishingPortersButton();
+  render();
+}
+
+function toggleShortInventionNames() {
+  shortInventionNames = !shortInventionNames;
+
+  const data = getSaveData();
+  data.shortInventionNames = shortInventionNames;
+  saveData(data);
+
+  settingsWindow.refresh();
   render();
 }
 
@@ -1060,6 +1083,7 @@ function importData(file: File) {
         chat: imported.chat,
         activeTab: imported.activeTab || "all",
         fishingUsePorters: imported.fishingUsePorters ?? true,
+        shortInventionNames: imported.shortInventionNames ?? false,
         sortMode: imported.sortMode || "recent",
         items: imported.items || {},
       };
@@ -1090,6 +1114,16 @@ function titleCase(text: string) {
   return text.replace(/(^|[\s\-\(])([a-z])/g, (_match, prefix, char) => {
     return prefix + char.toUpperCase();
   });
+}
+
+function getDisplayItemName(
+  itemName: string,
+  skill: InternalSkillType | undefined,
+  useShortInventionNames: boolean,
+) {
+  if (!useShortInventionNames || skill !== "invention") return itemName;
+
+  return itemName.replace(/\s+(?:components|parts)$/i, "");
 }
 
 function escapeAttr(value: string) {

@@ -4,6 +4,7 @@ export type SettingsWindowState = {
   chatCount: number;
   selectedChat: string;
   fishingUsePorters: boolean;
+  shortInventionNames: boolean;
   sessionStatus: SessionStatus;
   clearLabel: string;
   version: string;
@@ -16,6 +17,7 @@ export type SettingsWindowActions = {
   showHistory(): void;
   showSession(): void;
   toggleFishingPorters(): void;
+  toggleShortInventionNames(): void;
   exportData(): void;
   importData(file: File): void;
   clearCurrentTab(): void;
@@ -44,7 +46,7 @@ export function createSettingsWindowController(
     settingsWindow = window.open(
       "",
       "settingsWindow",
-      "width=240,height=190",
+      "width=240,height=217",
     );
     initializedWindow = null;
 
@@ -98,6 +100,20 @@ export function createSettingsWindowController(
       porters.title = state.fishingUsePorters
         ? "Fishing porter tracking is enabled. Counting fish from porter and bank transport messages."
         : "Fishing porter tracking is disabled. Counting fish from direct catch messages.";
+    }
+
+    const shortNames = doc.querySelector(
+      ".short-invention-names-toggle",
+    ) as HTMLButtonElement | null;
+    const shortNamesLabel = shortNames?.querySelector(".settings-toggle-label");
+    if (shortNames && shortNamesLabel) {
+      shortNamesLabel.textContent = state.shortInventionNames
+        ? "Short Invention Names: ON"
+        : "Short Invention Names: OFF";
+      shortNames.setAttribute(
+        "aria-pressed",
+        String(state.shortInventionNames),
+      );
     }
 
     updateSessionStatus(doc, state.sessionStatus);
@@ -155,6 +171,9 @@ export function createSettingsWindowController(
     doc
       .querySelector(".fishing-porters-cycle")
       ?.addEventListener("click", actions.toggleFishingPorters);
+    doc
+      .querySelector(".short-invention-names-toggle")
+      ?.addEventListener("click", actions.toggleShortInventionNames);
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
     doc.querySelector(".clear")?.addEventListener("click", actions.clearCurrentTab);
 
@@ -253,6 +272,12 @@ function settingsMarkup(): string {
           title="Toggle Fishing porter tracking mode" aria-pressed="true">
           <img src="${fishingIcon}" alt="">
           <span class="settings-toggle-label">Sign of the Porter: ON</span>
+        </button>
+      </div>
+      <div class="settings-row settings-skill-toggle-row">
+        <button class="settings-skill-toggle short-invention-names-toggle"
+          title="Shorten Invention item labels in the main tracker" aria-pressed="false">
+          <span class="settings-toggle-label">Short Invention Names: OFF</span>
         </button>
       </div>
       <div class="settings-row">
