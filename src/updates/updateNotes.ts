@@ -8,6 +8,15 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.8",
+		title: "Compact Components",
+		items: [
+			"Added option to shorten Invention component/part names.",
+			"Improved compact tracker spacing and item-name readability.",
+			"Removed the app's minimum width and height limits for more flexible resizing.",
+		],
+	},
+	{
 		version: "v1.7",
 		title: "Forged in fire",
 		items: [
