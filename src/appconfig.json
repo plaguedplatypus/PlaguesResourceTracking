@@ -6,8 +6,6 @@
   "iconUrl": "./icons/icon.png",
   "defaultWidth": 230,
   "defaultHeight": 350,
-  "minWidth": 175,
-  "minHeight": 92,
   "requestHandlers": [],
   "activators": [],
   "permissions": "pixel,gamestate,overlay"

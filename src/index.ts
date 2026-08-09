@@ -721,20 +721,13 @@ function renderItemRow(
 
   const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
   const displayName = titleCase(itemData.displayName || item);
-  const sourceLabel =
-    itemData.skill === "seren" ? getSpiritSourceLabel(itemData.source) : "";
-
+  
   row.innerHTML = `
 		<div class="item-main-row">
 			<div class="item-text">
 				<strong class="${escapeAttr(itemData.colorClass || "")}">
 					${displayPrefixHtml}${escapeHtml(displayName)}
 				</strong>
-				${
-          sourceLabel
-            ? `<span class="spirit-source ${escapeAttr(itemData.colorClass || "")}">${escapeHtml(sourceLabel)}</span>`
-            : ""
-        }
 			</div>
 
 			<div class="item-count">
@@ -800,12 +793,6 @@ function sortItems(items: string[], data: SaveData) {
       data.items[b].displayName || b,
     ),
   );
-}
-
-function getSpiritSourceLabel(source?: string): string {
-  if (source === "seren-spirit") return "Seren Spirit";
-  if (source === "Forge/Fire Spirit") return "Forge/Fire Spirit";
-  return "";
 }
 
 // Set state of fishing porters

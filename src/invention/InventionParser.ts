@@ -27,12 +27,18 @@ type ParsedMaterial = {
 };
 
 export function processInventionMaterials(
-	rawLine: string
-): InventionParseResult | null {
-	const cleanLine = normalizeInventionMessage(rawLine);
-	const receivedMaterial = parseReceivedMaterial(cleanLine);
-	if (receivedMaterial) {
-		return buildParseResult([receivedMaterial]);
+rawLine: string
+ ): InventionParseResult | null {
+ 	const cleanLine = normalizeInventionMessage(rawLine);
+	const scavengingMatch = cleanLine.match(/^Your Scavenging perk adds:\s*(.+)$/i);
+	if (scavengingMatch) {
+		const scavengingMaterial = parseExplicitMaterialEntry(scavengingMatch[1]);
+		return scavengingMaterial ? buildParseResult([scavengingMaterial]) : null;
+	}
+
+ 	const receivedMaterial = parseReceivedMaterial(cleanLine);
+ 	if (receivedMaterial) {
+ 		return buildParseResult([receivedMaterial]);
 	}
 
 	const materialsMatch = cleanLine.match(/^Materials gained:\s*(.+)$/i);
@@ -46,12 +52,12 @@ export function processInventionMaterials(
 
 	const entries = materialsMatch
 		? materialText
-				.split(",")
-				.map(parseExplicitMaterialEntry)
-				.filter((entry): entry is ParsedMaterial => entry !== null)
+			.split(",")
+			.map(parseExplicitMaterialEntry)
+			.filter((entry): entry is ParsedMaterial => entry !== null)
 		: [parseExplicitMaterialEntry(materialText)].filter(
-				(entry): entry is ParsedMaterial => entry !== null
-			);
+			(entry): entry is ParsedMaterial => entry !== null
+		);
 
 	if (entries.length === 0) return null;
 
@@ -60,11 +66,13 @@ export function processInventionMaterials(
 
 export function couldStartInventionMessage(text: string): boolean {
 	const cleanLine = normalizeInventionMessage(text);
-	return (
-		/^Materials gained:/i.test(cleanLine) ||
-		/^You receive\b/i.test(cleanLine) ||
-		/^[1-9][\d,]*\s+x\s+\S/i.test(cleanLine)
-	);
+ 	return (
+ 		/^Materials gained:/i.test(cleanLine) ||
+		/^Your Scavenging perk adds:/i.test(cleanLine) ||
+ 		/^You receive\b/i.test(cleanLine) ||
+ 		/^[1-9][\d,]*\s+x\s+\S/i.test(cleanLine)
+ 	);
+
 }
 
 function buildParseResult(
