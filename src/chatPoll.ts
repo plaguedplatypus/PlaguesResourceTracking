@@ -1,8 +1,8 @@
-export type ChatPollMessage = {
+type ChatPollMessage = {
   text: string;
 };
 
-export type ChatPollDependencies = {
+type ChatPollDependencies = {
   hasProcessedMessage: (message: string) => boolean;
   processMessage: (message: string) => boolean;
   rememberProcessedMessage: (message: string) => void;

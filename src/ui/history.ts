@@ -1,17 +1,17 @@
-export type TrackedHistorySource = "chat" | "dialog";
+type TrackedHistorySource = "chat" | "dialog";
 
-export type TrackedHistoryEntry = {
+type TrackedHistoryEntry = {
 	id: number;
 	text: string;
 	source: TrackedHistorySource;
 };
 
-export type HistoryAppendResult = {
+type HistoryAppendResult = {
 	entry: TrackedHistoryEntry;
 	evicted: TrackedHistoryEntry | null;
 };
 
-export class TrackedHistoryLog {
+class TrackedHistoryLog {
 	private entries: TrackedHistoryEntry[] = [];
 	private nextId = 1;
 
@@ -45,12 +45,12 @@ export class TrackedHistoryLog {
 	}
 }
 
-export type HistoryScrollState = {
+type HistoryScrollState = {
 	top: number;
 	height: number;
 };
 
-export type HistoryListAdapter<Node> = {
+type HistoryListAdapter<Node> = {
 	createRow(entry: TrackedHistoryEntry): Node;
 	replaceAll(rows: readonly Node[]): void;
 	prepend(row: Node): void;
@@ -59,7 +59,7 @@ export type HistoryListAdapter<Node> = {
 	setScrollTop(top: number): void;
 };
 
-export class IncrementalHistoryRenderer<Node> {
+class IncrementalHistoryRenderer<Node> {
 	private readonly nodes = new Map<number, Node>();
 
 	constructor(
@@ -107,9 +107,6 @@ export class IncrementalHistoryRenderer<Node> {
 		this.adapter.replaceAll([]);
 	}
 
-	getNode(id: number): Node | undefined {
-		return this.nodes.get(id);
-	}
 }
 
 const maxRecentHistory = 100;
@@ -187,7 +184,7 @@ export function showChatHistory(): void {
 	setTimeout(initializeHistoryWindow, 50);
 }
 
-export function clearTrackedHistory(): void {
+function clearTrackedHistory(): void {
 	if (!trackedHistory.clear()) return;
 	historyRenderer?.clear();
 }

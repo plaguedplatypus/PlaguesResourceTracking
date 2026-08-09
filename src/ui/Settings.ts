@@ -1,6 +1,6 @@
 import type { SessionStatus } from "./session";
 
-export type SettingsWindowState = {
+type SettingsWindowState = {
   chatCount: number;
   selectedChat: string;
   fishingUsePorters: boolean;
@@ -10,7 +10,7 @@ export type SettingsWindowState = {
   version: string;
 };
 
-export type SettingsWindowActions = {
+type SettingsWindowActions = {
   getState(): SettingsWindowState;
   selectChat(value: string): void;
   findChat(): void;
@@ -24,7 +24,7 @@ export type SettingsWindowActions = {
   showPatchNotes(targetDocument: Document): void;
 };
 
-export type SettingsWindowController = {
+type SettingsWindowController = {
   show(): void;
   refresh(): void;
 };

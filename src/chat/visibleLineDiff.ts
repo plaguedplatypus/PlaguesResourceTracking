@@ -61,7 +61,7 @@ export class VisibleLineDiff {
   }
 }
 
-export function findSequenceOverlap(
+function findSequenceOverlap(
   previous: readonly Pick<PhysicalChatLine, "text">[],
   current: readonly Pick<PhysicalChatLine, "text">[],
 ): number {

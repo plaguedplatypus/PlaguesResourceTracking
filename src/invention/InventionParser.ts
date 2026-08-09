@@ -5,7 +5,7 @@ import {
 } from "./components";
 import { normalizeInventionMessage } from "./InventionNormalizer";
 
-export type InventionMaterialUpdate = {
+type InventionMaterialUpdate = {
 	item: string;
 	amount: number;
 	skill: "invention";
@@ -13,7 +13,7 @@ export type InventionMaterialUpdate = {
 	source?: string;
 };
 
-export type InventionParseResult = {
+type InventionParseResult = {
 	updates: InventionMaterialUpdate[];
 	countedMaterials: string[];
 	statusMessage: string;
@@ -105,7 +105,7 @@ function parseReceivedMaterial(
 	);
 }
 
-export function parseExplicitMaterialEntry(
+function parseExplicitMaterialEntry(
 	text: string
 ): ParsedMaterial | null {
 	const match = text

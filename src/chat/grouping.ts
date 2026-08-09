@@ -3,12 +3,12 @@ import type { PhysicalChatLine } from "./chatTypes";
 const leadingTimestampRegex =
   /^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]\s*/;
 
-export type GroupState = {
+type GroupState = {
   pendingMessage: string | null;
   pendingTimestamp: string | null;
 };
 
-export type GroupResult = GroupState & {
+type GroupResult = GroupState & {
   messages: string[];
 };
 
@@ -87,7 +87,7 @@ export function groupPhysicalLines(
   return { messages, pendingMessage, pendingTimestamp };
 }
 
-export function isUnfinishedMaterialMessage(text: string | null): boolean {
+function isUnfinishedMaterialMessage(text: string | null): boolean {
   if (!text) return false;
   const body = normalizeChatWhitespace(text).replace(leadingTimestampRegex, "");
   return (
@@ -96,20 +96,20 @@ export function isUnfinishedMaterialMessage(text: string | null): boolean {
   );
 }
 
-export function getLeadingTimestamp(text: string): string | null {
+function getLeadingTimestamp(text: string): string | null {
   const match = text.match(leadingTimestampRegex);
   return match ? `[${match[1]}:${match[2]}:${match[3]}]` : null;
 }
 
-export function hasTimestamp(text: string): boolean {
+function hasTimestamp(text: string): boolean {
   return getLeadingTimestamp(text) !== null;
 }
 
-export function stripTimestamp(text: string): string {
+function stripTimestamp(text: string): string {
   return text.replace(leadingTimestampRegex, "").trim();
 }
 
-export function normalizeChatWhitespace(text: string): string {
+function normalizeChatWhitespace(text: string): string {
   return text
     .replace(
       leadingTimestampRegex,
@@ -119,7 +119,7 @@ export function normalizeChatWhitespace(text: string): string {
     .trim();
 }
 
-export function joinContinuation(
+function joinContinuation(
   currentMessage: string,
   continuationText: string,
 ): string {
