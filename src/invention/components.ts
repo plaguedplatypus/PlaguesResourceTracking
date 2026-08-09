@@ -1,14 +1,14 @@
 export type ComponentTier = "ancient" | "rare" | "uncommon";
 export type MaterialSuffix = "parts" | "components";
 
-export const ancientComponents = new Set([
+const ancientComponents = new Set([
 	"classic",
 	"historic",
 	"timeworn",
 	"vintage",
 ]);
 
-export const rareComponents = new Set([
+const rareComponents = new Set([
 	"armadyl",
 	"ascended",
 	"avernic",
@@ -44,7 +44,7 @@ export const rareComponents = new Set([
 	"zaros",
 ]);
 
-export const uncommonComponents = new Set([
+const uncommonComponents = new Set([
 	"dextrous",
 	"direct",
 	"enhancing",
@@ -70,7 +70,7 @@ export const uncommonComponents = new Set([
 	"variable",
 ]);
 
-export const parts = new Set([
+const parts = new Set([
 	"base",
 	"blade",
 	"clear",
@@ -105,11 +105,11 @@ const componentTiers: ReadonlyArray<
 	["uncommon", uncommonComponents],
 ];
 
-export function isKnownPart(root: string): boolean {
+function isKnownPart(root: string): boolean {
 	return parts.has(root.toLowerCase());
 }
 
-export function isKnownComponent(root: string): boolean {
+function isKnownComponent(root: string): boolean {
 	const normalized = root.toLowerCase();
 	return componentTiers.some(([, roots]) => roots.has(normalized));
 }

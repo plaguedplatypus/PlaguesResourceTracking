@@ -14,7 +14,7 @@ type DialogPosition = {
 	legacy?: boolean;
 };
 
-export interface ArtifactDialogReader {
+interface ArtifactDialogReader {
 	pos: DialogPosition | null;
 	find(): unknown;
 	checkDialog(image: unknown): boolean;
@@ -22,28 +22,16 @@ export interface ArtifactDialogReader {
 	readDialog(image: unknown, checked: boolean): string[] | null;
 }
 
-export interface ArtifactCaptureResult {
+interface ArtifactCaptureResult {
 	item: string;
 	quantity: number;
 	source: "archaeology";
 	rawText: string;
 }
 
-export interface ArtifactCaptureReader {
+interface ArtifactCaptureReader {
 	poll(): ArtifactCaptureResult | null;
 	reset(): void;
-}
-
-export interface ArtifactCaptureDependencies {
-	createReader: () => ArtifactDialogReader;
-	captureHold: (
-		x: number,
-		y: number,
-		width: number,
-		height: number
-	) => unknown;
-	getRsWidth: () => number;
-	isAlt1Available: () => boolean;
 }
 
 const damagedArtifactDialogRegex =
@@ -55,18 +43,8 @@ function createDefaultDialogReader(): ArtifactDialogReader {
 	return new Reader() as unknown as ArtifactDialogReader;
 }
 
-const defaultDependencies: ArtifactCaptureDependencies = {
-	createReader: createDefaultDialogReader,
-	captureHold: (x, y, width, height) =>
-		a1lib.captureHold(x, y, width, height),
-	getRsWidth: () => alt1.rsWidth,
-	isAlt1Available: () => Boolean(window.alt1),
-};
-
-export function createArtifactCaptureReader(
-	dependencies: ArtifactCaptureDependencies = defaultDependencies
-): ArtifactCaptureReader {
-	const reader = dependencies.createReader();
+export function createArtifactCaptureReader(): ArtifactCaptureReader {
+	const reader = createDefaultDialogReader();
 	let currentDialogCounted = false;
 	let dialogReadFailCount = 0;
 
@@ -77,10 +55,10 @@ export function createArtifactCaptureReader(
 		const capturePadding = 40;
 		const captureX = Math.max(0, originalPos.x - capturePadding);
 		const captureRight = Math.min(
-			dependencies.getRsWidth(),
+			alt1.rsWidth,
 			originalPos.x + originalPos.width + capturePadding
 		);
-		const image = dependencies.captureHold(
+		const image = a1lib.captureHold(
 			captureX,
 			originalPos.y,
 			captureRight - captureX,
@@ -137,7 +115,7 @@ export function createArtifactCaptureReader(
 
 	return {
 		poll() {
-			if (!dependencies.isAlt1Available()) return null;
+			if (!window.alt1) return null;
 
 			if (!reader.pos) {
 				reader.find();

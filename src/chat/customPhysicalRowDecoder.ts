@@ -14,10 +14,7 @@ import {
   getTrackerTimestamp,
   isTrackerBoundaryLine,
 } from "./trackerRelevance";
-import type {
-  TrackerContinuationContext,
-  TrackerRowClassification,
-} from "./trackerRelevance";
+import type { TrackerContinuationContext } from "./trackerRelevance";
 
 type ConfirmedGlyph = {
   character: string;
@@ -27,22 +24,10 @@ type ConfirmedGlyph = {
   seedRead?: ReturnType<RowOcrPrimitives["readLine"]>;
 };
 
-export type RowOcrPrimitives = Pick<
+type RowOcrPrimitives = Pick<
   typeof OCR,
   "findChar" | "getChatColorMono" | "readChar" | "readLine"
 >;
-
-type CaptureChatPixels = (
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) => ImageData;
-
-type DecoderWorkObserver = {
-  onLimitedRow?: (classification: TrackerRowClassification) => void;
-  onDeepRow?: (classification: TrackerRowClassification) => void;
-};
 
 type DecodePhysicalRowOptions = {
   startWindowWidth?: number;
@@ -221,6 +206,7 @@ function isBetterPhysicalCandidate(
 }
 
 export class CustomPhysicalRowDecoder {
+  private readonly ocr: RowOcrPrimitives = OCR;
   private lastReadBuffer: CapturedChatBuffer | null = null;
   private capturedReadCache: {
     key: string;
@@ -233,19 +219,14 @@ export class CustomPhysicalRowDecoder {
   private readonly decodedRowCache = new Map<string, DecodedCapturedRow>();
 
   constructor(
-    private readonly ocr: RowOcrPrimitives = OCR,
     private readonly fontCandidates: readonly ChatFontSetting[] = [],
-    private readonly workObserver: DecoderWorkObserver = {},
   ) {}
 
   resetCaptureState(): void {
     this.lastReadBuffer = null;
   }
 
-  read(
-    reader: ChatReaderState,
-    capture: CaptureChatPixels = a1lib.capture,
-  ): PhysicalChatLine[] {
+  read(reader: ChatReaderState): PhysicalChatLine[] {
     if (!reader.pos) return emptyRead();
 
     const box = reader.pos.mainbox;
@@ -256,7 +237,7 @@ export class CustomPhysicalRowDecoder {
     );
     const imageX = box.rect.x - leftMargin;
     const imageY = box.rect.y;
-    const image = capture(
+    const image = a1lib.capture(
       imageX,
       imageY,
       box.rect.width + leftMargin + rightPadding,
@@ -381,7 +362,6 @@ export class CustomPhysicalRowDecoder {
   ): DecodedCapturedRow {
     const screen = this.decodeCapturedPrefix(reader, absoluteBaseline, colors);
     const classification = classifyTrackerRow(screen?.text ?? "", context);
-    this.workObserver.onLimitedRow?.(classification);
 
     if (classification === "confidently-irrelevant") {
       const timestamp = getTrackerTimestamp(screen?.text ?? "");
@@ -394,7 +374,6 @@ export class CustomPhysicalRowDecoder {
         : null;
     }
 
-    this.workObserver.onDeepRow?.(classification);
     return this.decodeCapturedRow(reader, absoluteBaseline, colors);
   }
 
@@ -602,7 +581,7 @@ function buildContinuationContextKey(
   return context ? `${context.kind}:${context.timestamp ?? ""}` : "none";
 }
 
-export function buildPhysicalRowFingerprint(
+function buildPhysicalRowFingerprint(
   image: ImageData,
   font: OCR.FontDefinition,
   colors: readonly OCR.ColortTriplet[],
@@ -748,7 +727,7 @@ function buildCapturedReadCacheKey(
   ].join("|");
 }
 
-export function haveEqualPixels(
+function haveEqualPixels(
   previous: Uint8ClampedArray,
   current: Uint8ClampedArray,
 ): boolean {
@@ -760,7 +739,7 @@ export function haveEqualPixels(
   return true;
 }
 
-export function decodePhysicalRow(
+function decodePhysicalRow(
   buffer: ImageData,
   font: OCR.FontDefinition,
   colors: OCR.ColortTriplet[],
@@ -864,7 +843,7 @@ export function decodePhysicalRow(
   };
 }
 
-export function confirmInitialGlyph(
+function confirmInitialGlyph(
   buffer: ImageData,
   font: OCR.FontDefinition,
   colors: OCR.ColortTriplet[],

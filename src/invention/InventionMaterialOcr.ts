@@ -7,15 +7,15 @@ import {
 } from "./components";
 import { isExplicitMaterialEntry } from "./InventionParser";
 
-export type MaterialLineRereader = (
+type MaterialLineRereader = (
 	line: PhysicalChatLine
 ) => PhysicalChatLine | null;
 
-export type MaterialSupplementResult = {
+type MaterialSupplementResult = {
 	line: PhysicalChatLine;
 };
 
-export type MaterialRowRead = (
+type MaterialRowRead = (
 	absoluteBaseline: number,
 	colors: readonly OCR.ColortTriplet[]
 ) => PhysicalChatLine | null;
@@ -60,7 +60,7 @@ export function applyMaterialSupplement(
 	};
 }
 
-export function hasIncompleteMaterialEntry(text: string): boolean {
+function hasIncompleteMaterialEntry(text: string): boolean {
 	const body = text.replace(leadingTimestampRegex, "").trim();
 	if (bareMaterialHeaderRegex.test(body)) return true;
 
@@ -79,7 +79,7 @@ export function hasIncompleteMaterialEntry(text: string): boolean {
 	);
 }
 
-export function countCompleteMaterialEntries(text: string): number {
+function countCompleteMaterialEntries(text: string): number {
 	const materialText = getMaterialText(text);
 	if (materialText === null) return 0;
 
@@ -90,7 +90,7 @@ export function countCompleteMaterialEntries(text: string): number {
 		.filter(isExplicitMaterialEntry).length;
 }
 
-export function isKnownMaterialContinuation(text: string): boolean {
+function isKnownMaterialContinuation(text: string): boolean {
 	const body = text.replace(leadingTimestampRegex, "").trim();
 	if (/^Junk[,.]?\s*$/i.test(body)) return true;
 

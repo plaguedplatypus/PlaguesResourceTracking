@@ -82,7 +82,7 @@ export function getTrackerTimestamp(text: string): string | null {
   return match ? `[${match[1]}:${match[2]}:${match[3]}]` : null;
 }
 
-export function stripTrackerTimestamp(text: string): string {
+function stripTrackerTimestamp(text: string): string {
   return normalizeScreenText(text).replace(timestampRegex, "").trim();
 }
 

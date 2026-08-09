@@ -1,4 +1,4 @@
-export type TrackedSkill =
+type TrackedSkill =
 	| "mining"
 	| "woodcutting"
 	| "fishing"
@@ -6,11 +6,11 @@ export type TrackedSkill =
 	| "seren"
 	| "other";
 
-export type SpiritRewardSource =
+type SpiritRewardSource =
 	| "seren-spirit"
 	| "Forge/Fire Spirit";
 
-export type SkillItemUpdate = {
+type SkillItemUpdate = {
 	item: string;
 	amount: number;
 	skill: TrackedSkill;
@@ -19,13 +19,13 @@ export type SkillItemUpdate = {
 	storageKey?: string;
 };
 
-export type SkillTrackingResult = {
+type SkillTrackingResult = {
 	updates: SkillItemUpdate[];
 	statusMessage: string;
 	historyStatus: string;
 };
 
-export type SkillTrackerOptions = {
+type SkillTrackerOptions = {
 	fishingUsePorters: boolean;
 };
 
@@ -178,7 +178,7 @@ function isIgnoredSkillMessage(text: string): boolean {
 	return ignoredSkillMessages.some((pattern) => pattern.test(cleanLine));
 }
 
-export function parseSpiritRewardMessage(
+function parseSpiritRewardMessage(
 	cleanLine: string
 ): SkillTrackingResult | null {
 	for (const header of spiritHeaders) {
@@ -213,7 +213,7 @@ export function parseSpiritRewardMessage(
 	return null;
 }
 
-export function buildSpiritStorageKey(
+function buildSpiritStorageKey(
 	source: SpiritRewardSource,
 	item: string
 ): string {

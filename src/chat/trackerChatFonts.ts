@@ -5,7 +5,7 @@ import font14pt from "../../node_modules/alt1/src/fonts/chatbox/14pt.fontmeta.js
 import font16pt from "../../node_modules/alt1/src/fonts/chatbox/16pt.fontmeta.json";
 import type { ChatFontSetting } from "./chatTypes";
 
-export type TrackerChatFontCandidate = ChatFontSetting & {
+type TrackerChatFontCandidate = ChatFontSetting & {
   id: string;
   badgey: number;
 };

@@ -12,17 +12,12 @@ import { VisibleLineDiff } from "./visibleLineDiff";
 const leadingTimestampRegex = /^\[\s*\d{2}\s*:\s*\d{2}\s*:\s*\d{2}\s*\]\s*/;
 
 export default class CustomChatboxSource {
-  private readonly reader: ChatBoxReader;
+  private readonly reader = new ChatBoxReader();
   private readonly customDecoder = new CustomPhysicalRowDecoder(
-    undefined,
     trackerChatFontCandidates,
   );
   private readonly lineDiff = new VisibleLineDiff();
   private materialContextActive = false;
-
-  constructor(reader = new ChatBoxReader()) {
-    this.reader = reader;
-  }
 
   get pos(): ChatboxPosition | null {
     return this.reader.pos;

@@ -1,6 +1,6 @@
 export type SessionStatus = "idle" | "running" | "paused";
 
-export type SessionItemUpdate = {
+type SessionItemUpdate = {
 	item: string;
 	amount: number;
 	storageKey?: string;

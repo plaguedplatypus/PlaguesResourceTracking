@@ -8,24 +8,12 @@ import { groupPhysicalLines } from "./grouping";
 import CustomChatboxSource from "./CustomChatboxSource";
 
 export { ChatboxPosition };
-export {
-  getLeadingTimestamp,
-  groupPhysicalLines,
-  hasTimestamp,
-  joinContinuation,
-  normalizeChatWhitespace,
-  stripTimestamp,
-} from "./grouping";
 
 export default class ResourceChatReader {
-  private readonly source: PhysicalChatSource;
+  private readonly source: PhysicalChatSource = new CustomChatboxSource();
   private pendingMessage: string | null = null;
   private pendingTimestamp: string | null = null;
   private findErrorReported = false;
-
-  constructor(source?: PhysicalChatSource) {
-    this.source = source ?? this.createCustomSource();
-  }
 
   get pos(): ChatboxPosition | null {
     return this.source.pos;
@@ -75,9 +63,5 @@ export default class ResourceChatReader {
     this.pendingTimestamp = result.pendingTimestamp;
 
     return result.messages.map((text) => ({ text }));
-  }
-
-  private createCustomSource(): PhysicalChatSource {
-    return new CustomChatboxSource();
   }
 }
