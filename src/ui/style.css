@@ -8,7 +8,7 @@ body {
     margin: 0;
     padding: 4px 3px 1px 3px;
     box-sizing: border-box;
-    background: #1e1e1e;
+    background: rgba(12, 20, 24, 0.98);
     color: white;
     font: 13px Arial, sans-serif;
 }
@@ -40,11 +40,7 @@ body {
     height: 11px;
     padding: 0;
     font-size: 10px;
-    border: 1px solid #4a4030;
-    color: #d8c58a;
-    background: linear-gradient(#262626, #1e1e1e);
-    cursor: pointer;
-    text-shadow: 0 1px 0 #000;
+    border: 1px solid #5a4a2a;
 }
 
 .tabs-collapsed .item-prefix-icon,
@@ -62,36 +58,94 @@ body {
 	display: inline-flex;
 }
 
+.skill-tabs-wrap {
+    position: relative;
+    min-width: 0;
+    margin: 0 0 4px;
+}
+
 .skill-tabs {
     display: flex;
+    flex-wrap: nowrap;
     gap: 3px;
-    margin: 0 0 4px;
-    flex: 0 0 auto;
+    margin: 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scrollbar-width: none;
+}
+
+.skill-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.skill-scroll {
+    position: absolute;
+    top: 0;
+    z-index: 2;
+
+    width: 14px;
+    height: 100%;
+    padding: 0 2px;
+    box-sizing: border-box;
+    border: 0px;
+    background: rgb(12, 20, 24);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 10px 18px;
+}
+
+.skill-scroll-left {
+    left: 0;
+    /* webpackIgnore: true */
+    background-image: url("./icons/left.png");
+}
+
+.skill-scroll-right {
+    right: 0;
+    /* webpackIgnore: true */
+    background-image: url("./icons/right.png");
+}
+
+.skill-scroll-left[hidden],
+.skill-scroll-right[hidden] {
+    display: none;
+}
+
+.skill-tab {
+    flex: 1 0 20px;
+    max-width: 28px;
+    min-width: 20px;
+    aspect-ratio: 1;
+    height: auto;
+    padding: 1px;
+}
+
+.skill-tab img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.skill-tab.active {
+    color: #fff2aa;
+    border-color: #d9a441;
+    background: linear-gradient(#4a3518, #20170c);
+    box-shadow:
+        inset 0 0 4px rgba(255, 200, 80, 0.35),
+        0 0 3px rgba(255, 180, 60, 0.45);
 }
 
 .skill-tab,
 .sort-button,
 .session-quick-button,
 .app-cog {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    cursor: pointer;
-    color: #d8c58a;
-    background: linear-gradient(#262626, #1e1e1e);
-    border: 1px solid #4a4030;
+    border: 1px solid #5a4a2a;
     box-shadow:
         inset 1px 1px 0 rgba(255, 255, 255, 0.06),
         inset -1px -1px 0 rgba(0, 0, 0, 0.75);
-}
-
-.skill-tab {
-    width: 28px;
-    height: 28px;
-    min-width: 20px;
-    padding: 1px;
-    font-size: 12px;
 }
 
 .sort-button,
@@ -105,22 +159,6 @@ body {
     text-shadow: none;
 }
 
-.skill-tab.active {
-    color: #fff2aa;
-    border-color: #d9a441;
-    background: linear-gradient(#4a3518, #20170c);
-    box-shadow:
-        inset 0 0 4px rgba(255, 200, 80, 0.35),
-        0 0 3px rgba(255, 180, 60, 0.45);
-}
-
-.skill-tab img {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
-    pointer-events: none;
-}
-
 .invention-filters {
     display: none;
 }
@@ -132,20 +170,25 @@ body {
 
 .invention-filter-cycle {
     align-self: flex-start;
-    font-size: 11px;
+    font-size: 12px;
+    height: 18px;
+    white-space: nowrap;
+    border-radius: 6px;
+    padding: 3px;
     margin: 0;
 }
 
 .group-header {
     padding: 1px 4px;
-    margin-top: 2px;
     color: #d8c58a;
     font-size: 10px;
     font-weight: bold;
     text-transform: uppercase;
+    white-space: nowrap;
     background: rgba(0, 0, 0, 0.40);
     border-bottom: 1px solid #444;
     border-left: 2px solid #444;
+    border-radius: 3px 0 0 3px;
 }
 
 .tracker {
@@ -163,8 +206,8 @@ body {
 .item-row {
     display: flex;
     flex-direction: column;
-    padding: 1px 2px 0 1px;
-    line-height: 1.15;
+    padding: 0;
+    line-height: 1;
     background: #2c2c2c;
     border: 1px solid #4a4030;
     border-radius: 3px;
@@ -199,16 +242,15 @@ body {
 }
 
 .item-main-row {
-    min-height: 16px;
+    min-height: 17px;
 }
 
 .item-prefix-icon {
 	width: 12px;
 	height: 12px;
-	display: inline-block;
 	object-fit: contain;
-	vertical-align: -1px;
-	margin: 0px -2px 0px -1px;
+	vertical-align: -2px;
+	margin: 0px -2px 0px -2px;
 	pointer-events: none;
     
 	filter: brightness(0.85) contrast(1.1);
@@ -219,8 +261,7 @@ body {
     flex: 1;
     min-width: 0;
     font-size: 12px;
-    margin-right: 2px;
-    line-height: 1;
+    margin-left: 2px;
 }
 
 .title,
@@ -229,22 +270,28 @@ body {
 .goal-text, .goal-complete {
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: clip;
+}
+
+.counts-left .item-count {
+    order: -1;
+    border-left: 0;
+    border-right: 3px solid #5a4a2a;
 }
 
 .item-count {
     flex: 0 0 auto;
-    border-left: 2px solid #444;
-    padding: 2px 1px 0 2px;
-    text-align: right;
+    border-left: 3px solid #5a4a2a;
+    border-bottom: 1px solid #5a4a2a;
+    padding: 2px 2px 0 2px;
+    text-align: center;
     font-weight: bold;
     font-size: 12px;
-    line-height: 1;
+    margin-left: 2px;
 }
 
 .goal-row {
     gap: 4px;
-    padding: 1px;
+    padding: 2px;
 }
 
 .goal-text {
@@ -256,7 +303,7 @@ body {
     color: #ffd700;
     font-size: 10px;
     font-weight: bold;
-    padding: 0 0 0 2px;
+    padding: 2px;
     line-height: 10px;
     text-shadow: 0 0 2px rgba(255, 215, 0, 0.4);
 }
@@ -325,7 +372,7 @@ select {
 
     position: relative;
     top: -3px;
-    left: 1px;
+    left: -1px;
 }
 
 .settings-panel {
@@ -364,10 +411,6 @@ select {
     background: transparent;
     border: 0;
     box-shadow: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
 }
 
 .icon-btn img {
@@ -443,13 +486,12 @@ select {
 
 .settings-skill-toggle-row {
     grid-template-columns: 1fr;
-    gap: 3px;
 }
 
 .settings-skill-toggle {
     gap: 3px;
     overflow: hidden;
-    padding: 2px !important;
+    padding: 2px;
     font-size: 10px;
     line-height: 1;
 }
@@ -470,7 +512,7 @@ select {
 @media (max-width: 185px) {
     .settings-skill-toggle {
         gap: 2px;
-        padding: 2px 1px !important;
+        padding: 2px 1px;
         font-size: 9px;
     }
 
@@ -579,8 +621,6 @@ select {
     font: inherit;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: clip;
-    cursor: pointer;
     user-select: none;
 }
 
@@ -716,8 +756,7 @@ select {
 }
 
 ::-webkit-scrollbar {
-	width: 8px !important;
-	height: 8px !important;
+	width: 6px !important;
 	background: #161a1d !important;
 }
 

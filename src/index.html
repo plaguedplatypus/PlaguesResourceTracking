@@ -1,12 +1,6 @@
 <!DOCTYPE html>
 <html>
 
-<head>
-    <link rel="stylesheet" type="text/css" href="https://runeapps.org/nis/nis.css" />
-
-    <link rel="stylesheet" type="text/css" href="https://runeapps.org/runeappslib.css" />
-</head>
-
 <body class="nis">
     <div class="app">
         <div>
@@ -17,32 +11,37 @@
                 Resource Tracker
             </div>
         </div>
-        <div class="skill-tabs">
-            <button class="skill-tab active" data-skill="all">All</button>
-            <button class="skill-tab" data-skill="mining" title="Mining">
-                <img src="./icons/mining.png" alt="Mining">
-            </button>
+        
+        <div class="skill-tabs-wrap">
+            <button class="skill-scroll skill-scroll-left"></button>
+            <div class="skill-tabs">
+                <button class="skill-tab active" data-skill="all">All</button>
+                <button class="skill-tab" data-skill="mining" title="Mining">
+                    <img src="./icons/mining.png" alt="Mining">
+                </button>
 
-            <button class="skill-tab" data-skill="woodcutting" title="Woodcutting">
-                <img src="./icons/woodcutting.png" alt="Woodcutting">
-            </button>
+                <button class="skill-tab" data-skill="woodcutting" title="Woodcutting">
+                    <img src="./icons/woodcutting.png" alt="Woodcutting">
+                </button>
 
-            <button class="skill-tab" data-skill="fishing" title="Fishing">
-                <img src="./icons/fishing.png" alt="Fishing">
-            </button>
+                <button class="skill-tab" data-skill="fishing" title="Fishing">
+                    <img src="./icons/fishing.png" alt="Fishing">
+                </button>
 
-            <button class="skill-tab" data-skill="archaeology" title="Archaeology">
-                <img src="./icons/archaeology.png" alt="Archaeology">
-            </button>
+                <button class="skill-tab" data-skill="archaeology" title="Archaeology">
+                    <img src="./icons/archaeology.png" alt="Archaeology">
+                </button>
 
-            <button class="skill-tab" data-skill="invention" title="Invention">
-                <img src="./icons/invention.png" alt="Invention">
-            </button>
+                <button class="skill-tab" data-skill="invention" title="Invention">
+                    <img src="./icons/invention.png" alt="Invention">
+                </button>
 
-            <button class="skill-tab" data-skill="seren" title="Spirits">
-                <img src="./icons/seren.png" alt="Seren">
-            </button>
+                <button class="skill-tab" data-skill="seren" title="Spirits">
+                    <img src="./icons/seren.png" alt="Seren">
+                </button>
 
+            </div>
+            <button class="skill-scroll skill-scroll-right"></button>
         </div>
 
         <div class="invention-filters">

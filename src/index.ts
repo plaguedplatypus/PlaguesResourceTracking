@@ -58,12 +58,15 @@ type ItemUpdate = {
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type SortMode = "recent" | "alpha" | "count";
+type CountPosition = "right" | "left";
 
 type SaveData = {
   chat?: string;
   activeTab?: InternalSkillType;
   fishingUsePorters?: boolean;
   shortInventionNames?: boolean;
+  countPosition?: CountPosition;
+  showAllTabIcons?: boolean;
   sortMode?: SortMode;
   items: Record<string, TrackedItem>;
 };
@@ -79,6 +82,14 @@ const compactSortButton = document.querySelector(
 const compactSettingsButton = document.querySelector(
   ".compact-settings-button",
 ) as HTMLElement | null;
+
+const skillTabs = document.querySelector(".skill-tabs") as HTMLElement;
+const skillScrollLeft = document.querySelector(
+  ".skill-scroll-left",
+) as HTMLButtonElement;
+const skillScrollRight = document.querySelector(
+  ".skill-scroll-right",
+) as HTMLButtonElement;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 
@@ -105,6 +116,8 @@ let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let shortInventionNames = false;
+let countPosition: CountPosition = "right";
+let showAllTabIcons = true;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
 let reader = new ResourceChatReader();
@@ -118,6 +131,8 @@ activeSkillTab =
     : ((savedData.activeTab || "all") as SkillType);
 fishingUsePorters = savedData.fishingUsePorters ?? true;
 shortInventionNames = savedData.shortInventionNames ?? false;
+countPosition = savedData.countPosition === "left" ? "left" : "right";
+showAllTabIcons = savedData.showAllTabIcons ?? true;
 sortMode = savedData.sortMode || "recent";
 
 const artifactCaptureReader = createArtifactCaptureReader();
@@ -127,6 +142,8 @@ const settingsWindow = createSettingsWindowController({
     selectedChat: getSaveData().chat || "0",
     fishingUsePorters,
     shortInventionNames,
+    countPosition,
+    showAllTabIcons,
     sessionStatus: getSessionStatus(),
     clearLabel: `Clear ${getActiveTabLabel()}`,
     version: RT_VERSION,
@@ -137,6 +154,8 @@ const settingsWindow = createSettingsWindowController({
   showSession: showSessionWindow,
   toggleFishingPorters,
   toggleShortInventionNames,
+  toggleCountPosition,
+  toggleAllTabIcons,
   exportData,
   importData,
   clearCurrentTab,
@@ -351,7 +370,7 @@ function processHarvestLine(
 }
 
 function getItemDisplayPrefixHtml(itemData: TrackedItem) {
-  if (activeSkillTab !== "all") return "";
+  if (activeSkillTab !== "all" || !showAllTabIcons) return "";
 
   if (itemData.skill === "mining") {
     return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `;
@@ -406,6 +425,8 @@ function getSaveData(): SaveData {
       activeTab: data.activeTab || "all",
       fishingUsePorters: data.fishingUsePorters ?? true,
       shortInventionNames: data.shortInventionNames ?? false,
+      countPosition: data.countPosition === "left" ? "left" : "right",
+      showAllTabIcons: data.showAllTabIcons ?? true,
       sortMode: data.sortMode || "recent",
       items: data.items || {},
     };
@@ -633,10 +654,10 @@ function renderGoalSortedTab(
 
   const unknownItems = includeUnknown
     ? items.filter(
-        (item) =>
-          data.items[item].goal === null &&
-          (data.items[item].skill || "other") === "other",
-      )
+      (item) =>
+        data.items[item].goal === null &&
+        (data.items[item].skill || "other") === "other",
+    )
     : [];
 
   const sortedItems = items.filter(
@@ -733,7 +754,7 @@ function renderItemRow(
       shortInventionNames,
     ),
   );
-  
+
   row.innerHTML = `
 		<div class="item-main-row">
 			<div class="item-text">
@@ -834,6 +855,32 @@ function toggleShortInventionNames() {
   render();
 }
 
+function updateCountPositionUi() {
+    document.body.classList.toggle("counts-left", countPosition === "left");
+}
+
+function toggleCountPosition() {
+    countPosition = countPosition === "right" ? "left" : "right";
+
+    const data = getSaveData();
+    data.countPosition = countPosition;
+    saveData(data);
+
+    updateCountPositionUi();
+    settingsWindow.refresh();
+}
+
+function toggleAllTabIcons() {
+  showAllTabIcons = !showAllTabIcons;
+
+  const data = getSaveData();
+  data.showAllTabIcons = showAllTabIcons;
+  saveData(data);
+
+  settingsWindow.refresh();
+  render();
+}
+
 // Hide invention filters when not on invention tab
 function updateInventionFilterVisibility() {
   if (!inventionFilters) return;
@@ -898,6 +945,52 @@ function getSortedGroupLabel() {
   if (sortMode === "alpha") return "A-Z";
   return "Count";
 }
+
+function getSkillTabScrollStep() {
+  const tab = skillTabs.querySelector(".skill-tab") as HTMLElement | null;
+  if (!tab) return 28;
+
+  const styles = getComputedStyle(skillTabs);
+  const gap = parseFloat(styles.columnGap) || 0;
+
+  return tab.getBoundingClientRect().width + gap;
+}
+
+function updateSkillTabScrollButtons() {
+    const maxScrollLeft =
+        skillTabs.scrollWidth - skillTabs.clientWidth;
+
+    const hasOverflow = maxScrollLeft > 1;
+
+    skillScrollLeft.hidden =
+        !hasOverflow || skillTabs.scrollLeft <= 1;
+
+    skillScrollRight.hidden =
+        !hasOverflow ||
+        skillTabs.scrollLeft >= maxScrollLeft - 1;
+}
+
+skillScrollLeft.addEventListener("click", () => {
+  skillTabs.scrollBy({
+    left: -getSkillTabScrollStep(),
+    behavior: "smooth",
+  });
+});
+
+skillScrollRight.addEventListener("click", () => {
+  skillTabs.scrollBy({
+    left: getSkillTabScrollStep(),
+    behavior: "smooth",
+  });
+});
+
+skillTabs.addEventListener("scroll", updateSkillTabScrollButtons);
+
+new ResizeObserver(() => {
+    updateSkillTabScrollButtons();
+}).observe(skillTabs);
+
+requestAnimationFrame(updateSkillTabScrollButtons);
 
 document.querySelectorAll(".skill-tab").forEach((tab) => {
   tab.addEventListener("click", (e: Event) => {
@@ -1084,13 +1177,18 @@ function importData(file: File) {
         activeTab: imported.activeTab || "all",
         fishingUsePorters: imported.fishingUsePorters ?? true,
         shortInventionNames: imported.shortInventionNames ?? false,
+        countPosition: imported.countPosition === "left" ? "left" : "right",
+        showAllTabIcons: imported.showAllTabIcons ?? true,
         sortMode: imported.sortMode || "recent",
         items: imported.items || {},
       };
 
       saveData(data);
       openSettingsItem = null;
+      countPosition = data.countPosition === "left" ? "left" : "right";
+      showAllTabIcons = data.showAllTabIcons ?? true;
 
+      updateCountPositionUi();
       render();
       status.innerText = "Save imported.";
     } catch {
@@ -1177,6 +1275,8 @@ updateSessionStatusMini();
 updateSettingsVersionLabel();
 maybeShowUpdateToast();
 updateTabsCollapsedUi();
+updateCountPositionUi();
+updateSkillTabScrollButtons();
 render();
 
 function updateSettingsVersionLabel() {
