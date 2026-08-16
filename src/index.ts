@@ -60,6 +60,10 @@ type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type SortMode = "recent" | "alpha" | "count";
 type CountPosition = "right" | "left";
 
+const TRACKER_SIZE_MIN = 10;
+const TRACKER_SIZE_MAX = 16;
+const TRACKER_SIZE_DEFAULT = 12;
+
 type SaveData = {
   chat?: string;
   activeTab?: InternalSkillType;
@@ -67,6 +71,7 @@ type SaveData = {
   shortInventionNames?: boolean;
   countPosition?: CountPosition;
   showAllTabIcons?: boolean;
+  trackerSize?: number;
   sortMode?: SortMode;
   items: Record<string, TrackedItem>;
 };
@@ -118,6 +123,7 @@ let fishingUsePorters = true;
 let shortInventionNames = false;
 let countPosition: CountPosition = "right";
 let showAllTabIcons = true;
+let trackerSize = TRACKER_SIZE_DEFAULT;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
 let reader = new ResourceChatReader();
@@ -133,6 +139,7 @@ fishingUsePorters = savedData.fishingUsePorters ?? true;
 shortInventionNames = savedData.shortInventionNames ?? false;
 countPosition = savedData.countPosition === "left" ? "left" : "right";
 showAllTabIcons = savedData.showAllTabIcons ?? true;
+trackerSize = savedData.trackerSize ?? TRACKER_SIZE_DEFAULT;
 sortMode = savedData.sortMode || "recent";
 
 const artifactCaptureReader = createArtifactCaptureReader();
@@ -144,6 +151,7 @@ const settingsWindow = createSettingsWindowController({
     shortInventionNames,
     countPosition,
     showAllTabIcons,
+    trackerSize,
     sessionStatus: getSessionStatus(),
     clearLabel: `Clear ${getActiveTabLabel()}`,
     version: RT_VERSION,
@@ -156,6 +164,7 @@ const settingsWindow = createSettingsWindowController({
   toggleShortInventionNames,
   toggleCountPosition,
   toggleAllTabIcons,
+  setTrackerSize,
   exportData,
   importData,
   clearCurrentTab,
@@ -414,6 +423,7 @@ function getSaveData(): SaveData {
   if (!raw) {
     return {
       sortMode: "recent",
+      trackerSize: TRACKER_SIZE_DEFAULT,
       items: {},
     };
   }
@@ -427,12 +437,14 @@ function getSaveData(): SaveData {
       shortInventionNames: data.shortInventionNames ?? false,
       countPosition: data.countPosition === "left" ? "left" : "right",
       showAllTabIcons: data.showAllTabIcons ?? true,
+      trackerSize: normalizeTrackerSize(data.trackerSize),
       sortMode: data.sortMode || "recent",
       items: data.items || {},
     };
   } catch {
     return {
       sortMode: "recent",
+      trackerSize: TRACKER_SIZE_DEFAULT,
       items: {},
     };
   }
@@ -870,6 +882,19 @@ function toggleCountPosition() {
     settingsWindow.refresh();
 }
 
+function normalizeTrackerSize(value: unknown): number {
+  if (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= TRACKER_SIZE_MIN &&
+    value <= TRACKER_SIZE_MAX
+  ) {
+    return value;
+  }
+
+  return TRACKER_SIZE_DEFAULT;
+}
+
 function toggleAllTabIcons() {
   showAllTabIcons = !showAllTabIcons;
 
@@ -879,6 +904,23 @@ function toggleAllTabIcons() {
 
   settingsWindow.refresh();
   render();
+}
+
+function updateTrackerSizeUi() {
+  tracker.style.setProperty("--tracker-size", `${trackerSize}px`);
+}
+
+function setTrackerSize(value: number, persist: boolean) {
+  trackerSize = normalizeTrackerSize(value);
+  updateTrackerSizeUi();
+
+  if (persist) {
+    const data = getSaveData();
+    data.trackerSize = trackerSize;
+    saveData(data);
+  }
+
+  settingsWindow.refresh();
 }
 
 // Hide invention filters when not on invention tab
@@ -1179,6 +1221,7 @@ function importData(file: File) {
         shortInventionNames: imported.shortInventionNames ?? false,
         countPosition: imported.countPosition === "left" ? "left" : "right",
         showAllTabIcons: imported.showAllTabIcons ?? true,
+        trackerSize: normalizeTrackerSize(imported.trackerSize),
         sortMode: imported.sortMode || "recent",
         items: imported.items || {},
       };
@@ -1187,8 +1230,11 @@ function importData(file: File) {
       openSettingsItem = null;
       countPosition = data.countPosition === "left" ? "left" : "right";
       showAllTabIcons = data.showAllTabIcons ?? true;
+      trackerSize = data.trackerSize ?? TRACKER_SIZE_DEFAULT;
 
       updateCountPositionUi();
+      updateTrackerSizeUi();
+      settingsWindow.refresh();
       render();
       status.innerText = "Save imported.";
     } catch {
@@ -1276,6 +1322,7 @@ updateSettingsVersionLabel();
 maybeShowUpdateToast();
 updateTabsCollapsedUi();
 updateCountPositionUi();
+updateTrackerSizeUi();
 updateSkillTabScrollButtons();
 render();
 

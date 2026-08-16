@@ -8,6 +8,16 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.9",
+		title: "UI Updates",
+		items: [
+			"Updated the tracker UI.",
+			"Added a setting for scaling the tracker rows.",
+			"Added a setting to change the position of item counts- left or right.",
+			"Added a setting to toggle off/on the All-Tab item icons.",
+		],
+	},
+	{
 		version: "v1.8",
 		title: "Compact Components",
 		items: [
