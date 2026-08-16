@@ -1,10 +1,14 @@
 import type { SessionStatus } from "./session";
 
+type CountPosition = "right" | "left";
+
 type SettingsWindowState = {
   chatCount: number;
   selectedChat: string;
   fishingUsePorters: boolean;
   shortInventionNames: boolean;
+  countPosition: CountPosition;
+  showAllTabIcons: boolean;
   sessionStatus: SessionStatus;
   clearLabel: string;
   version: string;
@@ -18,6 +22,8 @@ type SettingsWindowActions = {
   showSession(): void;
   toggleFishingPorters(): void;
   toggleShortInventionNames(): void;
+  toggleCountPosition(): void;
+  toggleAllTabIcons(): void;
   exportData(): void;
   importData(file: File): void;
   clearCurrentTab(): void;
@@ -46,7 +52,7 @@ export function createSettingsWindowController(
     settingsWindow = window.open(
       "",
       "settingsWindow",
-      "width=240,height=217",
+      "width=240,height=244",
     );
     initializedWindow = null;
 
@@ -116,6 +122,37 @@ export function createSettingsWindowController(
       );
     }
 
+    const countPosition = doc.querySelector(
+      ".count-position-cycle",
+    ) as HTMLButtonElement | null;
+    const countPositionLabel = countPosition?.querySelector(
+      ".settings-toggle-label",
+    );
+    if (countPosition && countPositionLabel) {
+      countPositionLabel.textContent = `Count Position: ${state.countPosition === "left" ? "Left" : "Right"}`;
+      countPosition.setAttribute(
+        "aria-pressed",
+        String(state.countPosition === "left"),
+      );
+      countPosition.title = `Count position: ${state.countPosition === "left" ? "Left" : "Right"}`;
+    }
+
+    const allTabIcons = doc.querySelector(
+      ".all-tab-icons-toggle",
+    ) as HTMLButtonElement | null;
+    const allTabIconsLabel = allTabIcons?.querySelector(
+      ".settings-toggle-label",
+    );
+    if (allTabIcons && allTabIconsLabel) {
+      allTabIconsLabel.textContent = state.showAllTabIcons
+        ? "All-Tab Icons: ON"
+        : "All-Tab Icons: OFF";
+      allTabIcons.setAttribute("aria-pressed", String(state.showAllTabIcons));
+      allTabIcons.title = state.showAllTabIcons
+        ? "All-tab item icons are shown"
+        : "All-tab item icons are hidden";
+    }
+
     updateSessionStatus(doc, state.sessionStatus);
 
     const clear = doc.querySelector(".clear") as HTMLButtonElement | null;
@@ -174,6 +211,12 @@ export function createSettingsWindowController(
     doc
       .querySelector(".short-invention-names-toggle")
       ?.addEventListener("click", actions.toggleShortInventionNames);
+    doc
+      .querySelector(".count-position-cycle")
+      ?.addEventListener("click", actions.toggleCountPosition);
+    doc
+      .querySelector(".all-tab-icons-toggle")
+      ?.addEventListener("click", actions.toggleAllTabIcons);
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
     doc.querySelector(".clear")?.addEventListener("click", actions.clearCurrentTab);
 
@@ -278,6 +321,16 @@ function settingsMarkup(): string {
         <button class="settings-skill-toggle short-invention-names-toggle"
           title="Shorten Invention item labels in the main tracker" aria-pressed="false">
           <span class="settings-toggle-label">Short Invention Names: OFF</span>
+        </button>
+      </div>
+      <div class="settings-row">
+        <button class="settings-skill-toggle count-position-cycle"
+          title="Count position: Right" aria-pressed="false">
+          <span class="settings-toggle-label">Count Position: Right</span>
+        </button>
+        <button class="settings-skill-toggle all-tab-icons-toggle"
+          title="All-tab item icons are shown" aria-pressed="true">
+          <span class="settings-toggle-label">All-Tab Icons: ON</span>
         </button>
       </div>
       <div class="settings-row">
