@@ -9,6 +9,7 @@ type SettingsWindowState = {
   shortInventionNames: boolean;
   countPosition: CountPosition;
   showAllTabIcons: boolean;
+  trackerSize: number;
   sessionStatus: SessionStatus;
   clearLabel: string;
   version: string;
@@ -24,6 +25,7 @@ type SettingsWindowActions = {
   toggleShortInventionNames(): void;
   toggleCountPosition(): void;
   toggleAllTabIcons(): void;
+  setTrackerSize(value: number, persist: boolean): void;
   exportData(): void;
   importData(file: File): void;
   clearCurrentTab(): void;
@@ -52,7 +54,7 @@ export function createSettingsWindowController(
     settingsWindow = window.open(
       "",
       "settingsWindow",
-      "width=240,height=244",
+      "width=240,height=270",
     );
     initializedWindow = null;
 
@@ -153,6 +155,15 @@ export function createSettingsWindowController(
         : "All-tab item icons are hidden";
     }
 
+    const trackerSize = doc.querySelector(
+      ".tracker-size",
+    ) as HTMLInputElement | null;
+    const trackerSizeValue = doc.querySelector(".tracker-size-value");
+    if (trackerSize && trackerSizeValue) {
+      trackerSize.value = String(state.trackerSize);
+      trackerSizeValue.textContent = `Tracker Size: ${state.trackerSize}px`;
+    }
+
     updateSessionStatus(doc, state.sessionStatus);
 
     const clear = doc.querySelector(".clear") as HTMLButtonElement | null;
@@ -217,6 +228,15 @@ export function createSettingsWindowController(
     doc
       .querySelector(".all-tab-icons-toggle")
       ?.addEventListener("click", actions.toggleAllTabIcons);
+    const trackerSize = doc.querySelector(
+      ".tracker-size",
+    ) as HTMLInputElement | null;
+    trackerSize?.addEventListener("input", () => {
+      actions.setTrackerSize(Number(trackerSize.value), false);
+    });
+    trackerSize?.addEventListener("change", () => {
+      actions.setTrackerSize(Number(trackerSize.value), true);
+    });
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
     doc.querySelector(".clear")?.addEventListener("click", actions.clearCurrentTab);
 
@@ -332,6 +352,11 @@ function settingsMarkup(): string {
           title="All-tab item icons are shown" aria-pressed="true">
           <span class="settings-toggle-label">All-Tab Icons: ON</span>
         </button>
+      </div>
+      <div class="settings-row settings-tracker-size-row">
+        <span class="tracker-size-value">Tracker Size: 12px</span>
+        <input class="tracker-size" type="range" min="10" max="16" step="1"
+          value="12" aria-label="Tracker Size">
       </div>
       <div class="settings-row">
         <button class="export">Export</button>
