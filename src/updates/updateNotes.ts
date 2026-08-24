@@ -8,6 +8,13 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.9.1",
+		title: "Minor Update",
+		items: [
+			"Minor update: Added Leagues relics to the tracker.",
+		],
+	},
+	{
 		version: "v1.9",
 		title: "UI Updates",
 		items: [
