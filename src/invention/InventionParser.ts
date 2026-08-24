@@ -36,6 +36,14 @@ rawLine: string
 		return scavengingMaterial ? buildParseResult([scavengingMaterial]) : null;
 	}
 
+	const leagueMaterialMatch = cleanLine.match(
+		/^Your Leagues? Scavenging perk finds:?\s*(.+)$/i
+	);
+	if (leagueMaterialMatch) {
+		const leagueMaterial = parseLeagueMaterialEntry(leagueMaterialMatch[1]);
+		return leagueMaterial ? buildParseResult([leagueMaterial]) : null;
+	}
+
  	const receivedMaterial = parseReceivedMaterial(cleanLine);
  	if (receivedMaterial) {
  		return buildParseResult([receivedMaterial]);
@@ -67,8 +75,9 @@ rawLine: string
 export function couldStartInventionMessage(text: string): boolean {
 	const cleanLine = normalizeInventionMessage(text);
  	return (
- 		/^Materials gained:/i.test(cleanLine) ||
+		/^Materials gained:/i.test(cleanLine) ||
 		/^Your Scavenging perk adds:/i.test(cleanLine) ||
+		/^Your Leagues? Scavenging perk finds:?/i.test(cleanLine) ||
  		/^You receive\b/i.test(cleanLine) ||
  		/^[1-9][\d,]*\s+x\s+\S/i.test(cleanLine)
  	);
@@ -113,6 +122,18 @@ function parseExplicitMaterialEntry(
 		.replace(/\.$/, "")
 		.match(/^([1-9]\d*)\s+x\s+(.+)$/i);
 
+	if (!match) return null;
+
+	return parseMaterial(match[1], match[2]);
+}
+
+function parseLeagueMaterialEntry(text: string): ParsedMaterial | null {
+	const explicitEntry = parseExplicitMaterialEntry(text);
+	if (explicitEntry) return explicitEntry;
+
+	const match = text.trim().match(
+		/^([1-9]\d*)\s+x\s+((?:junk)|(?:[a-z]+(?:-[a-z]+)?)\s+(?:parts|components))\b/i
+	);
 	if (!match) return null;
 
 	return parseMaterial(match[1], match[2]);

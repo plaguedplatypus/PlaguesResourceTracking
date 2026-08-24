@@ -114,7 +114,7 @@ export function parseSkillTrackerMessage(
 	if (spiritResult) return spiritResult;
 
 	const transportMatch = cleanLine.match(
-		/(?:You transport|sent it|transports your items) to your\s+(.+?):\s*(?:(\d+)\s*x\s*)?([\s\S]+?)\.?$/i
+		/(?:You transport|sent it|transports your items|Your League relic transports the following item) to your\s+(.+?):\s*(?:(\d+)\s*x\s*)?([\s\S]+?)\.?$/i
 	);
 
 	if (transportMatch) {
@@ -167,7 +167,7 @@ export function couldStartSkillTrackerMessage(text: string): boolean {
 		/^The (?:Seren spirit|forge phoenix|fire spirit) gifts you:/i.test(
 			cleanLine
 		) ||
-		/(?:^You transport|sent it|transports your items) to your\b/i.test(
+		/(?:^You transport|sent it|transports your items|Your League relic transports the following item) to your\b/i.test(
 			cleanLine
 		)
 	);
