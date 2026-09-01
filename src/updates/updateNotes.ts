@@ -8,6 +8,18 @@ export type ReleaseNote = {
 
 export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	{
+		version: "v1.10",
+		title: "The Tracker Update",
+		items: [
+			"Farming Tracking is here, toggle it in the settings.",
+			"Can now Toggle Tracked Skills and Events ON/OFF in the settings.",
+			"Can now reset counts per tab without clearing the tracker.",
+			"There is now a confirmation when clearing the Tracker. (no more miss-clicks)",
+			"Added a Dig Site filter to Archaeology.",
+			"Added a [+] button to Invention Tracker to add components.",
+		],
+	},
+	{
 		version: "v1.9.1",
 		title: "Minor Update",
 		items: [

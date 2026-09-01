@@ -1,5 +1,13 @@
 export type ComponentTier = "ancient" | "rare" | "uncommon";
 export type MaterialSuffix = "parts" | "components";
+export type InventionMaterialFilter = ComponentTier | "common";
+
+export type InventionMaterialOption = {
+	item: string;
+	filter: InventionMaterialFilter;
+	source: string;
+	colorClass?: string;
+};
 
 const ancientComponents = new Set([
 	"classic",
@@ -104,6 +112,31 @@ const componentTiers: ReadonlyArray<
 	["rare", rareComponents],
 	["uncommon", uncommonComponents],
 ];
+
+const inventionMaterialOptions: readonly InventionMaterialOption[] = componentTiers.reduce<
+	InventionMaterialOption[]
+>(
+	(options, [tier, roots]) =>
+		options.concat(
+			Array.from(roots, (root) => ({
+				item: `${root} components`,
+				filter: tier,
+				source: `${tier}-components`,
+				colorClass: `${tier}-component`,
+			}))
+		),
+	[],
+).concat([
+	...Array.from(parts, (root) => ({
+		item: `${root} parts`,
+		filter: "common" as const,
+		source: "invention",
+	})),
+]).sort((a, b) => a.item.localeCompare(b.item));
+
+export function getInventionMaterialOptions(): readonly InventionMaterialOption[] {
+	return inventionMaterialOptions;
+}
 
 function isKnownPart(root: string): boolean {
 	return parts.has(root.toLowerCase());
