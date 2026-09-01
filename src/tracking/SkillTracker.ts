@@ -1,7 +1,13 @@
+import {
+  getCanonicalFarmingProduce,
+  isFarmingHerbProduce,
+} from "./farming";
+
 type TrackedSkill =
 	| "mining"
 	| "woodcutting"
 	| "fishing"
+	| "farming"
 	| "archaeology"
 	| "seren"
 	| "other";
@@ -113,6 +119,9 @@ export function parseSkillTrackerMessage(
 	const spiritResult = parseSpiritRewardMessage(cleanLine);
 	if (spiritResult) return spiritResult;
 
+	const farmingResult = parseFarmingTrackerMessage(cleanLine);
+	if (farmingResult) return farmingResult;
+
 	const transportMatch = cleanLine.match(
 		/(?:You transport|sent it|transports your items|Your League relic transports the following item) to your\s+(.+?):\s*(?:(\d+)\s*x\s*)?([\s\S]+?)\.?$/i
 	);
@@ -157,13 +166,48 @@ export function parseSkillTrackerMessage(
 	return null;
 }
 
+function parseFarmingTrackerMessage(
+	cleanLine: string,
+): SkillTrackingResult | null {
+	const normalizedLine = cleanLine.replace(/\s+/g, " ").trim();
+	const match =
+		normalizedLine.match(
+			/^You transport to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+		) ??
+		normalizedLine.match(
+			/^You add the herbs to your bag:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+		) ??
+		normalizedLine.match(
+			/^Your Farming skillcape perk harvested and noted\s+([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+		) ??
+		normalizedLine.match(
+			/^Your Boon of Cronos has doubled the following item and sent it to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+		);
+
+	if (!match) return null;
+
+	const amount = Number(match[1].replace(/,/g, ""));
+	const item = getCanonicalFarmingProduce(match[2]);
+	if (!item || !Number.isSafeInteger(amount) || amount <= 0) return null;
+
+	if (/^You add the herbs to your bag:/i.test(normalizedLine)) {
+		if (!isFarmingHerbProduce(item)) return null;
+	}
+
+	return result(
+		{ item, amount, skill: "farming" },
+		`Farming: ${amount} x ${item}`,
+	);
+}
+
 export function couldStartSkillTrackerMessage(text: string): boolean {
 	const cleanLine = text.trim();
 	if (isIgnoredSkillMessage(cleanLine)) return false;
 
 	return (
 		/^You (?:get|catch|find)\b/i.test(cleanLine) ||
-		/^Your (?:Boon of Crondis|Fortune|imp-souled)\b/i.test(cleanLine) ||
+		/^You add the herbs to your bag:/i.test(cleanLine) ||
+		/^Your (?:Boon of Crondis|Boon of Cronos|Farming skillcape perk|Fortune|imp-souled)\b/i.test(cleanLine) ||
 		/^The (?:Seren spirit|forge phoenix|fire spirit) gifts you:/i.test(
 			cleanLine
 		) ||

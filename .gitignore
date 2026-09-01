@@ -1,5 +1,8 @@
 node_modules/
 dist/
+tests/
+.test-dist/
 .vscode/
+*.test.json
 package-lock.json
 npm-debug.log*

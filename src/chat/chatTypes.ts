@@ -1,5 +1,15 @@
 import type * as OCR from "alt1/ocr";
 
+export type ChatboxType =
+  | "main"
+  | "cc"
+  | "fc"
+  | "gc"
+  | "gcc"
+  | "private"
+  | "gimc"
+  | "unknown";
+
 export interface ChatRect {
   x: number;
   y: number;
@@ -9,6 +19,7 @@ export interface ChatRect {
 
 export interface LocalChatbox {
   rect: ChatRect;
+  type: ChatboxType;
   leftfound: boolean;
   line0x: number;
   line0y: number;

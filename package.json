@@ -1,6 +1,7 @@
 {
 	"scripts": {
 		"build": "webpack --mode production",
+		"test": "tsc -p tsconfig.test.json && node .test-dist/tests/farming.test.js",
 		"dev": "webpack --mode development --watch",
 		"local": "webpack --mode development && npx http-server .\\dist -p 8080",
 		"release": "webpack --mode production && powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -Path .\\dist\\* -Destination . -Recurse -Force\"",
