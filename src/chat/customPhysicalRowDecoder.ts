@@ -7,14 +7,12 @@ import type {
   PhysicalChatLine,
 } from "./chatTypes";
 import * as OCR from "alt1/ocr";
-import { buildPrimaryOcrPalette } from "./primaryReaderConfig";
+import { couldStartInventionMessage } from "../invention/InventionParser";
 import {
-  advanceTrackerContext,
-  classifyTrackerRow,
-  getTrackerTimestamp,
-  isTrackerBoundaryLine,
-} from "./trackerRelevance";
-import type { TrackerContinuationContext } from "./trackerRelevance";
+  couldStartSkillTrackerMessage,
+  isMaterialsGainedMessage,
+  isSpiritRewardMessage,
+} from "../tracking/trackerMessages";
 
 type ConfirmedGlyph = {
   character: string;
@@ -41,6 +39,17 @@ type BoundaryMatch = {
 };
 
 type DecodedCapturedRow = PhysicalChatLine | null;
+
+type TrackerRowClassification =
+  | "relevant"
+  | "contextual"
+  | "uncertain"
+  | "confidently-irrelevant";
+
+type TrackerContinuationContext = {
+  kind: "material" | "spirit" | "tracked";
+  timestamp: string | null;
+} | null;
 
 type CapturedRowGeometry = {
   buffer: CapturedChatBuffer;
@@ -220,6 +229,7 @@ export class CustomPhysicalRowDecoder {
 
   constructor(
     private readonly fontCandidates: readonly ChatFontSetting[] = [],
+    private readonly ocrPalette: readonly OCR.ColortTriplet[] = [],
   ) {}
 
   resetCaptureState(): void {
@@ -250,7 +260,7 @@ export class CustomPhysicalRowDecoder {
     }
     if (!reader.font) return emptyRead();
 
-    const colors = buildPrimaryOcrPalette();
+    const colors = this.ocrPalette.slice();
     const cacheKey = buildCapturedReadCacheKey(reader, image, colors);
     if (
       this.capturedReadCache &&
@@ -271,7 +281,7 @@ export class CustomPhysicalRowDecoder {
 
   decodeCapturedRows(
     reader: ChatReaderState,
-    colors: OCR.ColortTriplet[] = buildPrimaryOcrPalette(),
+    colors: OCR.ColortTriplet[] = this.ocrPalette.slice(),
   ): PhysicalChatLine[] {
     const buffer = this.lastReadBuffer;
     const box = reader.pos?.mainbox;
@@ -424,7 +434,7 @@ export class CustomPhysicalRowDecoder {
   decodeCapturedRow(
     reader: ChatReaderState,
     absoluteBaseline: number,
-    colors: OCR.ColortTriplet[] = buildPrimaryOcrPalette(),
+    colors: OCR.ColortTriplet[] = this.ocrPalette.slice(),
   ): DecodedCapturedRow {
     const geometry = getCapturedRowGeometry(
       reader,
@@ -473,7 +483,7 @@ export class CustomPhysicalRowDecoder {
   private selectFont(reader: ChatReaderState): ChatFontSetting | null {
     const box = reader.pos?.mainbox;
     if (!box || !this.lastReadBuffer) return null;
-    const colors = buildPrimaryOcrPalette();
+    const colors = this.ocrPalette.slice();
     let best: {
       font: ChatFontSetting;
       score: number;
@@ -1611,4 +1621,103 @@ function uniqueNumbers(values: readonly number[]): number[] {
 
 function emptyRead(): PhysicalChatLine[] {
   return [];
+}
+
+const timestampRegex = /^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]\s*/;
+
+function classifyTrackerRow(
+  screenText: string,
+  context: TrackerContinuationContext,
+): TrackerRowClassification {
+  const normalized = normalizeScreenText(screenText);
+  if (!normalized) return "uncertain";
+
+  const timestamp = getTrackerTimestamp(normalized);
+  const body = stripTrackerTimestamp(normalized);
+  if (!body) return "uncertain";
+
+  if (
+    context &&
+    (!timestamp ||
+      (timestamp === context.timestamp && isQuantityContinuation(body)))
+  ) {
+    return "contextual";
+  }
+
+  if (couldStartInventionMessage(body) || couldStartSkillTrackerMessage(body)) {
+    return "relevant";
+  }
+
+  if (looksLikeDamagedTrackedPrefix(body)) return "uncertain";
+
+  const wordCharacters = (body.match(/[A-Za-z0-9]/g) ?? []).length;
+  if (body.length >= 12 && wordCharacters >= 8 && /^[A-Za-z❆⚯㊉]/.test(body)) {
+    return "confidently-irrelevant";
+  }
+
+  return "uncertain";
+}
+
+function advanceTrackerContext(
+  current: TrackerContinuationContext,
+  fullText: string,
+  classification: TrackerRowClassification,
+): TrackerContinuationContext {
+  const normalized = normalizeScreenText(fullText);
+  const timestamp = getTrackerTimestamp(normalized);
+  const body = stripTrackerTimestamp(normalized);
+
+  if (!timestamp) return current;
+  if (!body) return null;
+
+  if (isMaterialsGainedMessage(body)) {
+    return { kind: "material", timestamp };
+  }
+  if (isSpiritRewardMessage(body)) {
+    return { kind: "spirit", timestamp };
+  }
+  if (
+    couldStartInventionMessage(body) ||
+    couldStartSkillTrackerMessage(body) ||
+    (classification === "uncertain" && looksLikeDamagedTrackedPrefix(body))
+  ) {
+    return { kind: "tracked", timestamp };
+  }
+
+  return null;
+}
+
+function getTrackerTimestamp(text: string): string | null {
+  const match = normalizeScreenText(text).match(timestampRegex);
+  return match ? `[${match[1]}:${match[2]}:${match[3]}]` : null;
+}
+
+function isTrackerBoundaryLine(text: string): boolean {
+  return (
+    getTrackerTimestamp(text) !== null &&
+    stripTrackerTimestamp(text).length === 0
+  );
+}
+
+function stripTrackerTimestamp(text: string): string {
+  return normalizeScreenText(text).replace(timestampRegex, "").trim();
+}
+
+function isQuantityContinuation(text: string): boolean {
+  return /^[1-9][\d,]*\s+x(?:\s+\S|$)/i.test(text);
+}
+
+function looksLikeDamagedTrackedPrefix(text: string): boolean {
+  return (
+    /^M[a-z.-]{2,12}\s+g[a-z.-]{2,12}/i.test(text) ||
+    /^Y[o0u\s.-]{2,7}\s+(?:rec|get|cat|fin|trans|por)/i.test(text) ||
+    /^(?:The\s+)?(?:Ser|forge|fire).{0,24}(?:gift|spirit|phoenix)/i.test(
+      text,
+    ) ||
+    /^\W{0,3}[1-9][\d,]*\s*x\b/i.test(text)
+  );
+}
+
+function normalizeScreenText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }

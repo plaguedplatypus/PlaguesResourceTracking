@@ -1,6 +1,9 @@
 import type { PhysicalChatLine } from "../chat/chatTypes";
 import type * as OCR from "alt1/ocr";
-import { buildPrimaryOcrPalette } from "../chat/primaryReaderConfig";
+import {
+	bareMaterialsGainedHeaderPattern,
+	getMaterialsGainedPayload,
+} from "../tracking/trackerMessages";
 import {
 	isKnownMaterial,
 	MaterialSuffix,
@@ -22,7 +25,6 @@ type MaterialRowRead = (
 
 const leadingTimestampRegex =
 	/^\[\s*\d{2}\s*:\s*\d{2}\s*:\s*\d{2}\s*\]\s*/;
-const bareMaterialHeaderRegex = /^Materials gained:\s*$/i;
 
 export function applyMaterialSupplement(
 	primary: PhysicalChatLine,
@@ -62,7 +64,7 @@ export function applyMaterialSupplement(
 
 function hasIncompleteMaterialEntry(text: string): boolean {
 	const body = text.replace(leadingTimestampRegex, "").trim();
-	if (bareMaterialHeaderRegex.test(body)) return true;
+	if (bareMaterialsGainedHeaderPattern.test(body)) return true;
 
 	const materialText = getMaterialText(text);
 	if (materialText === null) return false;
@@ -108,15 +110,16 @@ function isKnownMaterialContinuation(text: string): boolean {
 
 export function rereadMaterialPhysicalLine(
 	line: PhysicalChatLine,
+	colors: readonly OCR.ColortTriplet[],
 	readRow: MaterialRowRead
 ): PhysicalChatLine | null {
-	return readRow(line.basey, buildPrimaryOcrPalette());
+	return readRow(line.basey, colors);
 }
 
 function getMaterialText(text: string): string | null {
 	const body = text.replace(leadingTimestampRegex, "").trim();
-	const header = body.match(/^Materials gained:\s*(.*)$/i);
-	if (header) return header[1].trim();
+	const payload = getMaterialsGainedPayload(body);
+	if (payload !== null) return payload;
 
 	return body;
 }
