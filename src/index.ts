@@ -9,6 +9,7 @@ import {
   type ArchaeologyDigsite,
 } from "./tracking/materials";
 import { parseSkillTrackerMessage } from "./tracking/SkillTracker";
+import { isIgnoredTrackerMessage } from "./tracking/trackerMessages";
 import {
   recordSessionUpdates,
   showSessionWindow,
@@ -427,6 +428,7 @@ function processHarvestLine(
   incrementTrackedItems: IncrementItems,
 ): boolean {
   const cleanLine = chatLine.replace(timestampRegex, "").trim();
+  if (isIgnoredTrackerMessage(cleanLine)) return false;
 
   // Invention materials
   const inventionResult = processInventionMaterials(cleanLine);

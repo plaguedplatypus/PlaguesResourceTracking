@@ -217,7 +217,7 @@ body {
 }
 
 .invention-add-option.invention-part-option {
-  color: #fff;
+  color: #ddd;
 }
 
 .invention-add-all-option {
@@ -305,6 +305,7 @@ body {
     display: flex;
     align-items: center;
     font-size: 1em;
+    color: #eee;
     padding-top: 0.083em;
     margin-left: 0.083em;
     line-height: 1;
@@ -364,6 +365,7 @@ body {
     align-self: stretch;
     border-left: 2px solid #444;
     border-radius: 2px;
+    color: #fff;
     background: rgba(0, 0, 0, 0.40);
     padding: 0.083em 0.167em 0 0.167em;
     margin-left: 0.167em;

@@ -1,6 +1,11 @@
 import {
   getFarmingProduce,
 } from "./farming";
+import {
+  isIgnoredTrackerMessage,
+  spiritRewardHeaders,
+  type SpiritRewardSource,
+} from "./trackerMessages";
 
 type TrackedSkill =
 	| "mining"
@@ -10,10 +15,6 @@ type TrackedSkill =
 	| "archaeology"
 	| "seren"
 	| "other";
-
-type SpiritRewardSource =
-	| "seren-spirit"
-	| "Forge/Fire Spirit";
 
 type SkillItemUpdate = {
 	item: string;
@@ -83,37 +84,17 @@ const woodcuttingItems = [
 
 const fishingItems = ["raw ", "leaping ", "algae"];
 
-const spiritHeaders: ReadonlyArray<{
-	pattern: RegExp;
-	source: SpiritRewardSource;
-	label: string;
-}> = [
-	{
-		pattern: /^The Seren spirit gifts you:\s*(.+)$/i,
-		source: "seren-spirit",
-		label: "Seren Spirit",
-	},
-	{
-		pattern: /^The forge phoenix gifts you:\s*(.+)$/i,
-		source: "Forge/Fire Spirit",
-		label: "Forge/Fire Spirit",
-	},
-	{
-		pattern: /^The fire spirit gifts you:\s*(.+)$/i,
-		source: "Forge/Fire Spirit",
-		label: "Forge/Fire Spirit",
-	},
-];
-
-const ignoredSkillMessages: readonly RegExp[] = [
-	/^You find some valuables and stuff them into your bag\.?$/i,
-];
+const knownItemOcrCorrections: Readonly<Record<string, string>> = {
+	"saiifish": "sailfish",
+	"raw saiifish": "raw sailfish",
+	"raw swor": "raw swordfish",
+};
 
 export function parseSkillTrackerMessage(
 	cleanLine: string,
 	options: SkillTrackerOptions
 ): SkillTrackingResult | null {
-	if (isIgnoredSkillMessage(cleanLine)) return null;
+	if (isIgnoredTrackerMessage(cleanLine)) return null;
 
 	const spiritResult = parseSpiritRewardMessage(cleanLine);
 	if (spiritResult) return spiritResult;
@@ -192,31 +173,10 @@ function parseFarmingTrackerMessage(
 	);
 }
 
-export function couldStartSkillTrackerMessage(text: string): boolean {
-	const cleanLine = text.trim();
-	if (isIgnoredSkillMessage(cleanLine)) return false;
-
-	return (
-		/^You (?:get|catch|find)\b/i.test(cleanLine) ||
-		/^Your (?:Boon of Crondis|Boon of Cronos|Farming skillcape perk|Fortune|imp-souled)\b/i.test(cleanLine) ||
-		/^The (?:Seren spirit|forge phoenix|fire spirit) gifts you:/i.test(
-			cleanLine
-		) ||
-		/(?:^You transport|sent it|transports your items|Your League relic transports the following item) to your\b/i.test(
-			cleanLine
-		)
-	);
-}
-
-function isIgnoredSkillMessage(text: string): boolean {
-	const cleanLine = text.trim();
-	return ignoredSkillMessages.some((pattern) => pattern.test(cleanLine));
-}
-
 function parseSpiritRewardMessage(
 	cleanLine: string
 ): SkillTrackingResult | null {
-	for (const header of spiritHeaders) {
+	for (const header of spiritRewardHeaders) {
 		const match = cleanLine.trim().match(header.pattern);
 		if (!match) continue;
 
@@ -299,11 +259,6 @@ function getSpiritColorClass(
 
 	return "spirit-item-green";
 }
-
-const knownItemOcrCorrections: Readonly<Record<string, string>> = {
-	"saiifish": "sailfish",
-	"raw saiifish": "raw sailfish",
-};
 
 export function normalizeItemName(item: string): string {
 	const normalized = item

@@ -4,6 +4,11 @@ import {
 	MaterialSuffix,
 } from "./components";
 import { normalizeInventionMessage } from "./InventionNormalizer";
+import {
+	getMaterialsGainedPayload,
+	isIgnoredTrackerMessage,
+	isMaterialsGainedMessage,
+} from "../tracking/trackerMessages";
 
 type InventionMaterialUpdate = {
 	item: string;
@@ -30,6 +35,7 @@ export function processInventionMaterials(
 rawLine: string
  ): InventionParseResult | null {
  	const cleanLine = normalizeInventionMessage(rawLine);
+	if (isIgnoredTrackerMessage(cleanLine)) return null;
 	const scavengingMatch = cleanLine.match(/^Your Scavenging perk adds:\s*(.+)$/i);
 	if (scavengingMatch) {
 		const scavengingMaterial = parseExplicitMaterialEntry(scavengingMatch[1]);
@@ -49,21 +55,18 @@ rawLine: string
  		return buildParseResult([receivedMaterial]);
 	}
 
-	const materialsMatch = cleanLine.match(/^Materials gained:\s*(.+)$/i);
-	const materialText = materialsMatch
-		? materialsMatch[1].trim()
-		: cleanLine;
+	const materialText = getMaterialsGainedPayload(cleanLine);
 
-	if (materialsMatch && /,\s*$/.test(materialText)) {
+	if (materialText !== null && /,\s*$/.test(materialText)) {
 		return null;
 	}
 
-	const entries = materialsMatch
+	const entries = materialText !== null
 		? materialText
 			.split(",")
 			.map(parseExplicitMaterialEntry)
 			.filter((entry): entry is ParsedMaterial => entry !== null)
-		: [parseExplicitMaterialEntry(materialText)].filter(
+		: [parseExplicitMaterialEntry(cleanLine)].filter(
 			(entry): entry is ParsedMaterial => entry !== null
 		);
 
@@ -74,14 +77,14 @@ rawLine: string
 
 export function couldStartInventionMessage(text: string): boolean {
 	const cleanLine = normalizeInventionMessage(text);
- 	return (
-		/^Materials gained:/i.test(cleanLine) ||
+	if (isIgnoredTrackerMessage(cleanLine)) return false;
+	return (
+		isMaterialsGainedMessage(cleanLine) ||
 		/^Your Scavenging perk adds:/i.test(cleanLine) ||
 		/^Your Leagues? Scavenging perk finds:?/i.test(cleanLine) ||
- 		/^You receive\b/i.test(cleanLine) ||
- 		/^[1-9][\d,]*\s+x\s+\S/i.test(cleanLine)
- 	);
-
+		/^You receive\b/i.test(cleanLine) ||
+		/^[1-9][\d,]*\s+x\s+\S/i.test(cleanLine)
+	);
 }
 
 function buildParseResult(

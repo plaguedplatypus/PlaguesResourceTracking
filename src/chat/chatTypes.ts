@@ -33,6 +33,7 @@ export interface ChatboxPosition {
 export interface ChatFontSetting {
   name: string;
   lineheight: number;
+  badgey: number;
   dy: number;
   def: OCR.FontDefinition;
 }
@@ -55,10 +56,3 @@ export interface PhysicalChatLine {
 }
 
 export type LogicalChatMessage = { text: string };
-
-export type PhysicalChatSource = {
-  pos: ChatboxPosition | null;
-  readonly selectedFontName?: string | null;
-  find(): ChatboxPosition | null;
-  read(): PhysicalChatLine[] | null;
-};
