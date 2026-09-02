@@ -245,8 +245,12 @@ export function createSettingsWindowController(
         min-width: 0;
         max-height: none;
         padding: 0;
+        box-sizing: border-box;
         overflow: hidden;
         background: #172136;
+        border: 2px solid #5a4a2a;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+        border-radius: 6px;
       }
       .settings-window-panel button,
       .settings-window-panel select,
@@ -627,6 +631,7 @@ export function createSettingsWindowController(
       }
       .settings-patch-notes:hover,
       .settings-patch-notes:focus-visible { color: #fff2aa; outline: none; }
+      .import { display: none; }
     `;
     doc.head.append(popupStyle);
     doc.body.className = "nis settings-window-body";
@@ -953,7 +958,7 @@ function updateSessionStatus(doc: Document, status: SessionStatus): void {
 
 function settingsMarkup(): string {
   return `
-    <div class="app-settings-panel open settings-window-panel">
+    <div class="settings-window-panel">
       <div class="settings-window-main">
       <nav class="settings-sidebar" aria-label="Settings sections">
         <div class="settings-sidebar-title">Settings</div>
