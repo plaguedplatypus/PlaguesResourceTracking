@@ -1,4 +1,4 @@
-export const farmingCanonicalHerbs = [
+export const farmingHerbs = [
   "guam",
   "marrentill",
   "tarromin",
@@ -21,7 +21,7 @@ export const farmingCanonicalHerbs = [
   "fellstalk",
 ] as const;
 
-export const farmingHerbProducts = farmingCanonicalHerbs.reduce<string[]>(
+export const farmingHerbProducts = farmingHerbs.reduce<string[]>(
   (products, herb) => {
     if (herb !== "Goutweed") {
       products.push(`Grimy ${herb}`, `Clean ${herb}`);
@@ -105,20 +105,20 @@ export const farmingProduceByPatch = {
   ],
 } as const;
 
-const canonicalProducts: string[] = [];
+const Products: string[] = [];
 for (const products of Object.values(farmingProduceByPatch)) {
   for (const product of products) {
-    canonicalProducts.push(product);
+    Products.push(product);
   }
 }
 const farmingProductsByNormalizedName = new Map(
-  canonicalProducts.map((item) => [normalizeFarmingItemName(item), item]),
+  Products.map((item) => [normalizeFarmingItemName(item), item]),
 );
 const farmingHerbsByNormalizedName = new Set(
   farmingHerbProducts.map(normalizeFarmingItemName),
 );
 
-export function getCanonicalFarmingProduce(value: string): string | null {
+export function getFarmingProduce(value: string): string | null {
   return farmingProductsByNormalizedName.get(normalizeFarmingItemName(value)) ?? null;
 }
 

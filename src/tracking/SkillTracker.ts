@@ -1,6 +1,5 @@
 import {
-  getCanonicalFarmingProduce,
-  isFarmingHerbProduce,
+  getFarmingProduce,
 } from "./farming";
 
 type TrackedSkill =
@@ -175,9 +174,6 @@ function parseFarmingTrackerMessage(
 			/^You transport to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
 		) ??
 		normalizedLine.match(
-			/^You add the herbs to your bag:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
-		) ??
-		normalizedLine.match(
 			/^Your Farming skillcape perk harvested and noted\s+([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
 		) ??
 		normalizedLine.match(
@@ -187,12 +183,8 @@ function parseFarmingTrackerMessage(
 	if (!match) return null;
 
 	const amount = Number(match[1].replace(/,/g, ""));
-	const item = getCanonicalFarmingProduce(match[2]);
+	const item = getFarmingProduce(match[2]);
 	if (!item || !Number.isSafeInteger(amount) || amount <= 0) return null;
-
-	if (/^You add the herbs to your bag:/i.test(normalizedLine)) {
-		if (!isFarmingHerbProduce(item)) return null;
-	}
 
 	return result(
 		{ item, amount, skill: "farming" },
@@ -206,7 +198,6 @@ export function couldStartSkillTrackerMessage(text: string): boolean {
 
 	return (
 		/^You (?:get|catch|find)\b/i.test(cleanLine) ||
-		/^You add the herbs to your bag:/i.test(cleanLine) ||
 		/^Your (?:Boon of Crondis|Boon of Cronos|Farming skillcape perk|Fortune|imp-souled)\b/i.test(cleanLine) ||
 		/^The (?:Seren spirit|forge phoenix|fire spirit) gifts you:/i.test(
 			cleanLine

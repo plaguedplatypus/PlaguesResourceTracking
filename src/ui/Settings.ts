@@ -246,7 +246,7 @@ export function createSettingsWindowController(
         max-height: none;
         padding: 0;
         overflow: hidden;
-        background: #0e1d25;
+        background: #172136;
       }
       .settings-window-panel button,
       .settings-window-panel select,
@@ -543,7 +543,7 @@ export function createSettingsWindowController(
       input.tracker-size { width: 88px; padding: 0; }
       .settings-bottom-area {
         padding: 7px 7px 4px;
-        border-top: 0px solid #5a4a2a;
+        border-top: 1px solid #5a4a2a;
         background: rgba(0, 0, 0, 0.35);
       }
       .settings-bottom-actions {

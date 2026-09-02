@@ -749,7 +749,7 @@ function renderMiningTrackingNotice() {
 function renderFarmingTrackingNotice() {
   tracker.insertAdjacentHTML(
     "beforeend",
-    `<div class="skill-tracking-notice" title="Porters, herb bags, Farming cape procs, and similar chat messages can be tracked.">Tracking requires bank-teleport chat messages.</div>`,
+    `<div class="skill-tracking-notice" title="Porters, Farming cape procs, and similar chat messages can be tracked.">Tracking requires bank-teleport chat messages.</div>`,
   );
 }
 
