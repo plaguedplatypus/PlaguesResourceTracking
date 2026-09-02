@@ -8,7 +8,7 @@ body {
     margin: 0;
     padding: 4px 3px 1px 3px;
     box-sizing: border-box;
-    background: #172136;
+    background: linear-gradient(#172136, #071022);
     color: white;
     font: 13px Arial, sans-serif;
 }
@@ -45,7 +45,6 @@ body {
 .tabs-collapsed .item-prefix-icon,
 .tabs-collapsed .skill-tabs,
 .tabs-collapsed .footer,
-.tabs-collapsed .footer-separator,
 .tabs-collapsed .app-settings {
     display: none;
 }
@@ -255,7 +254,7 @@ body {
     box-sizing: border-box;
     font-size: var(--tracker-size);
     gap: 0.25em;
-    padding: 0 0.167em 0.333em 0;
+    padding: 0 0.167em 1em 0;
 }
 
 .item-row {
@@ -328,11 +327,9 @@ body {
 }
 
 .skill-tracking-notice {
-    margin: 3px 0 5px;
     padding: 3px 4px;
     color: #d8c58a;
     font-size: 10px;
-    line-height: 1.25;
     border: 1px solid #5a4a2a;
     border-radius: 3px;
     background: rgba(27, 30, 24, 0.58);
@@ -555,7 +552,8 @@ select {
     bottom: 0;
     z-index: 3;
     border-top: 1px solid #444;
-    background: rgba(12, 20, 24, 0.98);
+    border-left: 1px solid #444;
+    background: #071022;
     padding: 2px 0 0 2px;
     display: flex;
     align-items: flex-end;
@@ -573,127 +571,9 @@ select {
     text-shadow: none;
 }
 
-.app-settings-panel {
-    overflow-y: auto;
-    padding: 5px;
-    box-sizing: border-box;
-    flex-direction: column;
-    gap: 0;
-    background: #0e1d25;
-    border: 2px solid #5a4a2a;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
-    border-radius: 6px;
-}
-
-.settings-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5px;
-}
-
-.settings-row > * {
-    min-width: 0;
-    white-space: nowrap;
-    text-align: center;
-}
-
-.settings-row > button,
-.settings-row > .import-label {
-    padding: 3px 4px;
-}
-
-.settings-skill-toggle-row {
-    grid-template-columns: 1fr;
-}
-
-.settings-tracker-size-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-}
-
-.tracker-size-value {
-    min-width: 0;
-    color: #d8c58a;
-    font-size: 10px;
-    text-align: left;
-}
-
-.settings-panel input.tracker-size {
-    flex: 0 0 80px;
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
-    padding: 0;
-}
-
-.settings-skill-toggle {
-    gap: 3px;
-    overflow: hidden;
-    padding: 2px;
-    font-size: 10px;
-    line-height: 1;
-}
-
-.settings-skill-toggle img {
-    flex: 0 0 16px;
-    width: 16px;
-    height: 16px;
-    object-fit: contain;
-    pointer-events: none;
-}
-
-.settings-toggle-label {
-    min-width: 0;
-    overflow: hidden;
-}
-
-@media (max-width: 185px) {
-    .settings-skill-toggle {
-        gap: 2px;
-        padding: 2px 1px;
-        font-size: 10px;
-    }
-
-    .settings-skill-toggle img {
-        flex-basis: 14px;
-        width: 14px;
-        height: 14px;
-    }
-}
-
-.chat-font-support {
-    margin: -2px 0 3px;
-    color: #999;
-    font-size: 10px;
-    text-align: center;
-}
-
-.import {
-    display: none;
-}
-
-.session-status-line {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-style: italic;
-    color: #777;
-    gap: 4px;
-    margin: -1px 0 -4px;
-    font-size: 12px;
-    text-shadow: 0 1px 0 #000;
-}
-
-.session-status-label {
-    font-weight: bold;
-    font-style: normal;
-}
-
-.session-status-line.running .session-status-value,
 .session-quick-button.running {
     color: #7CFC7C;
 }
-.session-status-line.paused .session-status-value,
 .session-quick-button.paused {
     color: #ffd700;
 }
@@ -721,55 +601,6 @@ select {
     border-radius: 0.231em;
 }
 
-
-.settings-footer-links {
-    margin-top: 2px;
-    padding-top: 4px;
-    border-top: 1px solid rgba(216, 197, 138, 0.25);
-    color: #7a7a7a;
-    font-size: 10px;
-    line-height: 10px;
-
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 4px;
-
-    min-width: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-.settings-text-link {
-    border: 0;
-    display: inline-block;
-	width: max-content;
-    min-width: 0;
-    height: auto;
-    margin: 0;
-    padding: 0;
-    box-shadow: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    white-space: nowrap;
-    overflow: hidden;
-    user-select: none;
-}
-
-.settings-footer-links .settings-discord {
-    text-align: left;
-}
-
-.settings-footer-links .settings-version {
-    justify-self: end;
-}
-
-.settings-text-link:hover,
-.settings-text-link:focus {
-    color: #d8c58a;
-    outline: none;
-}
 
 .update-toast {
     position: absolute;
