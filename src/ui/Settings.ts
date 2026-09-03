@@ -341,9 +341,15 @@ export function createSettingsWindowController(
 }
 
 function cloneApplicationStyles(doc: Document): Node[] {
-  return Array.from(
-    document.head.querySelectorAll('style, link[rel="stylesheet"]'),
-  ).map((node) => doc.importNode(node, true));
+  const base = doc.createElement("base");
+  base.href = document.baseURI;
+
+  return [
+    base,
+    ...Array.from(
+      document.head.querySelectorAll('style, link[rel="stylesheet"]'),
+    ).map((node) => doc.importNode(node, true)),
+  ];
 }
 
 function getClearConfirmation(clearLabel: string): TrackingConfirmation {

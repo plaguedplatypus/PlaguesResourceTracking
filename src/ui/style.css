@@ -8,7 +8,10 @@ body {
     margin: 0;
     padding: 4px 3px 1px 3px;
     box-sizing: border-box;
-    background: linear-gradient(#172136, #071022);
+    /* webpackIgnore: true */
+    background:
+        linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
+        url("./icons/bg.png") center / cover no-repeat;
     color: white;
     font: 13px Arial, sans-serif;
 }
@@ -486,6 +489,7 @@ select {
     height: 1.5em;
     box-sizing: border-box;
     padding: 0;
+    margin-left: 0.167em;
     font-size: 0.917em;
     line-height: 1.5em;
 }

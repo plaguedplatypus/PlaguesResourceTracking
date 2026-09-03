@@ -1,3 +1,6 @@
+import "./settings.css";
+import "./session.css";
+
 export type SessionStatus = "idle" | "running" | "paused";
 
 type SessionItemUpdate = {
@@ -155,6 +158,69 @@ function resetSession() {
 	updateSessionWindow("full");
 }
 
+function requestSessionReset(doc: Document): void {
+	if (doc.querySelector(".settings-confirm-overlay")) return;
+
+	const overlay = doc.createElement("div");
+	overlay.className = "settings-confirm-overlay";
+
+	const dialog = doc.createElement("section");
+	dialog.className = "settings-clear-confirmation";
+	dialog.setAttribute("role", "dialog");
+	dialog.setAttribute("aria-modal", "true");
+	dialog.setAttribute("aria-labelledby", "session-reset-confirmation-title");
+
+	const title = doc.createElement("div");
+	title.className = "settings-clear-confirmation-title";
+	title.id = "session-reset-confirmation-title";
+	title.textContent = "Reset Session?";
+
+	const message = doc.createElement("div");
+	message.className = "settings-clear-confirmation-message";
+	message.textContent =
+		"This will reset the session timer and all current session item statistics.";
+
+	const actions = doc.createElement("div");
+	actions.className = "settings-clear-confirmation-actions";
+
+	const cancel = doc.createElement("button");
+	cancel.type = "button";
+	cancel.className = "settings-clear-confirmation-cancel";
+	cancel.textContent = "Cancel";
+
+	const confirm = doc.createElement("button");
+	confirm.type = "button";
+	confirm.className = "settings-clear-confirmation-confirm";
+	confirm.textContent = "Reset Session";
+
+	const close = () => {
+		doc.removeEventListener("keydown", onKeyDown);
+		overlay.remove();
+	};
+	const onKeyDown = (event: KeyboardEvent) => {
+		if (event.key === "Escape") {
+			event.preventDefault();
+			close();
+		}
+	};
+
+	cancel.addEventListener("click", close);
+	overlay.addEventListener("click", (event) => {
+		if (event.target === overlay) close();
+	});
+	confirm.addEventListener("click", () => {
+		close();
+		resetSession();
+	});
+	doc.addEventListener("keydown", onKeyDown);
+
+	actions.append(cancel, confirm);
+	dialog.append(title, message, actions);
+	overlay.append(dialog);
+	doc.body.append(overlay);
+	cancel.focus();
+}
+
 function updateShowGpValue(value: boolean) {
 	showGpValue = value;
 
@@ -195,6 +261,8 @@ function ensureSessionWindowUi(doc: Document) {
 	if (alreadyInitialized) return false;
 
 	doc.title = "Session Stats";
+	doc.head.replaceChildren(...cloneApplicationStyles(doc));
+	doc.body.className = "nis session-window-body";
 	doc.body.innerHTML = renderSessionWindowShellHtml();
 
 	doc
@@ -203,7 +271,7 @@ function ensureSessionWindowUi(doc: Document) {
 
 	doc
 		.getElementById("session-reset")
-		?.addEventListener("click", resetSession);
+		?.addEventListener("click", () => requestSessionReset(doc));
 
 	const showGpInput = doc.getElementById("show-gp-value") as HTMLInputElement | null;
 
@@ -402,189 +470,22 @@ function startSessionRefreshTimer() {
 	}, 1000);
 }
 
+function cloneApplicationStyles(doc: Document): Node[] {
+	const base = doc.createElement("base");
+	base.href = document.baseURI;
+
+	return [
+		base,
+		...Array.from(
+			document.head.querySelectorAll('style, link[rel="stylesheet"]'),
+		).map((node) => doc.importNode(node, true)),
+	];
+}
+
 function renderSessionWindowShellHtml() {
 	return `
-		<style>
-			html,
-			body {
-				margin: 0;
-				min-height: 100%;
-				background: #1e1e1e;
-				color: #ddd;
-				font-family: Arial, sans-serif;
-				font-size: 12px;
-			}
 
-			::-webkit-scrollbar {width: 8px; height: 8px;}
-			::-webkit-scrollbar-button {
-				display: none;
-				width: 0;
-				height: 0;}
-			::-webkit-scrollbar-thumb {
-				min-height: 48px;
-				border: 1px solid #161a1d;
-				background: #9b7a36;}
-
-			.session-wrap {
-				box-sizing: border-box;
-				min-height: 100vh;
-				padding: 8px;
-			}
-
-			.session-controls {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 6px;
-				margin-bottom: 8px;
-			}
-
-			button {
-				height: 22px;
-				box-sizing: border-box;
-				font-size: 12px;
-				color: #d8c58a;
-				background: linear-gradient(#262626, #1e1e1e);
-				border: 1px solid #4a4030;
-				cursor: pointer;
-				text-shadow: 0 1px 0 #000;
-			}
-
-			button:hover {
-				color: #fff0bd;
-				background: linear-gradient(#606060, #202020);
-			}
-
-			.separator {
-				border-top: 2px solid #444;
-			}
-
-			.session-meta {
-				border: 1px solid #444;
-				background: #2c2c2c;
-				padding: 6px;
-				margin-bottom: 8px;
-				line-height: 1.5;
-			}
-
-			.session-options {
-				display: flex;
-				align-items: center;
-				gap: 5px;
-				margin-top: 4px;
-				color: #ccc;
-				font-size: 11px;
-			}
-
-			.session-options input {
-				margin: 0;
-			}
-
-			.session-totals {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 8px;
-				border: 1px solid #444;
-				background: #252525;
-				padding: 6px;
-				margin-bottom: 8px;
-				font-size: 12px;
-			}
-
-			.session-totals[hidden] {
-				display: none;
-			}
-
-			.session-total-value {
-				color: #7CFC7C;
-				font-weight: bold;
-			}
-
-			.session-total-gp {
-				color: #d8c26a;
-				font-weight: bold;
-				text-align: right;
-			}
-
-			.section-title {
-				color: #d8c26a;
-				font-size: 11px;
-				font-weight: bold;
-				text-transform: uppercase;
-				border-bottom: 1px solid #444;
-				padding-bottom: 3px;
-				margin-bottom: 5px;
-			}
-
-			table {
-				width: 100%;
-				border-collapse: collapse;
-				table-layout: fixed;
-			}
-
-			table[hidden] {
-				display: none;
-			}
-
-			th,
-			td {
-				padding: 3px 2px;
-				border-bottom: 1px solid #333;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-
-			th {
-				color: #aaa;
-				font-size: 10px;
-				font-weight: normal;
-				text-align: left;
-			}
-
-			td {
-				font-size: 11px;
-			}
-
-			.item-name {
-				width: 52%;
-			}
-
-			body.show-gp .item-name {
-				width: 34%;
-			}
-
-			body:not(.show-gp) .gp-column {
-				display: none;
-			}
-
-			.number {
-				text-align: right;
-			}
-
-			.empty {
-				color: #aaa;
-				font-style: italic;
-				padding: 8px 0;
-			}
-
-			.empty[hidden] {
-				display: none;
-			}
-
-			.paused {
-				color: #ffd700;
-			}
-
-			.running {
-				color: #7CFC7C;
-			}
-
-			.idle {
-				color: #aaa;
-			}
-		</style>
-
-		<div id="session-root" class="session-wrap">
+		<div id="session-root" class="session-window-panel session-wrap">
 			<div class="session-controls">
 				<button id="session-toggle">Start Session</button>
 				<button id="session-reset">Reset Session</button>
