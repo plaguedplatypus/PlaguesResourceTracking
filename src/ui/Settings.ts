@@ -606,11 +606,11 @@ function settingsMarkup(): string {
               <div class="settings-field">
                 <div class="support-links">
                   <a class="support-link" href="https://ko-fi.com/plaguedplatypus" target="_blank" rel="noopener noreferrer">
-                    <img src="./images/coffee.png" alt="" />
+                    <img src="./icons/coffee.png" alt="" />
                     <span>Coffee!</span>
                   </a>
                   <a class="support-link" href="https://discord.com/invite/xAc578gPjW" target="_blank" rel="noopener noreferrer">
-                    <img src="./images/discord.png" alt="" />
+                    <img src="./icons/discord.png" alt="" />
                     <span>Discord</span>
                   </a>
                 </div>
