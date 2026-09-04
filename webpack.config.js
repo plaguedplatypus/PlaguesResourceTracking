@@ -47,7 +47,7 @@ module.exports = {
         // The rules section tells webpack what to do with different file types when you import them from js/ts
         rules: [
             { test: /\.tsx?$/, loader: "ts-loader" },
-            { test: /\.css$/, use: ["style-loader", "css-loader"] },
+            { test: /\.css$/, use: ["style-loader", {loader: "css-loader", options: { url: false },},] },
             { test: /\.scss$/, use: ["style-loader", "css-loader", "sass-loader"] },
             // type:"asset" means that webpack copies the file and gives you an url to them when you import them from js
             { test: /\.(png|jpg|jpeg|gif|webp)$/, type: "asset/resource", generator: { filename: "[base]" } },
@@ -61,11 +61,9 @@ module.exports = {
     plugins: [
         new CopyWebpackPlugin({
             patterns: [
-                {
-                    from: path.resolve(__dirname, "src/icons"),
-                    to: "icons",
-                },
+                {from: path.resolve(__dirname, "src/icons"), to: "icons",},
             ],
         }),
+        
     ],
 }

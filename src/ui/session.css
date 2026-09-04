@@ -31,7 +31,6 @@ body.session-window-body {
   padding: 7px;
   overflow-x: hidden;
   overflow-y: auto;
-  /* webpackIgnore: true */
   background:
     linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
     url("./icons/bg.png") center / cover no-repeat;
