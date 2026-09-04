@@ -601,6 +601,21 @@ function settingsMarkup(): string {
               ${settingsSwitchMarkup("all-tab-icons-toggle", "All-Tab Icons", "Show skill icons beside items on the All tab.")}
               ${settingsSwitchMarkup("status-footer-toggle", "Show Status Footer", "Show the tracking message at the bottom of the tracker.")}
             </div>
+            <div class="settings-section">
+              <div class="settings-section-title">SUPPORT</div>
+              <div class="settings-field">
+                <div class="support-links">
+                  <a class="support-link" href="https://ko-fi.com/plaguedplatypus" target="_blank" rel="noopener noreferrer">
+                    <img src="./images/coffee.png" alt="" />
+                    <span>Coffee!</span>
+                  </a>
+                  <a class="support-link" href="https://discord.com/invite/xAc578gPjW" target="_blank" rel="noopener noreferrer">
+                    <img src="./images/discord.png" alt="" />
+                    <span>Discord</span>
+                  </a>
+                </div>
+              </div>
+            </div>
           </section>
           <section class="settings-page" data-settings-page="skills" hidden>
             <div class="settings-section">

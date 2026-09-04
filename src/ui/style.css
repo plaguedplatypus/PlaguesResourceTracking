@@ -8,7 +8,6 @@ body {
     margin: 0;
     padding: 4px 3px 1px 3px;
     box-sizing: border-box;
-    /* webpackIgnore: true */
     background:
         linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
         url("./icons/bg.png") center / cover no-repeat;
@@ -100,13 +99,11 @@ body {
 
 .skill-scroll-left {
     left: 0;
-    /* webpackIgnore: true */
     background-image: url("./icons/left.png");
 }
 
 .skill-scroll-right {
     right: 0;
-    /* webpackIgnore: true */
     background-image: url("./icons/right.png");
 }
 

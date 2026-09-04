@@ -16,7 +16,6 @@ body.settings-window-body {
   padding: 0;
   box-sizing: border-box;
   overflow: hidden;
-  /* webpackIgnore: true */
   background:
     linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
     url("./icons/bg.png") center / cover no-repeat;
@@ -404,3 +403,45 @@ input.tracker-size { width: 88px; padding: 0; }
 .settings-patch-notes:hover,
 .settings-patch-notes:focus-visible { color: #fff2aa; outline: none; }
 .import { display: none; }
+
+.support-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.support-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.5;
+  color: #d8bd7d;
+  font-size: 10px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.support-link:hover,
+.support-link:focus-visible {
+  color: #f0e4ca;
+  opacity: 0.85;
+  outline: none;
+}
+
+.support-link img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+
+.support-link span {
+  display: inline;
+  min-width: 0;
+}
