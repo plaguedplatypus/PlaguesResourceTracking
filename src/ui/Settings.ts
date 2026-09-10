@@ -13,7 +13,7 @@ type TrackableSkill =
   | "invention"
   | "seren";
 
-type SettingsWindowState = {
+type State = {
   chatTypes: readonly ChatboxType[];
   selectedChat: string;
   fishingUsePorters: boolean;
@@ -29,50 +29,50 @@ type SettingsWindowState = {
   trackerSize: number;
   sessionStatus: SessionStatus;
   clearLabel: string;
-  clearHasTrackedItems: boolean;
+  canClear: boolean;
   resetLabel: string;
-  resetHasTrackedCounts: boolean;
+  canReset: boolean;
   version: string;
 };
 
-type SettingsWindowActions = {
-  getState(): SettingsWindowState;
+type Actions = {
+  getState(): State;
   selectChat(value: string): void;
   findChat(): void;
   showHistory(): void;
   showSession(): void;
-  toggleFishingPorters(): void;
-  toggleShortInventionNames(): void;
+  togglePorters(): void;
+  toggleShortNames(): void;
   setCountPosition(position: CountPosition): void;
-  toggleAllTabIcons(): void;
-  toggleStatusFooter(): void;
-  toggleInventionFilterVisibility(): void;
-  toggleArchaeologyFilterVisibility(): void;
-  toggleArchaeologyArtefactVisibility(): void;
-  setTrackedSkillVisible(skill: TrackableSkill, visible: boolean): void;
-  toggleUnknownSectionVisibility(): void;
+  toggleAllIcons(): void;
+  toggleFooter(): void;
+  toggleInventionFilter(): void;
+  toggleArchaeologyFilter(): void;
+  toggleArchaeologyArtefacts(): void;
+  setSkillVisible(skill: TrackableSkill, visible: boolean): void;
+  toggleUnknownSection(): void;
   setTrackerSize(value: number, persist: boolean): void;
   exportData(): void;
   importData(file: File): void;
-  clearCurrentTab(): void;
-  resetCurrentTabCounts(): void;
+  clearTab(): void;
+  resetTabCounts(): void;
   showPatchNotes(targetDocument: Document): void;
 };
 
-type SettingsWindowController = {
+type Controller = {
   show(): void;
   refresh(): void;
 };
 
-type TrackingConfirmation = {
+type Confirmation = {
   title: string;
   message: string;
   confirmLabel: string;
 };
 
 export function createSettingsWindowController(
-  actions: SettingsWindowActions,
-): SettingsWindowController {
+	actions: Actions,
+): Controller {
   let settingsWindow: Window | null = null;
   let initializedWindow: Window | null = null;
   let activePage: SettingsPage = "general";
@@ -111,7 +111,7 @@ export function createSettingsWindowController(
 
   function refresh(): void {
     const state = actions.getState();
-    updateSessionStatus(document, state.sessionStatus);
+    updateStatus(document, state.sessionStatus);
 
     if (
       !settingsWindow ||
@@ -123,72 +123,72 @@ export function createSettingsWindowController(
 
     const doc = settingsWindow.document;
     updateChatSelector(doc, state);
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
       ".fishing-porters-toggle",
       state.fishingUsePorters,
       state.fishingUsePorters
-        ? "Fishing porter tracking is enabled."
-        : "Fishing porter tracking is disabled.",
+        ? "Porter tracking is enabled."
+        : "Porter tracking is disabled.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
       ".short-invention-names-toggle",
       state.shortInventionNames,
-      "Shorten Invention item labels in the main tracker.",
+      "Shorten Invention names in the main tracker.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
       ".all-tab-icons-toggle",
       state.showAllTabIcons,
       state.showAllTabIcons
-        ? "All-tab item icons are shown."
-        : "All-tab item icons are hidden.",
+        ? "Item icons are shown."
+        : "Item icons are hidden.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
       ".status-footer-toggle",
       state.showStatusFooter,
       state.showStatusFooter
-        ? "Tracker status footer is visible."
-        : "Tracker status footer is hidden.",
+        ? "Status is visible."
+        : "Status is hidden.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
-      ".invention-filter-visibility-toggle",
+      ".invention-filter-toggle",
       state.showInventionFilter,
       state.showInventionFilter
         ? "Invention filter is visible."
         : "Invention filter is hidden.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
-      ".archaeology-filter-visibility-toggle",
+      ".archaeology-filter-toggle",
       state.showArchaeologyFilter,
       state.showArchaeologyFilter
-        ? "Archaeology Dig Site filter is visible."
-        : "Archaeology Dig Site filter is hidden.",
+        ? "Dig Site filter is visible."
+        : "Dig Site filter is hidden.",
     );
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
-      ".archaeology-artefact-visibility-toggle",
+      ".archaeology-artefact-toggle",
       state.showArchaeologyArtefacts,
       state.showArchaeologyArtefacts
-        ? "Archaeology artefacts are visible."
-        : "Archaeology artefacts are hidden.",
+        ? "Artefacts are visible."
+        : "Artefacts are hidden.",
     );
     doc
       .querySelectorAll<HTMLInputElement>(".settings-tracked-skill input")
       .forEach((input) => {
         input.checked = state.trackedSkills[input.dataset.skill as TrackableSkill];
       });
-    updateSettingsSwitch(
+    updateSwitch(
       doc,
       ".hide-unknown-section-toggle",
       state.hideUnknownSection,
       state.hideUnknownSection
-        ? "Unclassified items are hidden from the All tab."
-        : "Unclassified items are shown on the All tab.",
+        ? "Uncategorized items are hidden."
+        : "Uncategorized items are shown.",
     );
     updateCountPosition(doc, state.countPosition);
 
@@ -204,19 +204,19 @@ export function createSettingsWindowController(
     const clear = doc.querySelector(".clear") as HTMLButtonElement | null;
     if (clear) {
       clear.textContent = state.clearLabel;
-      clear.disabled = !state.clearHasTrackedItems;
-      clear.title = state.clearHasTrackedItems
+      clear.disabled = !state.canClear;
+      clear.title = state.canClear
         ? state.clearLabel
-        : "No tracked items to clear";
+        : "No items to clear";
     }
 
     const reset = doc.querySelector(".reset") as HTMLButtonElement | null;
     if (reset) {
       reset.textContent = state.resetLabel;
-      reset.disabled = !state.resetHasTrackedCounts;
-      reset.title = state.resetHasTrackedCounts
+      reset.disabled = !state.canReset;
+      reset.title = state.canReset
         ? state.resetLabel
-        : "No tracked counts to reset";
+        : "No counts to reset";
     }
 
     const version = doc.querySelector(".settings-version-label");
@@ -224,11 +224,11 @@ export function createSettingsWindowController(
   }
 
   function initializeDocument(doc: Document): void {
-    doc.head.replaceChildren(...cloneApplicationStyles(doc));
+    doc.head.replaceChildren(...cloneStyles(doc));
     doc.title = "Settings";
 
     doc.body.className = "nis settings-window-body";
-    doc.body.innerHTML = settingsMarkup();
+    doc.body.innerHTML = markup();
   }
 
   function bindEvents(doc: Document): void {
@@ -247,7 +247,7 @@ export function createSettingsWindowController(
           setActivePage(doc, activePage);
         });
       });
-    doc.querySelector(".settings-session-link")?.addEventListener("click", () => {
+    doc.querySelector(".settings-session-button")?.addEventListener("click", () => {
       actions.showSession();
       window.setTimeout(refresh, 100);
     });
@@ -255,30 +255,30 @@ export function createSettingsWindowController(
     doc.querySelector(".history-button")?.addEventListener("click", actions.showHistory);
     doc
       .querySelector(".fishing-porters-toggle input")
-      ?.addEventListener("change", actions.toggleFishingPorters);
+      ?.addEventListener("change", actions.togglePorters);
     doc
       .querySelector(".short-invention-names-toggle input")
-      ?.addEventListener("change", actions.toggleShortInventionNames);
+      ?.addEventListener("change", actions.toggleShortNames);
     doc
       .querySelector(".all-tab-icons-toggle input")
-      ?.addEventListener("change", actions.toggleAllTabIcons);
+      ?.addEventListener("change", actions.toggleAllIcons);
     doc
       .querySelector(".status-footer-toggle input")
-      ?.addEventListener("change", actions.toggleStatusFooter);
+      ?.addEventListener("change", actions.toggleFooter);
     doc
-      .querySelector(".invention-filter-visibility-toggle input")
-      ?.addEventListener("change", actions.toggleInventionFilterVisibility);
+      .querySelector(".invention-filter-toggle input")
+      ?.addEventListener("change", actions.toggleInventionFilter);
     doc
-      .querySelector(".archaeology-filter-visibility-toggle input")
-      ?.addEventListener("change", actions.toggleArchaeologyFilterVisibility);
+      .querySelector(".archaeology-filter-toggle input")
+      ?.addEventListener("change", actions.toggleArchaeologyFilter);
     doc
-      .querySelector(".archaeology-artefact-visibility-toggle input")
-      ?.addEventListener("change", actions.toggleArchaeologyArtefactVisibility);
+      .querySelector(".archaeology-artefact-toggle input")
+      ?.addEventListener("change", actions.toggleArchaeologyArtefacts);
     doc
       .querySelectorAll<HTMLInputElement>(".settings-tracked-skill input")
       .forEach((input) => {
         input.addEventListener("change", () => {
-          actions.setTrackedSkillVisible(
+          actions.setSkillVisible(
             input.dataset.skill as TrackableSkill,
             input.checked,
           );
@@ -286,7 +286,7 @@ export function createSettingsWindowController(
       });
     doc
       .querySelector(".hide-unknown-section-toggle input")
-      ?.addEventListener("change", actions.toggleUnknownSectionVisibility);
+      ?.addEventListener("change", actions.toggleUnknownSection);
     doc.querySelectorAll<HTMLButtonElement>(".settings-segment-option").forEach(
       (button) => {
         button.addEventListener("click", () => {
@@ -307,19 +307,19 @@ export function createSettingsWindowController(
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
     doc.querySelector(".clear")?.addEventListener("click", () => {
       const state = actions.getState();
-      if (!state.clearHasTrackedItems) return;
+      if (!state.canClear) return;
 
-      requestTrackingConfirmation(doc, getClearConfirmation(state.clearLabel), () => {
-        actions.clearCurrentTab();
+      requestConfirmation(doc, clearConfirmation(state.clearLabel), () => {
+        actions.clearTab();
         refresh();
       });
     });
     doc.querySelector(".reset")?.addEventListener("click", () => {
       const state = actions.getState();
-      if (!state.resetHasTrackedCounts) return;
+      if (!state.canReset) return;
 
-      requestTrackingConfirmation(doc, getResetConfirmation(state.resetLabel), () => {
-        actions.resetCurrentTabCounts();
+      requestConfirmation(doc, resetConfirmation(state.resetLabel), () => {
+        actions.resetTabCounts();
         refresh();
       });
     });
@@ -340,7 +340,7 @@ export function createSettingsWindowController(
   return { show, refresh };
 }
 
-function cloneApplicationStyles(doc: Document): Node[] {
+function cloneStyles(doc: Document): Node[] {
   const base = doc.createElement("base");
   base.href = document.baseURI;
 
@@ -352,74 +352,74 @@ function cloneApplicationStyles(doc: Document): Node[] {
   ];
 }
 
-function getClearConfirmation(clearLabel: string): TrackingConfirmation {
+function clearConfirmation(clearLabel: string): Confirmation {
   const isAll = clearLabel === "Clear ALL";
   const scope = clearLabel.replace(/^Clear\s+/, "");
 
   return {
     title: isAll ? "Clear all tracking data?" : `${clearLabel}?`,
     message: isAll
-      ? "This will permanently remove all tracked items and counts from every tab."
-      : `This will permanently remove all tracked ${scope} items and counts.`,
+      ? "This will remove all items and counts from every tab."
+      : `This will remove all ${scope} items and counts.`,
     confirmLabel: clearLabel,
   };
 }
 
-function getResetConfirmation(resetLabel: string): TrackingConfirmation {
+function resetConfirmation(resetLabel: string): Confirmation {
   const isAll = resetLabel === "Reset ALL";
   const scope = resetLabel.replace(/^Reset\s+/, "");
 
   return {
-    title: isAll ? "Reset all tracked counts?" : `${resetLabel} counts?`,
+    title: isAll ? "Reset all counts?" : `${resetLabel} counts?`,
     message: isAll
-      ? "This will reset every tracked item count to 0 while keeping the items and their goals."
-      : `This will reset all tracked ${scope} item counts to 0 while keeping the items and their goals.`,
+      ? "This will reset every item count to 0 while keeping the items and their goals."
+      : `This will reset all ${scope} item counts to 0 while keeping the items and their goals.`,
     confirmLabel: resetLabel,
   };
 }
 
-function requestTrackingConfirmation(
+function requestConfirmation(
   doc: Document,
-  confirmation: TrackingConfirmation,
+  confirmation: Confirmation,
   onConfirm: () => void,
 ): void {
-  const existing = doc.querySelector(".settings-confirm-overlay");
+  const existing = doc.querySelector(".tracker-confirmation-overlay");
   if (existing) {
     (
       existing.querySelector(
-        ".settings-clear-confirmation-cancel",
+        ".tracker-confirmation-cancel",
       ) as HTMLButtonElement | null
     )?.focus();
     return;
   }
 
   const overlay = doc.createElement("div");
-  overlay.className = "settings-confirm-overlay";
+  overlay.className = "tracker-confirmation-overlay";
 
   const dialog = doc.createElement("section");
-  dialog.className = "settings-clear-confirmation";
+  dialog.className = "tracker-confirmation";
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-labelledby", "settings-clear-confirmation-title");
+  dialog.setAttribute("aria-labelledby", "tracker-confirmation-title");
 
   const title = doc.createElement("div");
-  title.className = "settings-clear-confirmation-title";
-  title.id = "settings-clear-confirmation-title";
+  title.className = "tracker-confirmation-title";
+  title.id = "tracker-confirmation-title";
   title.textContent = confirmation.title;
 
   const message = doc.createElement("div");
-  message.className = "settings-clear-confirmation-message";
+  message.className = "tracker-confirmation-message";
   message.textContent = confirmation.message;
 
   const actionButtons = doc.createElement("div");
-  actionButtons.className = "settings-clear-confirmation-actions";
+  actionButtons.className = "tracker-confirmation-actions";
   const cancel = doc.createElement("button");
   cancel.type = "button";
-  cancel.className = "settings-clear-confirmation-cancel";
+  cancel.className = "tracker-confirmation-cancel";
   cancel.textContent = "Cancel";
   const confirm = doc.createElement("button");
   confirm.type = "button";
-  confirm.className = "settings-clear-confirmation-confirm";
+  confirm.className = "tracker-confirmation-confirm";
   confirm.textContent = confirmation.confirmLabel;
 
   let confirmed = false;
@@ -470,7 +470,7 @@ function setActivePage(doc: Document, page: SettingsPage): void {
 
 function updateChatSelector(
   doc: Document,
-  state: SettingsWindowState,
+  state: State,
 ): void {
   const chat = doc.querySelector(".chat") as HTMLSelectElement | null;
   if (!chat) return;
@@ -512,7 +512,7 @@ function getChatTypeLabel(type: ChatboxType): string {
   }
 }
 
-function updateSettingsSwitch(
+function updateSwitch(
   doc: Document,
   selector: string,
   enabled: boolean,
@@ -536,7 +536,7 @@ function updateCountPosition(doc: Document, position: CountPosition): void {
     });
 }
 
-function updateSessionStatus(doc: Document, status: SessionStatus): void {
+function updateStatus(doc: Document, status: SessionStatus): void {
   const quickButton = doc.querySelector(
     ".session-quick-button",
   ) as HTMLButtonElement | null;
@@ -555,7 +555,7 @@ function updateSessionStatus(doc: Document, status: SessionStatus): void {
   }
 }
 
-function settingsMarkup(): string {
+function markup(): string {
   return `
     <div class="settings-window-panel">
       <div class="settings-window-main">
@@ -565,7 +565,7 @@ function settingsMarkup(): string {
         <button class="settings-sidebar-item" type="button" data-page="skills">Skills</button>
         <button class="settings-sidebar-item" type="button" data-page="data">Data</button>
         <div class="settings-sidebar-title"></div>
-        <button class="settings-session-button settings-session-link" type="button">Session</button>
+        <button class="settings-session-button" type="button">Session</button>
       </nav>
       <div class="settings-page-content">
           <section class="settings-page" data-settings-page="general">
@@ -573,7 +573,7 @@ function settingsMarkup(): string {
               <div class="settings-section-title">CHAT</div>
               <div class="settings-field">
                 <div class="settings-chat-row">
-                  <div class="settings-field-description">Supported Text Sizes:   10pt-16pt. Click 'Find Chat' if you change your Text Size.</div>
+                  <div class="settings-field-description">Supported chat sizes: 10pt–16pt. Click Find Chat after changing the size.</div>
                   <button class="find-chat" type="button">Find Chat</button>
                 </div>
                 <div class="settings-chat-select-row">
@@ -598,8 +598,8 @@ function settingsMarkup(): string {
                   <button class="settings-segment-option" type="button" data-position="right">Right</button>
                 </div>
               </div>
-              ${settingsSwitchMarkup("all-tab-icons-toggle", "All-Tab Icons", "Show skill icons beside items on the All tab.")}
-              ${settingsSwitchMarkup("status-footer-toggle", "Show Status Footer", "Show the tracking message at the bottom of the tracker.")}
+                ${switchMarkup("all-tab-icons-toggle", "All-Tab Icons", "Show skill icons beside items on the All tab.")}
+              ${switchMarkup("status-footer-toggle", "Show Status Footer", "Show the tracking message at the bottom of the tracker.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">SUPPORT</div>
@@ -620,28 +620,28 @@ function settingsMarkup(): string {
           <section class="settings-page" data-settings-page="skills" hidden>
             <div class="settings-section">
               <div class="settings-section-title">TRACKED SKILLS/EVENTS</div>
-              <div class="settings-field-description">Toggle Tracked Skills and Events ON/OFF.</div>
+              <div class="settings-field-description">Choose tracked skills and events.</div>
               <div class="settings-tracked-skills">
-                ${settingsTrackedSkillsMarkup()}
+                ${trackedSkillsMarkup()}
               </div>
             </div>
             <div class="settings-section">
               <div class="settings-section-title">FISHING</div>
-              ${settingsSwitchMarkup("fishing-porters-toggle", "Sign of the Porter", "Track fish sent through porters and bank transports.")}
+              ${switchMarkup("fishing-porters-toggle", "Sign of the Porter", "Track fish sent through porters and bank transports.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">INVENTION</div>
-              ${settingsSwitchMarkup("short-invention-names-toggle", "Short Invention Names", "Shorten component and part labels in the tracker.")}
-              ${settingsSwitchMarkup("invention-filter-visibility-toggle", "Show Invention Filter", "Show the material filter control on the Invention tab.")}
+              ${switchMarkup("short-invention-names-toggle", "Short Invention Names", "Shorten component and part labels in the tracker.")}
+              ${switchMarkup("invention-filter-toggle", "Show Invention Filter", "Show the material filter control on the Invention tab.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">ARCHAEOLOGY</div>
-              ${settingsSwitchMarkup("archaeology-filter-visibility-toggle", "Show Dig Site Filter", "Show the Dig Site filter control on the Archaeology tab.")}
-              ${settingsSwitchMarkup("archaeology-artefact-visibility-toggle", "Show Artefacts", "Show damaged artefacts on the Archaeology tab.")}
+              ${switchMarkup("archaeology-filter-toggle", "Show Dig Site Filter", "Show the Dig Site filter control on the Archaeology tab.")}
+              ${switchMarkup("archaeology-artefact-toggle", "Show Artefacts", "Show damaged artefacts on the Archaeology tab.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">MISC.</div>
-              ${settingsSwitchMarkup("hide-unknown-section-toggle", "Hide Unknown Items", "Hide unclassified items from the All tab.")}
+              ${switchMarkup("hide-unknown-section-toggle", "Hide Unknown Items", "Hide unclassified items from the All tab.")}
             </div>
           </section>
           <section class="settings-page" data-settings-page="data" hidden>
@@ -673,7 +673,7 @@ function settingsMarkup(): string {
   `;
 }
 
-function settingsSwitchMarkup(
+function switchMarkup(
   className: string,
   label: string,
   description: string,
@@ -690,7 +690,7 @@ function settingsSwitchMarkup(
   `;
 }
 
-function settingsTrackedSkillsMarkup(): string {
+function trackedSkillsMarkup(): string {
   const skills: ReadonlyArray<{
     skill: TrackableSkill;
     label: string;

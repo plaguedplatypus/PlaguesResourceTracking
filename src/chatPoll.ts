@@ -1,32 +1,32 @@
-type ChatPollMessage = {
+type Message = {
   text: string;
 };
 
-type ChatPollDependencies = {
-  hasProcessedMessage: (message: string) => boolean;
+type Dependencies = {
+  hasProcessed: (message: string) => boolean;
   processMessage: (message: string) => boolean;
-  rememberProcessedMessage: (message: string) => void;
-  addTrackedHistory: (message: string) => void;
-  commitMainChanges: () => void;
+  rememberProcessed: (message: string) => void;
+  addHistory: (message: string) => void;
+  commitChanges: () => void;
 };
 
 export function processChatPollMessages(
-  messages: readonly ChatPollMessage[],
-  dependencies: ChatPollDependencies,
+  messages: readonly Message[],
+  dependencies: Dependencies,
 ): void {
   try {
     for (const { text: chatLine } of messages) {
       const historyKey = chatLine.trim();
       if (!historyKey) continue;
 
-      if (dependencies.hasProcessedMessage(historyKey)) continue;
+      if (dependencies.hasProcessed(historyKey)) continue;
 
       const tracked = dependencies.processMessage(chatLine);
-      dependencies.rememberProcessedMessage(historyKey);
+      dependencies.rememberProcessed(historyKey);
       if (!tracked) continue;
-      dependencies.addTrackedHistory(historyKey);
+      dependencies.addHistory(historyKey);
     }
   } finally {
-    dependencies.commitMainChanges();
+    dependencies.commitChanges();
   }
 }

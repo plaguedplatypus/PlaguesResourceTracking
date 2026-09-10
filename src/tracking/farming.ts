@@ -1,4 +1,4 @@
-export const farmingHerbs = [
+const herbs = [
   "guam",
   "marrentill",
   "tarromin",
@@ -21,7 +21,7 @@ export const farmingHerbs = [
   "fellstalk",
 ] as const;
 
-export const farmingHerbProducts = farmingHerbs.reduce<string[]>(
+const herbProducts = herbs.reduce<string[]>(
   (products, herb) => {
     if (herb !== "Goutweed") {
       products.push(`Grimy ${herb}`, `Clean ${herb}`);
@@ -31,7 +31,7 @@ export const farmingHerbProducts = farmingHerbs.reduce<string[]>(
   ["Goutweed"],
 );
 
-export const farmingProduceByPatch = {
+const produceByPatch = {
   allotments: [
     "Raw potato",
     "Onion",
@@ -57,7 +57,7 @@ export const farmingProduceByPatch = {
     "Limpwurt root",
     "Starbloom flower",
   ],
-  herbs: farmingHerbProducts,
+  herbs: herbProducts,
   hops: [
     "Barley",
     "Hammerstone hops",
@@ -105,27 +105,19 @@ export const farmingProduceByPatch = {
   ],
 } as const;
 
-const Products: string[] = [];
-for (const products of Object.values(farmingProduceByPatch)) {
-  for (const product of products) {
-    Products.push(product);
+const allProducts: string[] = [];
+for (const patchProducts of Object.values(produceByPatch)) {
+  for (const product of patchProducts) {
+    allProducts.push(product);
   }
 }
-const farmingProductsByNormalizedName = new Map(
-  Products.map((item) => [normalizeFarmingItemName(item), item]),
+const produceByName = new Map(
+  allProducts.map((item) => [normalizeFarmingItemName(item), item]),
 );
-const farmingHerbsByNormalizedName = new Set(
-  farmingHerbProducts.map(normalizeFarmingItemName),
-);
-
 export function getFarmingProduce(value: string): string | null {
-  return farmingProductsByNormalizedName.get(normalizeFarmingItemName(value)) ?? null;
+  return produceByName.get(normalizeFarmingItemName(value)) ?? null;
 }
 
-export function isFarmingHerbProduce(value: string): boolean {
-  return farmingHerbsByNormalizedName.has(normalizeFarmingItemName(value));
-}
-
-export function normalizeFarmingItemName(value: string): string {
+function normalizeFarmingItemName(value: string): string {
   return value.trim().replace(/\.$/, "").replace(/\s+/g, " ").toLowerCase();
 }

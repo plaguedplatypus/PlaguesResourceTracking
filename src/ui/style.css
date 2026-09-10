@@ -90,7 +90,7 @@ body {
     height: 100%;
     padding: 0 2px;
     box-sizing: border-box;
-    border: 0px;
+    border: 0;
     background: rgb(12, 20, 24);
     background-position: center;
     background-repeat: no-repeat;
@@ -282,7 +282,7 @@ body {
     }
 }
 
-.item-row.settings-active {
+.item-row.settings-open {
     border-color: #d9a441;
     box-shadow:
         inset 0 0 4px rgba(255, 200, 80, 0.35),
@@ -466,19 +466,19 @@ select {
     padding: 2px 4px;
 }
 
-.settings-panel {
+.item-settings-panel {
     display: none;
     gap: 0.167em;
     align-items: center;
     margin-bottom: 0.167em;
 }
 
-.settings-panel.open {
+.item-settings-panel.open {
     display: flex;
     overflow: hidden;
 }
 
-.settings-panel input {
+.item-settings-panel input {
     flex: 1 1 70px;
     min-width: 48px;
     max-width: 72px;
@@ -491,7 +491,7 @@ select {
     line-height: 1.5em;
 }
 
-.settings-panel input[type="number"]::-webkit-inner-spin-button {
+.item-settings-panel input[type="number"]::-webkit-inner-spin-button {
     opacity: 1;
     display: block;
 }
@@ -581,7 +581,7 @@ select {
     color: #ffd700;
 }
 
-.settings-separator {
+.item-settings-separator {
     border-top: 2px solid #444;
     margin: 2px 0 2px;
 }
@@ -724,16 +724,25 @@ select {
 
 ::-webkit-scrollbar {
 	width: 6px !important;
-	background: #161a1d !important;
+	border-radius: 6px !important;
+	background: transparent !important;
 }
 
 ::-webkit-scrollbar-button {
 	display: none !important;
 }
 
+::-webkit-scrollbar-track {
+	margin: 2px 0 !important;
+	border-radius: 6px !important;
+	background: #161a1d !important;
+}
+
 ::-webkit-scrollbar-thumb {
 	min-height: 48px !important;
-	border: 1px solid #161a1d !important;
+	border: 1px solid transparent !important;
+	border-radius: 6px !important;
 	background: #9b7a36 !important;
+	background-clip: padding-box !important;
 	box-shadow: none !important;
 }

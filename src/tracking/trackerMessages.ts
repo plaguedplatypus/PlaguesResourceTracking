@@ -1,13 +1,13 @@
 export type SpiritRewardSource = "seren-spirit" | "Forge/Fire Spirit";
 
-export type SpiritRewardHeader = {
+type SpiritRewardHeader = {
   pattern: RegExp;
   prefix: RegExp;
   source: SpiritRewardSource;
   label: string;
 };
 
-export const materialsGainedHeaderPattern = /^Materials gained:\s*/i;
+const materialsGainedHeaderPattern = /^Materials gained:\s*/i;
 export const bareMaterialsGainedHeaderPattern = /^Materials gained:\s*$/i;
 
 export const spiritRewardHeaders: readonly SpiritRewardHeader[] = [
@@ -66,6 +66,6 @@ export function couldStartSkillTrackerMessage(text: string): boolean {
   );
 }
 
-export const ignoredMessages: readonly RegExp[] = [
+const ignoredMessages: readonly RegExp[] = [
   /^You find some valuables and stuff them into your bag\.?$/i,
 ];

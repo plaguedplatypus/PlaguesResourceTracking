@@ -15,7 +15,7 @@ import {
 } from "../tracking/trackerMessages";
 
 type ConfirmedGlyph = {
-  character: string;
+  char: string;
   x: number;
   color: OCR.ColortTriplet;
   info: OCR.ReadCharInfo;
@@ -27,7 +27,7 @@ type RowOcrPrimitives = Pick<
   "findChar" | "getChatColorMono" | "readChar" | "readLine"
 >;
 
-type DecodePhysicalRowOptions = {
+type DecodeOptions = {
   startWindowWidth?: number;
   maxFragments?: number;
   boundaryColorHints?: Map<string, OCR.ColortTriplet>;
@@ -38,20 +38,20 @@ type BoundaryMatch = {
   glyph: ConfirmedGlyph;
 };
 
-type DecodedCapturedRow = PhysicalChatLine | null;
+type DecodedRow = PhysicalChatLine | null;
 
-type TrackerRowClassification =
+type RowClassification =
   | "relevant"
   | "contextual"
   | "uncertain"
   | "confidently-irrelevant";
 
-type TrackerContinuationContext = {
+type ContinuationContext = {
   kind: "material" | "spirit" | "tracked";
   timestamp: string | null;
 } | null;
 
-type CapturedRowGeometry = {
+type RowGeometry = {
   buffer: CapturedChatBuffer;
   font: ChatFontSetting;
   startX: number;
@@ -59,18 +59,18 @@ type CapturedRowGeometry = {
   baselineY: number;
 };
 
-const MAX_RANKED_COLORS = 8;
-const DEFAULT_MAX_FRAGMENTS = 32;
-const MAX_CACHED_PHYSICAL_ROWS = 512;
-const FINGERPRINT_COLOR_DISTANCE = 36;
-const TRACKER_PREFIX_SCREEN_WIDTH = 320;
-const TIMESTAMP_OPEN_COLORS: readonly OCR.ColortTriplet[] = [
+const maxRankedColors = 8;
+const defaultMaxFragments = 32;
+const maxCachedRows = 512;
+const fingerprintColorDistance = 36;
+const trackerPrefixScreenWidth = 320;
+const timestampColors: readonly OCR.ColortTriplet[] = [
   [255, 255, 255],
   [127, 169, 255],
 ];
 
-type PhysicalTextQuality = {
-  wordCharacters: number;
+type TextQuality = {
+  wordChars: number;
   punctuationOnlyRatio: number;
   score: number;
 };
@@ -78,32 +78,32 @@ type PhysicalTextQuality = {
 function scorePhysicalText(
   text: string,
   fragmentCount = 0,
-): PhysicalTextQuality {
-  const characters = Array.from(text);
-  const printableCharacters = characters.filter(
-    (character) => character >= " " && character !== "\x7f",
+): TextQuality {
+  const chars = Array.from(text);
+  const printableChars = chars.filter(
+    (char) => char >= " " && char !== "\x7f",
   ).length;
-  const wordCharacters = (text.match(/[A-Za-z0-9]/g) ?? []).length;
-  const whitespaceCharacters = (text.match(/\s/g) ?? []).length;
-  const punctuationCharacters = Math.max(
+  const wordChars = (text.match(/[A-Za-z0-9]/g) ?? []).length;
+  const whitespaceChars = (text.match(/\s/g) ?? []).length;
+  const punctuationChars = Math.max(
     0,
-    printableCharacters - wordCharacters - whitespaceCharacters,
+    printableChars - wordChars - whitespaceChars,
   );
   const punctuationOnlyRatio =
-    printableCharacters === 0 ? 1 : punctuationCharacters / printableCharacters;
+    printableChars === 0 ? 1 : punctuationChars / printableChars;
   const validTimestamp = /^\[\d{2}:\d{2}:\d{2}\]/.test(text);
   const score =
-    wordCharacters * 2 +
-    printableCharacters * 0.25 +
+    wordChars * 2 +
+    printableChars * 0.25 +
     fragmentCount * 0.5 +
     (validTimestamp ? 20 : 0) -
     punctuationOnlyRatio * 15 -
-    (wordCharacters < 3 ? 8 : 0);
+    (wordChars < 3 ? 8 : 0);
 
-  return { wordCharacters, punctuationOnlyRatio, score };
+  return { wordChars, punctuationOnlyRatio, score };
 }
 
-type RankedGlyphCandidate = BoundaryMatch & {
+type RankedGlyph = BoundaryMatch & {
   colorRank: number;
   qualityScore: number;
   progress: number;
@@ -115,7 +115,7 @@ function createConfirmedGlyph(
   seedRead?: ReturnType<RowOcrPrimitives["readLine"]>,
 ): ConfirmedGlyph {
   return {
-    character: info.chr,
+    char: info.chr,
     x: info.x,
     color,
     info,
@@ -123,11 +123,11 @@ function createConfirmedGlyph(
   };
 }
 
-function createRankedGlyphCandidate(
+function createRankedGlyph(
   glyph: ConfirmedGlyph,
   colorRank: number,
   gap = 0,
-): RankedGlyphCandidate {
+): RankedGlyph {
   const seedRead = glyph.seedRead;
   return {
     gap,
@@ -145,7 +145,7 @@ function createRankedGlyphCandidate(
   };
 }
 
-function readBoundaryCandidate(
+function readBoundaryGlyph(
   buffer: ImageData,
   font: OCR.FontDefinition,
   color: OCR.ColortTriplet,
@@ -156,7 +156,7 @@ function readBoundaryCandidate(
   allowSecondary: boolean,
   readSeed: boolean,
   ocr: RowOcrPrimitives,
-): RankedGlyphCandidate | null {
+): RankedGlyph | null {
   const found = ocr.readChar(
     buffer,
     font,
@@ -172,46 +172,46 @@ function readBoundaryCandidate(
   const seedRead = readSeed
     ? ocr.readLine(buffer, font, color, found.x, baselineY, true, false)
     : undefined;
-  return createRankedGlyphCandidate(
+  return createRankedGlyph(
     createConfirmedGlyph(found, color, seedRead),
     colorRank,
     gap,
   );
 }
 
-function isBetterTextCandidate(
-  candidate: RankedGlyphCandidate,
-  best: RankedGlyphCandidate | null,
+function isBetterTextGlyph(
+  ranked: RankedGlyph,
+  best: RankedGlyph | null,
   compareSizeScore = false,
 ): boolean {
   if (!best) return true;
-  if (candidate.qualityScore !== best.qualityScore) {
-    return candidate.qualityScore > best.qualityScore;
+  if (ranked.qualityScore !== best.qualityScore) {
+    return ranked.qualityScore > best.qualityScore;
   }
-  if (candidate.progress !== best.progress) {
-    return candidate.progress > best.progress;
+  if (ranked.progress !== best.progress) {
+    return ranked.progress > best.progress;
   }
-  if (candidate.colorRank !== best.colorRank) {
-    return candidate.colorRank < best.colorRank;
+  if (ranked.colorRank !== best.colorRank) {
+    return ranked.colorRank < best.colorRank;
   }
   return (
     compareSizeScore &&
-    candidate.glyph.info.sizescore < best.glyph.info.sizescore
+    ranked.glyph.info.sizescore < best.glyph.info.sizescore
   );
 }
 
-function isBetterPhysicalCandidate(
-  candidate: RankedGlyphCandidate,
-  best: RankedGlyphCandidate | null,
+function isBetterPhysicalGlyph(
+  ranked: RankedGlyph,
+  best: RankedGlyph | null,
 ): boolean {
   if (!best) return true;
-  if (candidate.colorRank !== best.colorRank) {
-    return candidate.colorRank < best.colorRank;
+  if (ranked.colorRank !== best.colorRank) {
+    return ranked.colorRank < best.colorRank;
   }
-  if (candidate.glyph.info.sizescore !== best.glyph.info.sizescore) {
-    return candidate.glyph.info.sizescore < best.glyph.info.sizescore;
+  if (ranked.glyph.info.sizescore !== best.glyph.info.sizescore) {
+    return ranked.glyph.info.sizescore < best.glyph.info.sizescore;
   }
-  return candidate.gap < best.gap;
+  return ranked.gap < best.gap;
 }
 
 export class CustomPhysicalRowDecoder {
@@ -225,10 +225,10 @@ export class CustomPhysicalRowDecoder {
   private rowCacheContext = "";
   private foregroundClassifier: Uint8Array | null = null;
   private readonly boundaryColorHints = new Map<string, OCR.ColortTriplet>();
-  private readonly decodedRowCache = new Map<string, DecodedCapturedRow>();
+  private readonly decodedRowCache = new Map<string, DecodedRow>();
 
   constructor(
-    private readonly fontCandidates: readonly ChatFontSetting[] = [],
+    private readonly fontOptions: readonly ChatFontSetting[] = [],
     private readonly ocrPalette: readonly OCR.ColortTriplet[] = [],
   ) {}
 
@@ -237,13 +237,13 @@ export class CustomPhysicalRowDecoder {
   }
 
   read(reader: ChatReaderState): PhysicalChatLine[] {
-    if (!reader.pos) return emptyRead();
+    if (!reader.pos) return [];
 
     const box = reader.pos.mainbox;
     const leftMargin = box.leftfound ? 0 : 300;
     const rightPadding = Math.max(
       reader.font?.def.width ?? 0,
-      ...this.fontCandidates.map((candidate) => candidate.def.width),
+      ...this.fontOptions.map((font) => font.def.width),
     );
     const imageX = box.rect.x - leftMargin;
     const imageY = box.rect.y;
@@ -258,10 +258,10 @@ export class CustomPhysicalRowDecoder {
     if (!reader.font) {
       reader.font = this.selectFont(reader);
     }
-    if (!reader.font) return emptyRead();
+    if (!reader.font) return [];
 
     const colors = this.ocrPalette.slice();
-    const cacheKey = buildCapturedReadCacheKey(reader, image, colors);
+    const cacheKey = buildReadCacheKey(reader, image, colors);
     if (
       this.capturedReadCache &&
       this.capturedReadCache.key === cacheKey &&
@@ -286,10 +286,10 @@ export class CustomPhysicalRowDecoder {
     const buffer = this.lastReadBuffer;
     const box = reader.pos?.mainbox;
     const font = reader.font;
-    if (!buffer || !box || !font) return emptyRead();
+    if (!buffer || !box || !font) return [];
 
     const lines: PhysicalChatLine[] = [];
-    const rowCacheContext = buildCapturedReadCacheKey(
+    const rowCacheContext = buildReadCacheKey(
       reader,
       buffer.buf,
       colors,
@@ -297,10 +297,10 @@ export class CustomPhysicalRowDecoder {
     if (rowCacheContext !== this.rowCacheContext) {
       this.rowCacheContext = rowCacheContext;
       this.decodedRowCache.clear();
-      this.foregroundClassifier = buildForegroundClassifier(colors);
+      this.foregroundClassifier = buildClassifier(colors);
     }
     const foregroundClassifier =
-      this.foregroundClassifier ?? buildForegroundClassifier(colors);
+      this.foregroundClassifier ?? buildClassifier(colors);
     const rows: Array<{
       absoluteBaseline: number;
       rowSignature: string | null;
@@ -310,11 +310,11 @@ export class CustomPhysicalRowDecoder {
       if (lineY - font.lineheight < 0) break;
 
       const absoluteBaseline = box.rect.y + lineY;
-      const rowSignature = buildPhysicalRowFingerprint(
+      const rowSignature = buildRowFingerprint(
         buffer.buf,
         font.def,
         colors,
-        calculatePhysicalStartX(buffer.x, box),
+        calculateStartX(buffer.x, box),
         absoluteBaseline - buffer.y,
         foregroundClassifier,
         box.rect.x + box.rect.width - buffer.x,
@@ -322,20 +322,20 @@ export class CustomPhysicalRowDecoder {
       rows.push({ absoluteBaseline, rowSignature });
     }
 
-    let continuationContext: TrackerContinuationContext = null;
+    let continuationContext: ContinuationContext = null;
     for (const row of rows.reverse()) {
       const { absoluteBaseline, rowSignature } = row;
-      const contextKey = buildContinuationContextKey(continuationContext);
+      const contextKey = buildContextKey(continuationContext);
       const cacheKey =
         rowSignature === null ? null : `${rowSignature}|${contextKey}`;
       const hasCachedRow =
         cacheKey !== null && this.decodedRowCache.has(cacheKey);
       const decoded = hasCachedRow
-        ? rebaseCachedPhysicalRow(
+        ? rebaseRow(
             this.decodedRowCache.get(cacheKey!) ?? null,
             absoluteBaseline,
           )
-        : this.decodeScreenedCapturedRow(
+        : this.decodeScreenedRow(
             reader,
             absoluteBaseline,
             colors,
@@ -346,7 +346,7 @@ export class CustomPhysicalRowDecoder {
       }
       if (!decoded) continue;
       lines.push(decoded);
-      if (isTrackerBoundaryLine(decoded.text)) {
+      if (isBoundaryLine(decoded.text)) {
         continuationContext = null;
         continue;
       }
@@ -364,17 +364,17 @@ export class CustomPhysicalRowDecoder {
     return lines;
   }
 
-  private decodeScreenedCapturedRow(
+  private decodeScreenedRow(
     reader: ChatReaderState,
     absoluteBaseline: number,
     colors: OCR.ColortTriplet[],
-    context: TrackerContinuationContext,
-  ): DecodedCapturedRow {
+    context: ContinuationContext,
+  ): DecodedRow {
     const screen = this.decodeCapturedPrefix(reader, absoluteBaseline, colors);
     const classification = classifyTrackerRow(screen?.text ?? "", context);
 
     if (classification === "confidently-irrelevant") {
-      const timestamp = getTrackerTimestamp(screen?.text ?? "");
+      const timestamp = getTimestamp(screen?.text ?? "");
       return timestamp
         ? {
             text: timestamp,
@@ -391,8 +391,8 @@ export class CustomPhysicalRowDecoder {
     reader: ChatReaderState,
     absoluteBaseline: number,
     colors: OCR.ColortTriplet[],
-  ): DecodedCapturedRow {
-    const geometry = getCapturedRowGeometry(
+  ): DecodedRow {
+    const geometry = getRowGeometry(
       reader,
       this.lastReadBuffer,
       absoluteBaseline,
@@ -404,18 +404,18 @@ export class CustomPhysicalRowDecoder {
     const canCrop =
       Number.isFinite(buffer.buf.width) &&
       Number.isFinite(buffer.buf.height) &&
-      buffer.buf.width > startX + TRACKER_PREFIX_SCREEN_WIDTH &&
+      buffer.buf.width > startX + trackerPrefixScreenWidth &&
       rowHeight > 0 &&
       typeof buffer.buf.clone === "function";
     const prefixBuffer = canCrop
       ? buffer.buf.clone({
           x: 0,
           y: rowTop,
-          width: startX + TRACKER_PREFIX_SCREEN_WIDTH,
+          width: startX + trackerPrefixScreenWidth,
           height: rowHeight,
         })
       : buffer.buf;
-    return this.decodeAndRebaseCapturedImage(
+    return this.decodeAndRebase(
       prefixBuffer,
       font.def,
       colors,
@@ -435,15 +435,15 @@ export class CustomPhysicalRowDecoder {
     reader: ChatReaderState,
     absoluteBaseline: number,
     colors: OCR.ColortTriplet[] = this.ocrPalette.slice(),
-  ): DecodedCapturedRow {
-    const geometry = getCapturedRowGeometry(
+  ): DecodedRow {
+    const geometry = getRowGeometry(
       reader,
       this.lastReadBuffer,
       absoluteBaseline,
     );
     if (!geometry) return null;
     const { buffer, font, startX, startWindowWidth, baselineY } = geometry;
-    return this.decodeAndRebaseCapturedImage(
+    return this.decodeAndRebase(
       buffer.buf,
       font.def,
       colors,
@@ -458,7 +458,7 @@ export class CustomPhysicalRowDecoder {
     );
   }
 
-  private decodeAndRebaseCapturedImage(
+  private decodeAndRebase(
     capturedImage: ImageData,
     font: OCR.FontDefinition,
     colors: OCR.ColortTriplet[],
@@ -466,9 +466,9 @@ export class CustomPhysicalRowDecoder {
     relativeBaselineY: number,
     absoluteBaseline: number,
     fragmentXOffset: number,
-    options: DecodePhysicalRowOptions,
-  ): DecodedCapturedRow {
-    const decoded = decodePhysicalRow(
+    options: DecodeOptions,
+  ): DecodedRow {
+    const decoded = decodeRow(
       capturedImage,
       font,
       colors,
@@ -477,7 +477,7 @@ export class CustomPhysicalRowDecoder {
       this.ocr,
       options,
     );
-    return toPhysicalChatLine(decoded, absoluteBaseline, fragmentXOffset);
+    return toChatLine(decoded, absoluteBaseline, fragmentXOffset);
   }
 
   private selectFont(reader: ChatReaderState): ChatFontSetting | null {
@@ -487,16 +487,16 @@ export class CustomPhysicalRowDecoder {
     let best: {
       font: ChatFontSetting;
       score: number;
-      wordCharacters: number;
+      wordChars: number;
     } | null = null;
 
-    for (const candidate of this.fontCandidates) {
-      reader.font = candidate;
+    for (const font of this.fontOptions) {
+      reader.font = font;
       const sampleLines: PhysicalChatLine[] = [];
       for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
         const lineY =
-          box.line0y - rowIndex * candidate.lineheight + candidate.dy;
-        if (lineY - candidate.lineheight < 0) break;
+          box.line0y - rowIndex * font.lineheight + font.dy;
+        if (lineY - font.lineheight < 0) break;
         const decoded = this.decodeCapturedRow(
           reader,
           box.rect.y + lineY,
@@ -508,41 +508,40 @@ export class CustomPhysicalRowDecoder {
         (total, line) => {
           const current = scorePhysicalText(line.text, line.fragments.length);
           total.score += current.score;
-          total.wordCharacters += current.wordCharacters;
+          total.wordChars += current.wordChars;
           return total;
         },
-        { score: 0, wordCharacters: 0 },
+        { score: 0, wordChars: 0 },
       );
       if (!best || quality.score > best.score) {
         best = {
-          font: candidate,
+          font,
           score: quality.score,
-          wordCharacters: quality.wordCharacters,
+          wordChars: quality.wordChars,
         };
       }
     }
 
     reader.font = null;
-    return best && best.wordCharacters > 10 ? best.font : null;
+    return best && best.wordChars > 10 ? best.font : null;
   }
 
   private rememberDecodedRow(
     signature: string,
-    decoded: DecodedCapturedRow,
+    decoded: DecodedRow,
   ): void {
     this.decodedRowCache.delete(signature);
     this.decodedRowCache.set(signature, decoded);
 
-    while (this.decodedRowCache.size > MAX_CACHED_PHYSICAL_ROWS) {
-      const oldest = this.decodedRowCache.keys().next().value;
-      if (oldest === undefined) break;
+    while (this.decodedRowCache.size > maxCachedRows) {
+      const oldest = this.decodedRowCache.keys().next().value!;
       this.decodedRowCache.delete(oldest);
     }
   }
 }
 
-function toPhysicalChatLine(
-  decoded: ReturnType<typeof decodePhysicalRow>,
+function toChatLine(
+  decoded: ReturnType<typeof decodeRow>,
   absoluteBaseline: number,
   absoluteXOffset: number,
 ): PhysicalChatLine | null {
@@ -558,17 +557,17 @@ function toPhysicalChatLine(
   };
 }
 
-function getCapturedRowGeometry(
+function getRowGeometry(
   reader: ChatReaderState,
   buffer: CapturedChatBuffer | null,
   absoluteBaseline: number,
-): CapturedRowGeometry | null {
+): RowGeometry | null {
   const box = reader.pos?.mainbox;
   const font = reader.font;
   if (!buffer || !box || !font) return null;
 
   const nominalStartX = box.rect.x + box.line0x - buffer.x;
-  const startX = calculatePhysicalStartX(buffer.x, box);
+  const startX = calculateStartX(buffer.x, box);
   return {
     buffer,
     font,
@@ -580,24 +579,24 @@ function getCapturedRowGeometry(
   };
 }
 
-function calculatePhysicalStartX(bufferX: number, box: LocalChatbox): number {
+function calculateStartX(bufferX: number, box: LocalChatbox): number {
   const nominalStartX = box.rect.x + box.line0x - bufferX;
   return box.leftfound ? nominalStartX : Math.max(0, nominalStartX - 300);
 }
 
-function buildContinuationContextKey(
-  context: TrackerContinuationContext,
+function buildContextKey(
+  context: ContinuationContext,
 ): string {
   return context ? `${context.kind}:${context.timestamp ?? ""}` : "none";
 }
 
-function buildPhysicalRowFingerprint(
+function buildRowFingerprint(
   image: ImageData,
   font: OCR.FontDefinition,
   colors: readonly OCR.ColortTriplet[],
   startX: number,
   baselineY: number,
-  classifier: Uint8Array = buildForegroundClassifier(colors),
+  classifier: Uint8Array = buildClassifier(colors),
   logicalRightX: number = image.width,
 ): string | null {
   if (
@@ -639,7 +638,7 @@ function buildPhysicalRowFingerprint(
   return [foregroundPixels, primaryHash >>> 0, secondaryHash >>> 0].join(":");
 }
 
-function buildForegroundClassifier(
+function buildClassifier(
   colors: readonly OCR.ColortTriplet[],
 ): Uint8Array {
   const classifier = new Uint8Array(32 * 32 * 32);
@@ -668,7 +667,7 @@ function buildForegroundClassifier(
           blue * 8 + 4,
         ];
         let closestColor = -1;
-        let closestDistance = FINGERPRINT_COLOR_DISTANCE;
+        let closestDistance = fingerprintColorDistance;
         for (let colorIndex = 0; colorIndex < colors.length; colorIndex++) {
           const distance = colorDistance(sample, colors[colorIndex]);
           if (distance < closestDistance) {
@@ -697,10 +696,10 @@ function colorDistance(
   );
 }
 
-function rebaseCachedPhysicalRow(
-  decoded: DecodedCapturedRow,
+function rebaseRow(
+  decoded: DecodedRow,
   absoluteBaseline: number,
-): DecodedCapturedRow {
+): DecodedRow {
   if (!decoded) return null;
 
   return {
@@ -710,7 +709,7 @@ function rebaseCachedPhysicalRow(
   };
 }
 
-function buildCapturedReadCacheKey(
+function buildReadCacheKey(
   reader: ChatReaderState,
   image: ImageData,
   colors: readonly OCR.ColortTriplet[],
@@ -749,14 +748,14 @@ function haveEqualPixels(
   return true;
 }
 
-function decodePhysicalRow(
+function decodeRow(
   buffer: ImageData,
   font: OCR.FontDefinition,
   colors: OCR.ColortTriplet[],
   startX: number,
   baselineY: number,
   ocr: RowOcrPrimitives = OCR,
-  options: DecodePhysicalRowOptions = {},
+  options: DecodeOptions = {},
 ): {
   text: string;
   fragments: OCR.TextFragment[];
@@ -782,7 +781,7 @@ function decodePhysicalRow(
     gap: 0,
     glyph: confirmed,
   };
-  const maxFragments = options.maxFragments ?? DEFAULT_MAX_FRAGMENTS;
+  const maxFragments = options.maxFragments ?? defaultMaxFragments;
 
   for (let attempt = 0; attempt < maxFragments && next; attempt++) {
     if (next.gap > 0) {
@@ -813,7 +812,7 @@ function decodePhysicalRow(
     } else if (next.glyph.info.basechar.secondary) {
       const end = next.glyph.x + next.glyph.info.basechar.width;
       appendFragment(fragments, {
-        text: next.glyph.character,
+        text: next.glyph.char,
         color: next.glyph.color,
         index: -1,
         xstart: next.glyph.x,
@@ -862,7 +861,7 @@ function confirmInitialGlyph(
   windowWidth: number,
   ocr: RowOcrPrimitives = OCR,
 ): ConfirmedGlyph | null {
-  for (const color of TIMESTAMP_OPEN_COLORS) {
+  for (const color of timestampColors) {
     const timestampOpen = ocr.readChar(
       buffer,
       font,
@@ -919,7 +918,7 @@ function confirmInitialGlyph(
       Math.max(1, font.width),
       ocr,
     );
-    let bestAtX: RankedGlyphCandidate | null = null;
+    let bestAtX: RankedGlyph | null = null;
     for (let colorRank = 0; colorRank < ranked.length; colorRank++) {
       const color = ranked[colorRank];
       const found = ocr.findChar(buffer, font, color, x, baselineY, 1, 1);
@@ -943,12 +942,12 @@ function confirmInitialGlyph(
         ocr,
         rawSeedRead,
       );
-      const candidate = createRankedGlyphCandidate(
+      const rankedGlyph = createRankedGlyph(
         createConfirmedGlyph(found, color, seedRead),
         colorRank,
       );
-      if (isBetterTextCandidate(candidate, bestAtX)) {
-        bestAtX = candidate;
+      if (isBetterTextGlyph(rankedGlyph, bestAtX)) {
+        bestAtX = rankedGlyph;
       }
     }
     if (bestAtX) return bestAtX.glyph;
@@ -978,7 +977,7 @@ function confirmQuantityStart(
       ocr,
       colors.length,
     );
-    let best: RankedGlyphCandidate | null = null;
+    let best: RankedGlyph | null = null;
     for (let colorRank = 0; colorRank < ranked.length; colorRank++) {
       const color = ranked[colorRank];
       const found = ocr.readChar(
@@ -1010,12 +1009,12 @@ function confirmQuantityStart(
       if (!/^[1-9]\d*\s+x\b/i.test(seedRead.text)) {
         continue;
       }
-      const candidate = createRankedGlyphCandidate(
+      const rankedGlyph = createRankedGlyph(
         createConfirmedGlyph(found, color, seedRead),
         colorRank,
       );
-      if (isBetterTextCandidate(candidate, best)) {
-        best = candidate;
+      if (isBetterTextGlyph(rankedGlyph, best)) {
+        best = rankedGlyph;
       }
     }
     if (best) return best.glyph;
@@ -1034,7 +1033,7 @@ function confirmTimestampClose(
   if (!/^\[[A-Za-z0-9: ]+$/.test(currentText)) {
     return null;
   }
-  for (const color of TIMESTAMP_OPEN_COLORS) {
+  for (const color of timestampColors) {
     const found = ocr.readChar(
       buffer,
       font,
@@ -1067,7 +1066,7 @@ function findYouReceiveQuantityBoundary(
   ocr: RowOcrPrimitives,
 ): BoundaryMatch | null {
   const maxGap = Math.max(font.width + font.spacewidth, font.spacewidth * 2);
-  let best: RankedGlyphCandidate | null = null;
+  let best: RankedGlyph | null = null;
 
   for (let gap = 0; gap <= maxGap; gap++) {
     const x = cursor + gap;
@@ -1082,7 +1081,7 @@ function findYouReceiveQuantityBoundary(
       colors.length,
     );
     for (let colorRank = 0; colorRank < ranked.length; colorRank++) {
-      const candidate = readBoundaryCandidate(
+      const rankedGlyph = readBoundaryGlyph(
         buffer,
         font,
         ranked[colorRank],
@@ -1095,13 +1094,13 @@ function findYouReceiveQuantityBoundary(
         ocr,
       );
       if (
-        !candidate?.glyph.seedRead ||
-        !/^\s*[1-9][\d,]*\s+\S/.test(candidate.glyph.seedRead.text)
+        !rankedGlyph?.glyph.seedRead ||
+        !/^\s*[1-9][\d,]*\s+\S/.test(rankedGlyph.glyph.seedRead.text)
       ) {
         continue;
       }
-      if (isBetterTextCandidate(candidate, best, true)) {
-        best = candidate;
+      if (isBetterTextGlyph(rankedGlyph, best, true)) {
+        best = rankedGlyph;
       }
     }
   }
@@ -1147,7 +1146,7 @@ function findBoundaryMatch(
       gaps,
       false,
       ocr,
-      MAX_RANKED_COLORS,
+      maxRankedColors,
       /\]\s*$/.test(currentText) ||
         /Materials gained:\s*$/i.test(currentText) ||
         /\b(?:parts|components),\s*$/i.test(currentText),
@@ -1155,7 +1154,7 @@ function findBoundaryMatch(
       boundaryColorHints,
     );
   const allowsSecondaryComma = !/[\]:]\s*$/.test(currentText);
-  const secondaryCandidates: BoundaryMatch[] = [];
+  const secondaryMatches: BoundaryMatch[] = [];
   for (const gap of allowsSecondaryComma ? gaps : []) {
     const x = cursor + gap;
     const ranked = rankColors(
@@ -1189,20 +1188,20 @@ function findBoundaryMatch(
       }
     }
     if (best) {
-      secondaryCandidates.push({
+      secondaryMatches.push({
         gap,
         glyph: best,
       });
     }
   }
 
-  secondaryCandidates.sort(
+  secondaryMatches.sort(
     (left, right) =>
       left.glyph.info.sizescore - right.glyph.info.sizescore ||
       left.gap - right.gap,
   );
-  for (const candidate of secondaryCandidates) {
-    const nextCursor = candidate.glyph.x + candidate.glyph.info.basechar.width;
+  for (const match of secondaryMatches) {
+    const nextCursor = match.glyph.x + match.glyph.info.basechar.width;
     const continuation = findPrimaryContinuation(
       buffer,
       font,
@@ -1212,18 +1211,18 @@ function findBoundaryMatch(
       ocr,
     );
     if (continuation) {
-      if (currentText.endsWith(candidate.glyph.character)) {
-        return candidate.glyph.character === ","
+      if (currentText.endsWith(match.glyph.char)) {
+        return match.glyph.char === ","
           ? {
               ...continuation,
               gap: Math.max(continuation.gap, font.spacewidth),
             }
           : continuation;
       }
-      if (primary && primary.gap <= candidate.gap) {
+      if (primary && primary.gap <= match.gap) {
         return primary;
       }
-      return candidate;
+      return match;
     }
   }
 
@@ -1246,7 +1245,7 @@ function findBoundaryMatch(
       insetGaps,
       false,
       ocr,
-      MAX_RANKED_COLORS,
+      maxRankedColors,
       true,
     );
     if (
@@ -1285,7 +1284,7 @@ function findBestBoundaryGlyph(
   gaps: readonly number[],
   allowSecondary: boolean,
   ocr: RowOcrPrimitives,
-  maxRankedColors = MAX_RANKED_COLORS,
+  colorLimit = maxRankedColors,
   arbitrateSeedRead = false,
   colorHintKey: string | null = null,
   colorHints: Map<string, OCR.ColortTriplet> | undefined = undefined,
@@ -1304,7 +1303,7 @@ function findBestBoundaryGlyph(
     if (hinted) return hinted;
   }
 
-  let best: RankedGlyphCandidate | null = null;
+  let best: RankedGlyph | null = null;
   for (const gap of gaps) {
     const x = cursor + gap;
     const ranked = rankColors(
@@ -1315,10 +1314,10 @@ function findBestBoundaryGlyph(
       baselineY,
       Math.max(font.width, 1),
       ocr,
-      maxRankedColors,
+      colorLimit,
     );
     for (let colorRank = 0; colorRank < ranked.length; colorRank++) {
-      const candidate = readBoundaryCandidate(
+      const rankedGlyph = readBoundaryGlyph(
         buffer,
         font,
         ranked[colorRank],
@@ -1330,11 +1329,11 @@ function findBestBoundaryGlyph(
         arbitrateSeedRead,
         ocr,
       );
-      if (!candidate) continue;
+      if (!rankedGlyph) continue;
       const better = arbitrateSeedRead
-        ? isBetterTextCandidate(candidate, best, true)
-        : isBetterPhysicalCandidate(candidate, best);
-      if (better) best = candidate;
+        ? isBetterTextGlyph(rankedGlyph, best, true)
+        : isBetterPhysicalGlyph(rankedGlyph, best);
+      if (better) best = rankedGlyph;
     }
   }
   if (!best) return null;
@@ -1363,7 +1362,7 @@ function readHintedBoundaryGlyph(
   ocr: RowOcrPrimitives,
 ): BoundaryMatch | null {
   for (const gap of gaps) {
-    const candidate = readBoundaryCandidate(
+    const rankedGlyph = readBoundaryGlyph(
       buffer,
       font,
       color,
@@ -1376,10 +1375,10 @@ function readHintedBoundaryGlyph(
       ocr,
     );
     if (
-      candidate?.glyph.seedRead &&
-      isStrongBoundarySeedRead(candidate.glyph.seedRead)
+      rankedGlyph?.glyph.seedRead &&
+      isStrongBoundarySeedRead(rankedGlyph.glyph.seedRead)
     ) {
-      return candidate;
+      return rankedGlyph;
     }
   }
   return null;
@@ -1391,7 +1390,7 @@ function isStrongBoundarySeedRead(
   const quality = scorePhysicalText(seedRead.text, seedRead.fragments.length);
   return (
     seedRead.text.length >= 20 &&
-    quality.wordCharacters >= 12 &&
+    quality.wordChars >= 12 &&
     quality.punctuationOnlyRatio < 0.4
   );
 }
@@ -1425,7 +1424,7 @@ function rankColors(
   baselineY: number,
   width: number,
   ocr: RowOcrPrimitives,
-  limit = MAX_RANKED_COLORS,
+  limit = maxRankedColors,
 ): OCR.ColortTriplet[] {
   if (colors.length <= 1) return colors.slice();
   return ocr
@@ -1475,21 +1474,21 @@ function trimInitialTimestampRead(
   if (!timestamp || line.text.length <= timestamp.length) {
     return line;
   }
-  const segmented = trimReadAfterTimestampClose(line);
+  const segmented = trimAfterTimestampClose(line);
   if (segmented !== line) {
     return segmented;
   }
-  const closeEnd = findPhysicalTimestampCloseEnd(
+  const closeEnd = findTimestampCloseEnd(
     buffer,
     font,
     startX,
     baselineY,
     ocr,
   );
-  return trimReadAfterTimestampClose(line, closeEnd);
+  return trimAfterTimestampClose(line, closeEnd);
 }
 
-function findPhysicalTimestampCloseEnd(
+function findTimestampCloseEnd(
   buffer: ImageData,
   font: OCR.FontDefinition,
   startX: number,
@@ -1503,7 +1502,7 @@ function findPhysicalTimestampCloseEnd(
       : requestedEnd;
   const endX = Math.min(requestedEnd, bufferWidth);
   for (let x = startX + 1; x < endX; x++) {
-    for (const color of TIMESTAMP_OPEN_COLORS) {
+    for (const color of timestampColors) {
       const found = ocr.readChar(
         buffer,
         font,
@@ -1521,7 +1520,7 @@ function findPhysicalTimestampCloseEnd(
   return undefined;
 }
 
-function trimReadAfterTimestampClose(
+function trimAfterTimestampClose(
   line: ReturnType<RowOcrPrimitives["readLine"]>,
   physicalCloseEnd?: number,
 ): ReturnType<RowOcrPrimitives["readLine"]> {
@@ -1619,27 +1618,23 @@ function uniqueNumbers(values: readonly number[]): number[] {
   return values.filter((value, index) => values.indexOf(value) === index);
 }
 
-function emptyRead(): PhysicalChatLine[] {
-  return [];
-}
-
 const timestampRegex = /^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]\s*/;
 
 function classifyTrackerRow(
   screenText: string,
-  context: TrackerContinuationContext,
-): TrackerRowClassification {
+  context: ContinuationContext,
+): RowClassification {
   const normalized = normalizeScreenText(screenText);
   if (!normalized) return "uncertain";
 
-  const timestamp = getTrackerTimestamp(normalized);
-  const body = stripTrackerTimestamp(normalized);
+  const timestamp = getTimestamp(normalized);
+  const body = stripTimestamp(normalized);
   if (!body) return "uncertain";
 
   if (
     context &&
     (!timestamp ||
-      (timestamp === context.timestamp && isQuantityContinuation(body)))
+      (timestamp === context.timestamp && isQuantity(body)))
   ) {
     return "contextual";
   }
@@ -1648,10 +1643,10 @@ function classifyTrackerRow(
     return "relevant";
   }
 
-  if (looksLikeDamagedTrackedPrefix(body)) return "uncertain";
+  if (looksLikeDamagedPrefix(body)) return "uncertain";
 
-  const wordCharacters = (body.match(/[A-Za-z0-9]/g) ?? []).length;
-  if (body.length >= 12 && wordCharacters >= 8 && /^[A-Za-z❆⚯㊉]/.test(body)) {
+  const wordChars = (body.match(/[A-Za-z0-9]/g) ?? []).length;
+  if (body.length >= 12 && wordChars >= 8 && /^[A-Za-z❆⚯㊉]/.test(body)) {
     return "confidently-irrelevant";
   }
 
@@ -1659,13 +1654,13 @@ function classifyTrackerRow(
 }
 
 function advanceTrackerContext(
-  current: TrackerContinuationContext,
+  current: ContinuationContext,
   fullText: string,
-  classification: TrackerRowClassification,
-): TrackerContinuationContext {
+  classification: RowClassification,
+): ContinuationContext {
   const normalized = normalizeScreenText(fullText);
-  const timestamp = getTrackerTimestamp(normalized);
-  const body = stripTrackerTimestamp(normalized);
+  const timestamp = getTimestamp(normalized);
+  const body = stripTimestamp(normalized);
 
   if (!timestamp) return current;
   if (!body) return null;
@@ -1679,7 +1674,7 @@ function advanceTrackerContext(
   if (
     couldStartInventionMessage(body) ||
     couldStartSkillTrackerMessage(body) ||
-    (classification === "uncertain" && looksLikeDamagedTrackedPrefix(body))
+    (classification === "uncertain" && looksLikeDamagedPrefix(body))
   ) {
     return { kind: "tracked", timestamp };
   }
@@ -1687,27 +1682,27 @@ function advanceTrackerContext(
   return null;
 }
 
-function getTrackerTimestamp(text: string): string | null {
+function getTimestamp(text: string): string | null {
   const match = normalizeScreenText(text).match(timestampRegex);
   return match ? `[${match[1]}:${match[2]}:${match[3]}]` : null;
 }
 
-function isTrackerBoundaryLine(text: string): boolean {
+function isBoundaryLine(text: string): boolean {
   return (
-    getTrackerTimestamp(text) !== null &&
-    stripTrackerTimestamp(text).length === 0
+    getTimestamp(text) !== null &&
+    stripTimestamp(text).length === 0
   );
 }
 
-function stripTrackerTimestamp(text: string): string {
+function stripTimestamp(text: string): string {
   return normalizeScreenText(text).replace(timestampRegex, "").trim();
 }
 
-function isQuantityContinuation(text: string): boolean {
+function isQuantity(text: string): boolean {
   return /^[1-9][\d,]*\s+x(?:\s+\S|$)/i.test(text);
 }
 
-function looksLikeDamagedTrackedPrefix(text: string): boolean {
+function looksLikeDamagedPrefix(text: string): boolean {
   return (
     /^M[a-z.-]{2,12}\s+g[a-z.-]{2,12}/i.test(text) ||
     /^Y[o0u\s.-]{2,7}\s+(?:rec|get|cat|fin|trans|por)/i.test(text) ||

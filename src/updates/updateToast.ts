@@ -1,10 +1,10 @@
 import { allReleaseNotes, latestReleaseNote } from "./updateNotes";
 
-const UPDATE_TOAST_SEEN_KEY = "RT-update-toast-seen-id";
+const updateToastSeenKey = "RT-update-toast-seen-id";
 
 function getSeenReleaseId() {
 	try {
-		return window.localStorage.getItem(UPDATE_TOAST_SEEN_KEY);
+		return window.localStorage.getItem(updateToastSeenKey);
 	} catch {
 		return null;
 	}
@@ -12,7 +12,7 @@ function getSeenReleaseId() {
 
 function markReleaseSeen(releaseId: string) {
 	try {
-		window.localStorage.setItem(UPDATE_TOAST_SEEN_KEY, releaseId);
+		window.localStorage.setItem(updateToastSeenKey, releaseId);
 	} catch {
 		// localStorage can be unavailable in some embedded contexts.
 	}
@@ -22,7 +22,7 @@ export function maybeShowUpdateToast() {
 	if (typeof window === "undefined" || typeof document === "undefined") return;
 
 	const latest = latestReleaseNote();
-	if (!latest || !latest.version || !latest.items.length) return;
+	if (!latest || !latest.items.length) return;
 
 	const latestVersion = latest.version;
 	if (getSeenReleaseId() === latestVersion) return;
@@ -69,7 +69,7 @@ export function showPatchNotesModal(targetDocument?: Document) {
 	const existing = modalDocument.getElementById("rt-patch-notes-modal");
 	if (existing) {
 		existing.removeAttribute("hidden");
-		existing.querySelector<HTMLElement>("button")?.focus?.();
+		existing.querySelector<HTMLElement>("button")?.focus();
 		return;
 	}
 
@@ -135,5 +135,5 @@ export function showPatchNotesModal(targetDocument?: Document) {
 
 	modal.append(header, content);
 	modalDocument.body.appendChild(modal);
-	close.focus?.();
+	close.focus();
 }

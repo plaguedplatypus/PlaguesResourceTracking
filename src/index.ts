@@ -21,7 +21,7 @@ import {
   rememberProcessedChatMessage,
   showChatHistory,
 } from "./ui/history";
-import { /*RT_DISCORD_INVITE_URL,*/ RT_VERSION } from "./updates/updateNotes";
+import { trackerVersion } from "./updates/updateNotes";
 import {
   maybeShowUpdateToast,
   showPatchNotesModal,
@@ -73,9 +73,18 @@ type SkillVisibility = Record<TrackableSkill, boolean>;
 type SortMode = "recent" | "alpha" | "count";
 type CountPosition = "right" | "left";
 
-const TRACKER_SIZE_MIN = 10;
-const TRACKER_SIZE_MAX = 16;
-const TRACKER_SIZE_DEFAULT = 12;
+const trackerSizeMin = 10;
+const trackerSizeMax = 16;
+const trackerSizeDefault = 12;
+const skillIconIds = new Set<InternalSkillType>([
+  "mining",
+  "woodcutting",
+  "fishing",
+  "farming",
+  "archaeology",
+  "invention",
+  "seren",
+]);
 
 type SaveData = {
   chat?: string;
@@ -163,7 +172,7 @@ let showArchaeologyFilter = true;
 let showArchaeologyArtefacts = true;
 let visibleSkills: SkillVisibility;
 let hideUnknownSection = true;
-let trackerSize = TRACKER_SIZE_DEFAULT;
+let trackerSize = trackerSizeDefault;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
 let reader = new ResourceChatReader();
@@ -185,6 +194,16 @@ const archaeologyFilterCycle: ReadonlyArray<{
   { filter: "Orthen", label: "Orthen" },
   { filter: "Moonrise", label: "Moonrise" },
 ];
+const inventionFilterCycle: ReadonlyArray<{
+  filter: InventionFilter;
+  label: string;
+}> = [
+  { filter: "all", label: "All" },
+  { filter: "ancient", label: "Ancient" },
+  { filter: "rare", label: "Rare" },
+  { filter: "uncommon", label: "Uncommon" },
+  { filter: "common", label: "Common" },
+];
 
 const savedActiveTab = savedData.activeTab as string | undefined;
 activeSkillTab =
@@ -201,7 +220,7 @@ showArchaeologyFilter = savedData.showArchaeologyFilter ?? true;
 showArchaeologyArtefacts = savedData.showArchaeologyArtefacts ?? true;
 visibleSkills = normalizeSkillVisibility(savedData.visibleSkills);
 hideUnknownSection = savedData.hideUnknownSection ?? true;
-trackerSize = savedData.trackerSize ?? TRACKER_SIZE_DEFAULT;
+trackerSize = savedData.trackerSize ?? trackerSizeDefault;
 sortMode = savedData.sortMode || "recent";
 
 const artifactCaptureReader = createArtifactCaptureReader();
@@ -222,30 +241,30 @@ const settingsWindow = createSettingsWindowController({
     trackerSize,
     sessionStatus: getSessionStatus(),
     clearLabel: `Clear ${getActiveTabLabel()}`,
-    clearHasTrackedItems: hasTrackedItemsInActiveTab(),
+    canClear: hasItemsInTab(),
     resetLabel: `Reset ${getActiveTabLabel()}`,
-    resetHasTrackedCounts: hasTrackedCountsInActiveTab(),
-    version: RT_VERSION,
+    canReset: hasCountsInTab(),
+    version: trackerVersion,
   }),
   selectChat,
   findChat: refreshChatboxes,
   showHistory: showChatHistory,
   showSession: showSessionWindow,
-  toggleFishingPorters,
-  toggleShortInventionNames,
+  togglePorters,
+  toggleShortNames,
   setCountPosition,
-  toggleAllTabIcons,
-  toggleStatusFooter,
-  toggleInventionFilterVisibility,
-  toggleArchaeologyFilterVisibility,
-  toggleArchaeologyArtefactVisibility,
-  setTrackedSkillVisible,
-  toggleUnknownSectionVisibility,
+  toggleAllIcons,
+  toggleFooter,
+  toggleInventionFilter,
+  toggleArchaeologyFilter,
+  toggleArchaeologyArtefacts,
+  setSkillVisible,
+  toggleUnknownSection,
   setTrackerSize,
   exportData,
   importData,
-  clearCurrentTab,
-  resetCurrentTabCounts,
+  clearTab,
+  resetTabCounts,
   showPatchNotes: showPatchNotesModal,
 });
 
@@ -265,7 +284,7 @@ window.setTimeout(function () {
     }
 
     clearInterval(findChat);
-    populateChatSelector();
+    settingsWindow.refresh();
     selectSavedChat();
     showSelectedChat(reader.pos);
     chatFontState = "waiting";
@@ -300,12 +319,8 @@ window.setTimeout(function () {
 if (window.alt1) {
   alt1.identifyAppUrl("./appconfig.json");
 } else {
-  const addappurl = `alt1://addapp/${new URL("./appconfig.json", document.location.href).href}`;
-  status.innerHTML = `Alt1 not detected. <a href='${addappurl}'>Add this app to Alt1</a>`;
-}
-
-function populateChatSelector() {
-  settingsWindow.refresh();
+  const appUrl = `alt1://addapp/${new URL("./appconfig.json", document.location.href).href}`;
+  status.innerHTML = `Alt1 not detected. <a href='${appUrl}'>Add this app to Alt1</a>`;
 }
 
 function selectChat(value: string) {
@@ -335,7 +350,7 @@ function selectSavedChat() {
   settingsWindow.refresh();
 }
 
-function showSelectedChat(pos: any) {
+function showSelectedChat(pos: ChatboxPosition) {
   if (!pos || !pos.mainbox) return;
   if (!alt1.permissionOverlay) return;
 
@@ -361,15 +376,13 @@ function readDialogBox() {
   addTrackedHistoryEntry(result.rawText, "dialog");
 }
 
-type IncrementItems = (updates: ItemUpdate[], highlightItem?: string) => void;
-
-function createChatPollMainTransaction() {
+function createPollTransaction() {
   let data: SaveData | null = null;
   let dirty = false;
   const highlightedItems = new Set<string>();
 
   return {
-    incrementItems(updates: ItemUpdate[], highlightItem?: string) {
+    increment(updates: ItemUpdate[], highlightItem?: string) {
       if (updates.length === 0) return;
 
       data ??= getSaveData();
@@ -407,14 +420,14 @@ function readChatbox() {
     status.innerText = `Tracking ${selectedFontName} chat.`;
   }
 
-  const transaction = createChatPollMainTransaction();
+  const transaction = createPollTransaction();
   processChatPollMessages(messages, {
-    hasProcessedMessage: hasProcessedChatMessage,
+    hasProcessed: hasProcessedChatMessage,
     processMessage: (message) =>
-      processHarvestLine(message, transaction.incrementItems),
-    rememberProcessedMessage: rememberProcessedChatMessage,
-    addTrackedHistory: (message) => addTrackedHistoryEntry(message, "chat"),
-    commitMainChanges: transaction.commit,
+      processChatLine(message, transaction.increment),
+    rememberProcessed: rememberProcessedChatMessage,
+    addHistory: (message) => addTrackedHistoryEntry(message, "chat"),
+    commitChanges: transaction.commit,
   });
 }
 
@@ -422,10 +435,10 @@ function supportedChatFontWaitingMessage(): string {
   return "Waiting for readable 10pt, 12pt, 14pt, or 16pt chat. Change the RuneScape chat font, then click Find Chat.";
 }
 
-// Process a single chat line to check for harvesting events
-function processHarvestLine(
+// Match the cleaned chat line against tracked drops.
+function processChatLine(
   chatLine: string,
-  incrementTrackedItems: IncrementItems,
+  increment: (updates: ItemUpdate[], highlightItem?: string) => void,
 ): boolean {
   const cleanLine = chatLine.replace(timestampRegex, "").trim();
   if (isIgnoredTrackerMessage(cleanLine)) return false;
@@ -434,7 +447,7 @@ function processHarvestLine(
   const inventionResult = processInventionMaterials(cleanLine);
 
   if (inventionResult) {
-    incrementTrackedItems(
+    increment(
       inventionResult.updates,
       inventionResult.updates[inventionResult.updates.length - 1].item,
     );
@@ -449,7 +462,7 @@ function processHarvestLine(
   });
   if (!trackingResult) return false;
 
-  incrementTrackedItems(
+  increment(
     trackingResult.updates,
     trackingResult.updates[trackingResult.updates.length - 1].item,
   );
@@ -457,46 +470,27 @@ function processHarvestLine(
   return true;
 }
 
-function getItemDisplayPrefixHtml(itemData: TrackedItem) {
+function getSkillIconHtml(itemData: TrackedItem) {
   if (activeSkillTab !== "all" || !showAllTabIcons) return "";
 
-  if (itemData.skill === "mining") {
-    return `<img class="item-prefix-icon" src="./icons/mining.png" alt=""> `;
-  }
-  if (itemData.skill === "woodcutting") {
-    return `<img class="item-prefix-icon" src="./icons/woodcutting.png" alt=""> `;
-  }
-  if (itemData.skill === "fishing") {
-    return `<img class="item-prefix-icon" src="./icons/fishing.png" alt=""> `;
-  }
-  if (itemData.skill === "farming") {
-    return `<img class="item-prefix-icon" src="./icons/farming.png" alt=""> `;
-  }
-  if (itemData.skill === "archaeology") {
-    return `<img class="item-prefix-icon" src="./icons/archaeology.png" alt=""> `;
-  }
-  if (itemData.skill === "invention") {
-    return `<img class="item-prefix-icon" src="./icons/invention.png" alt=""> `;
-  }
-  if (itemData.skill === "seren") {
-    return `<img class="item-prefix-icon" src="./icons/seren.png" alt=""> `;
-  }
-
-  return "";
+  const skill = itemData.skill;
+  return skill && skillIconIds.has(skill)
+    ? `<img class="item-prefix-icon" src="./icons/${skill}.png" alt=""> `
+    : "";
 }
 
 function isDamagedArtefact(item: string) {
   return item.toLowerCase().includes("(damaged)");
 }
 
-// Update the status message in the footer with a timestamp on when events occurred
-function getTimeStamp() {
+// Show the latest tracked event in the status footer.
+function getTimestamp() {
   return new Date().toLocaleTimeString("en-US", {
     hour12: false,
   });
 }
 function setStatus(message: string) {
-  status.innerText = `${message} @ ${getTimeStamp()}`;
+  status.innerText = `${message} @ ${getTimestamp()}`;
 }
 
 function getSaveData(): SaveData {
@@ -505,7 +499,7 @@ function getSaveData(): SaveData {
   if (!raw) {
     return {
       sortMode: "recent",
-      trackerSize: TRACKER_SIZE_DEFAULT,
+      trackerSize: trackerSizeDefault,
       items: {},
     };
   }
@@ -532,7 +526,7 @@ function getSaveData(): SaveData {
   } catch {
     return {
       sortMode: "recent",
-      trackerSize: TRACKER_SIZE_DEFAULT,
+      trackerSize: trackerSizeDefault,
       items: {},
     };
   }
@@ -634,7 +628,6 @@ function incrementItem(
   );
 }
 
-// Rendering the UI
 function render(highlightItems?: Set<string>, data = getSaveData()) {
   const items = Object.keys(data.items).filter((item) => {
     if (activeSkillTab === "all") return isSkillVisible(data.items[item].skill);
@@ -834,7 +827,7 @@ function renderItemRow(
   highlightItems?: Set<string>,
 ) {
   const row = document.createElement("div");
-  row.className = `item-row ${openSettingsItem === item ? "settings-active" : ""}`;
+  row.className = `item-row ${openSettingsItem === item ? "settings-open" : ""}`;
 
   let goalHtml = "";
   let goalTooltip = "";
@@ -873,9 +866,9 @@ function renderItemRow(
     }
   }
 
-  const displayPrefixHtml = getItemDisplayPrefixHtml(itemData);
+  const displayPrefixHtml = getSkillIconHtml(itemData);
   const displayName = titleCase(
-    getDisplayItemName(
+    getItemName(
       itemData.displayName || item,
       itemData.skill,
       shortInventionNames,
@@ -899,9 +892,9 @@ function renderItemRow(
 
 		${goalHtml}
 
-		${openSettingsItem === item ? `<div class="settings-separator"></div>` : ""}
+		${openSettingsItem === item ? `<div class="item-settings-separator"></div>` : ""}
 
-		<div class="settings-panel ${openSettingsItem === item ? "open" : ""}">
+		<div class="item-settings-panel ${openSettingsItem === item ? "open" : ""}">
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
 				   placeholder="Goal"
@@ -955,23 +948,18 @@ function sortItems(items: string[], data: SaveData) {
   );
 }
 
-// Set state of fishing porters
-function updateFishingPortersButton() {
-  settingsWindow.refresh();
-}
-
-function toggleFishingPorters() {
+function togglePorters() {
   fishingUsePorters = !fishingUsePorters;
 
   const data = getSaveData();
   data.fishingUsePorters = fishingUsePorters;
   saveData(data);
 
-  updateFishingPortersButton();
+  settingsWindow.refresh();
   render();
 }
 
-function toggleShortInventionNames() {
+function toggleShortNames() {
   shortInventionNames = !shortInventionNames;
 
   const data = getSaveData();
@@ -983,11 +971,7 @@ function toggleShortInventionNames() {
 }
 
 function updateCountPositionUi() {
-    document.body.classList.toggle("counts-left", countPosition === "left");
-}
-
-function toggleCountPosition() {
-  setCountPosition(countPosition === "right" ? "left" : "right");
+  document.body.classList.toggle("counts-left", countPosition === "left");
 }
 
 function normalizeSkillVisibility(value: unknown): SkillVisibility {
@@ -1024,16 +1008,16 @@ function normalizeTrackerSize(value: unknown): number {
   if (
     typeof value === "number" &&
     Number.isInteger(value) &&
-    value >= TRACKER_SIZE_MIN &&
-    value <= TRACKER_SIZE_MAX
+    value >= trackerSizeMin &&
+    value <= trackerSizeMax
   ) {
     return value;
   }
 
-  return TRACKER_SIZE_DEFAULT;
+  return trackerSizeDefault;
 }
 
-function toggleAllTabIcons() {
+function toggleAllIcons() {
   showAllTabIcons = !showAllTabIcons;
 
   const data = getSaveData();
@@ -1048,7 +1032,7 @@ function updateStatusFooterUi() {
   footer.hidden = !showStatusFooter;
 }
 
-function toggleStatusFooter() {
+function toggleFooter() {
   showStatusFooter = !showStatusFooter;
 
   const data = getSaveData();
@@ -1059,7 +1043,7 @@ function toggleStatusFooter() {
   settingsWindow.refresh();
 }
 
-function toggleInventionFilterVisibility() {
+function toggleInventionFilter() {
   showInventionFilter = !showInventionFilter;
 
   const data = getSaveData();
@@ -1071,7 +1055,7 @@ function toggleInventionFilterVisibility() {
   render();
 }
 
-function toggleArchaeologyFilterVisibility() {
+function toggleArchaeologyFilter() {
   showArchaeologyFilter = !showArchaeologyFilter;
 
   const data = getSaveData();
@@ -1083,7 +1067,7 @@ function toggleArchaeologyFilterVisibility() {
   render();
 }
 
-function toggleArchaeologyArtefactVisibility() {
+function toggleArchaeologyArtefacts() {
   showArchaeologyArtefacts = !showArchaeologyArtefacts;
 
   const data = getSaveData();
@@ -1094,7 +1078,7 @@ function toggleArchaeologyArtefactVisibility() {
   render();
 }
 
-function setTrackedSkillVisible(skill: TrackableSkill, visible: boolean) {
+function setSkillVisible(skill: TrackableSkill, visible: boolean) {
   if (visibleSkills[skill] === visible) return;
 
   visibleSkills = {
@@ -1111,7 +1095,7 @@ function setTrackedSkillVisible(skill: TrackableSkill, visible: boolean) {
   render();
 }
 
-function toggleUnknownSectionVisibility() {
+function toggleUnknownSection() {
   hideUnknownSection = !hideUnknownSection;
 
   const data = getSaveData();
@@ -1143,10 +1127,10 @@ function setTrackerSize(value: number, persist: boolean) {
 function updateInventionFilterVisibility() {
   if (!inventionFilters) return;
 
-  if (activeSkillTab === "invention" && showInventionFilter) {
-    inventionFilters.classList.add("visible");
-  } else {
-    inventionFilters.classList.remove("visible");
+  const visible = activeSkillTab === "invention" && showInventionFilter;
+  inventionFilters.classList.toggle("visible", visible);
+
+  if (!visible) {
     inventionAddMenuOpen = false;
     updateInventionAddMenu();
   }
@@ -1198,7 +1182,7 @@ function updateSkillTabVisibility() {
     });
     updateInventionFilterVisibility();
     updateArchaeologyFilterVisibility();
-    updateClearButtonLabel();
+    settingsWindow.refresh();
   }
 
   updateSkillTabScrollButtons();
@@ -1210,7 +1194,7 @@ function updateArchaeologyFilterButton() {
   const activeFilter = archaeologyFilterCycle.find(
     (entry) => entry.filter === archaeologyFilter,
   );
-  archaeologyFilterButton.innerText = `Dig Site: ${activeFilter?.label || "All"}`;
+  archaeologyFilterButton.innerText = `Dig Site: ${activeFilter!.label}`;
 }
 
 function normalizeMaterialName(value: string) {
@@ -1226,20 +1210,13 @@ function archaeologyFilterMatches(item: string) {
   );
 }
 
-// Invention filter button handlers
 function updateInventionFilterButton() {
   if (!inventionFilterButton) return;
 
-  inventionFilterButton.innerText =
-    inventionFilter === "all"
-      ? "Filter: All"
-      : inventionFilter === "ancient"
-        ? "Filter: Ancient"
-        : inventionFilter === "rare"
-          ? "Filter: Rare"
-          : inventionFilter === "uncommon"
-            ? "Filter: Uncommon"
-            : "Filter: Common";
+  const activeFilter = inventionFilterCycle.find(
+    (entry) => entry.filter === inventionFilter,
+  );
+  inventionFilterButton.innerText = `Filter: ${activeFilter!.label}`;
 }
 
 function getAvailableInventionMaterials(
@@ -1281,10 +1258,6 @@ function updateInventionAddMenu() {
   inventionAddButton.title = materials.length === 0
     ? "All materials in this filter are already tracked"
     : "Add an Invention material";
-}
-
-function addInventionMaterial(item: string) {
-  addInventionMaterials([item]);
 }
 
 function addInventionMaterials(items: readonly string[]) {
@@ -1342,14 +1315,6 @@ function updateSortButtonLabel() {
   }
 }
 
-function updateClearButtonLabel() {
-  settingsWindow.refresh();
-}
-
-function updateSessionStatusMini() {
-  settingsWindow.refresh();
-}
-
 function getActiveTabLabel() {
   if (activeSkillTab === "all") return "ALL";
   if (activeSkillTab === "seren") return "Spirits";
@@ -1374,17 +1339,14 @@ function getSkillTabScrollStep() {
 }
 
 function updateSkillTabScrollButtons() {
-    const maxScrollLeft =
-        skillTabs.scrollWidth - skillTabs.clientWidth;
+  const maxScrollLeft = skillTabs.scrollWidth - skillTabs.clientWidth;
 
-    const hasOverflow = maxScrollLeft > 1;
+  const hasOverflow = maxScrollLeft > 1;
 
-    skillScrollLeft.hidden =
-        !hasOverflow || skillTabs.scrollLeft <= 1;
+  skillScrollLeft.hidden = !hasOverflow || skillTabs.scrollLeft <= 1;
 
-    skillScrollRight.hidden =
-        !hasOverflow ||
-        skillTabs.scrollLeft >= maxScrollLeft - 1;
+  skillScrollRight.hidden =
+    !hasOverflow || skillTabs.scrollLeft >= maxScrollLeft - 1;
 }
 
 skillScrollLeft.addEventListener("click", () => {
@@ -1427,7 +1389,7 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 
     updateInventionFilterVisibility();
     updateArchaeologyFilterVisibility();
-    updateClearButtonLabel();
+    settingsWindow.refresh();
     render();
   });
 });
@@ -1520,7 +1482,7 @@ function refreshChatboxes() {
   }
 
   reader.pos = found;
-  populateChatSelector();
+  settingsWindow.refresh();
 
   const data = getSaveData();
   const savedChat = data.chat || "0";
@@ -1539,7 +1501,7 @@ function refreshChatboxes() {
   status.innerText = supportedChatFontWaitingMessage();
 }
 
-function clearCurrentTab() {
+function clearTab() {
   const data = getSaveData();
 
   if (activeSkillTab === "all") {
@@ -1569,7 +1531,7 @@ function clearCurrentTab() {
   status.innerText = `${getActiveTabLabel()} cleared.`;
 }
 
-function hasTrackedItemsInActiveTab() {
+function hasItemsInTab() {
   const items = Object.values(getSaveData().items);
 
   return activeSkillTab === "all"
@@ -1577,7 +1539,7 @@ function hasTrackedItemsInActiveTab() {
     : items.some((item) => (item.skill || "other") === activeSkillTab);
 }
 
-function hasTrackedCountsInActiveTab() {
+function hasCountsInTab() {
   return Object.values(getSaveData().items).some(
     (item) =>
       item.count !== 0 &&
@@ -1586,7 +1548,7 @@ function hasTrackedCountsInActiveTab() {
   );
 }
 
-function resetCurrentTabCounts() {
+function resetTabCounts() {
   const data = getSaveData();
 
   for (const item of Object.values(data.items)) {
@@ -1614,10 +1576,10 @@ function exportData() {
   });
 
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "Resource-Tracker-save.json";
-  a.click();
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "Resource-Tracker-save.json";
+  link.click();
   URL.revokeObjectURL(url);
 }
 
@@ -1657,7 +1619,7 @@ function importData(file: File) {
       showArchaeologyArtefacts = data.showArchaeologyArtefacts ?? true;
       visibleSkills = normalizeSkillVisibility(data.visibleSkills);
       hideUnknownSection = data.hideUnknownSection ?? true;
-      trackerSize = data.trackerSize ?? TRACKER_SIZE_DEFAULT;
+      trackerSize = data.trackerSize ?? trackerSizeDefault;
 
       updateCountPositionUi();
       updateStatusFooterUi();
@@ -1691,7 +1653,7 @@ function titleCase(text: string) {
   });
 }
 
-function getDisplayItemName(
+function getItemName(
   itemName: string,
   skill: InternalSkillType | undefined,
   useShortInventionNames: boolean,
@@ -1742,8 +1704,6 @@ if (savedTabButton) {
   savedTabButton.classList.add("active");
 }
 
-// Initial UI setup
-updateFishingPortersButton();
 updateInventionFilterButton();
 updateInventionFilterVisibility();
 updateArchaeologyFilterButton();
@@ -1751,9 +1711,7 @@ updateArchaeologyFilterVisibility();
 updateSkillTabVisibility();
 updateInventionAddMenu();
 updateSortButtonLabel();
-updateClearButtonLabel();
-updateSessionStatusMini();
-updateSettingsVersionLabel();
+settingsWindow.refresh();
 maybeShowUpdateToast();
 updateTabsCollapsedUi();
 updateCountPositionUi();
@@ -1762,11 +1720,6 @@ updateTrackerSizeUi();
 updateSkillTabScrollButtons();
 render();
 
-function updateSettingsVersionLabel() {
-  settingsWindow.refresh();
-}
-
-// App settings panel / session status refresh
 tabsToggleButton?.addEventListener("click", function () {
   tabsCollapsed = !tabsCollapsed;
   updateTabsCollapsedUi();
@@ -1786,16 +1739,11 @@ sortButton?.addEventListener("click", cycleSortMode);
 compactSortButton?.addEventListener("click", cycleSortMode);
 
 inventionFilterButton?.addEventListener("click", () => {
-  inventionFilter =
-    inventionFilter === "all"
-      ? "ancient"
-      : inventionFilter === "ancient"
-        ? "rare"
-        : inventionFilter === "rare"
-          ? "uncommon"
-          : inventionFilter === "uncommon"
-            ? "common"
-            : "all";
+  const currentIndex = inventionFilterCycle.findIndex(
+    (entry) => entry.filter === inventionFilter,
+  );
+  const nextIndex = (currentIndex + 1) % inventionFilterCycle.length;
+  inventionFilter = inventionFilterCycle[nextIndex].filter;
 
   updateInventionFilterButton();
   updateInventionAddMenu();
@@ -1832,5 +1780,5 @@ inventionAddMenu?.addEventListener("click", (event) => {
     return;
   }
 
-  addInventionMaterial(button.dataset.material || "");
+  addInventionMaterials([button.dataset.material || ""]);
 });

@@ -1,5 +1,4 @@
 import type { PhysicalChatLine } from "../chat/chatTypes";
-import type * as OCR from "alt1/ocr";
 import {
 	bareMaterialsGainedHeaderPattern,
 	getMaterialsGainedPayload,
@@ -10,17 +9,8 @@ import {
 } from "./components";
 import { isExplicitMaterialEntry } from "./InventionParser";
 
-type MaterialLineRereader = (
+type LineRereader = (
 	line: PhysicalChatLine
-) => PhysicalChatLine | null;
-
-type MaterialSupplementResult = {
-	line: PhysicalChatLine;
-};
-
-type MaterialRowRead = (
-	absoluteBaseline: number,
-	colors: readonly OCR.ColortTriplet[]
 ) => PhysicalChatLine | null;
 
 const leadingTimestampRegex =
@@ -29,24 +19,20 @@ const leadingTimestampRegex =
 export function applyMaterialSupplement(
 	primary: PhysicalChatLine,
 	inMaterialContext: boolean,
-	reread: MaterialLineRereader
-): MaterialSupplementResult {
+	reread: LineRereader
+): PhysicalChatLine {
 	const primaryCompleteEntries =
 		countCompleteMaterialEntries(primary.text);
 	if (
 		!inMaterialContext ||
 		!hasIncompleteMaterialEntry(primary.text)
 	) {
-		return {
-			line: primary,
-		};
+		return primary;
 	}
 
 	const supplemental = reread(primary);
 	if (!supplemental) {
-		return {
-			line: primary,
-		};
+		return primary;
 	}
 
 	const supplementalCompleteEntries =
@@ -57,17 +43,14 @@ export function applyMaterialSupplement(
 			primaryCompleteEntries &&
 			isKnownMaterialContinuation(supplemental.text) &&
 			!isKnownMaterialContinuation(primary.text));
-	return {
-		line: useSupplemental ? supplemental : primary,
-	};
+	return useSupplemental ? supplemental : primary;
 }
 
 function hasIncompleteMaterialEntry(text: string): boolean {
 	const body = text.replace(leadingTimestampRegex, "").trim();
 	if (bareMaterialsGainedHeaderPattern.test(body)) return true;
 
-	const materialText = getMaterialText(text);
-	if (materialText === null) return false;
+	const materialText = getText(text);
 	if (!materialText) return true;
 
 	const segments = materialText
@@ -82,8 +65,7 @@ function hasIncompleteMaterialEntry(text: string): boolean {
 }
 
 function countCompleteMaterialEntries(text: string): number {
-	const materialText = getMaterialText(text);
-	if (materialText === null) return 0;
+	const materialText = getText(text);
 
 	return materialText
 		.split(",")
@@ -108,15 +90,7 @@ function isKnownMaterialContinuation(text: string): boolean {
 	);
 }
 
-export function rereadMaterialPhysicalLine(
-	line: PhysicalChatLine,
-	colors: readonly OCR.ColortTriplet[],
-	readRow: MaterialRowRead
-): PhysicalChatLine | null {
-	return readRow(line.basey, colors);
-}
-
-function getMaterialText(text: string): string | null {
+function getText(text: string): string {
 	const body = text.replace(leadingTimestampRegex, "").trim();
 	const payload = getMaterialsGainedPayload(body);
 	if (payload !== null) return payload;

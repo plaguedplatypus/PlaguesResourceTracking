@@ -7,7 +7,7 @@ import {
   type SpiritRewardSource,
 } from "./trackerMessages";
 
-type TrackedSkill =
+type Skill =
 	| "mining"
 	| "woodcutting"
 	| "fishing"
@@ -16,28 +16,27 @@ type TrackedSkill =
 	| "seren"
 	| "other";
 
-type SkillItemUpdate = {
+type ItemUpdate = {
 	item: string;
 	amount: number;
-	skill: TrackedSkill;
+	skill: Skill;
 	colorClass?: string;
 	source?: SpiritRewardSource | string;
 	storageKey?: string;
 };
 
-type SkillTrackingResult = {
-	updates: SkillItemUpdate[];
+type Result = {
+	updates: ItemUpdate[];
 	statusMessage: string;
-	historyStatus: string;
 };
 
-type SkillTrackerOptions = {
+type Options = {
 	fishingUsePorters: boolean;
 };
 
 const skillPatterns: ReadonlyArray<{
 	pattern: RegExp;
-	skill: Exclude<TrackedSkill, "seren" | "other">;
+	skill: Exclude<Skill, "seren" | "other">;
 }> = [
 	{ pattern: /You get some\s+(.+?)[!.]/i, skill: "woodcutting" },
 	{
@@ -92,14 +91,14 @@ const knownItemOcrCorrections: Readonly<Record<string, string>> = {
 
 export function parseSkillTrackerMessage(
 	cleanLine: string,
-	options: SkillTrackerOptions
-): SkillTrackingResult | null {
+	options: Options
+): Result | null {
 	if (isIgnoredTrackerMessage(cleanLine)) return null;
 
-	const spiritResult = parseSpiritRewardMessage(cleanLine);
+	const spiritResult = parseSpiritReward(cleanLine);
 	if (spiritResult) return spiritResult;
 
-	const farmingResult = parseFarmingTrackerMessage(cleanLine);
+	const farmingResult = parseFarmingMessage(cleanLine);
 	if (farmingResult) return farmingResult;
 
 	const transportMatch = cleanLine.match(
@@ -111,17 +110,17 @@ export function parseSkillTrackerMessage(
 		const amount = transportMatch[2]
 			? Number(transportMatch[2])
 			: 1;
-		const item = normalizeItemName(transportMatch[3]);
+		const item = normalizeTrackedItemName(transportMatch[3]);
 		if (!item || !Number.isInteger(amount) || amount <= 0) {
 			return null;
 		}
 
-		const skill = getSkillForTransport(item, destination);
+		const skill = getTransportSkill(item, destination);
 		if (skill === "fishing" && !options.fishingUsePorters) {
 			return null;
 		}
 
-		return result(
+		return makeResult(
 			{ item, amount, skill },
 			`Added: ${amount} x ${item}`
 		);
@@ -134,10 +133,10 @@ export function parseSkillTrackerMessage(
 			continue;
 		}
 
-		const item = normalizeItemName(match[1]);
+		const item = normalizeTrackedItemName(match[1]);
 		if (!item) return null;
 
-		return result(
+		return makeResult(
 			{ item, amount: 1, skill: entry.skill },
 			`Added: ${item}`
 		);
@@ -146,9 +145,9 @@ export function parseSkillTrackerMessage(
 	return null;
 }
 
-function parseFarmingTrackerMessage(
+function parseFarmingMessage(
 	cleanLine: string,
-): SkillTrackingResult | null {
+): Result | null {
 	const normalizedLine = cleanLine.replace(/\s+/g, " ").trim();
 	const match =
 		normalizedLine.match(
@@ -167,15 +166,15 @@ function parseFarmingTrackerMessage(
 	const item = getFarmingProduce(match[2]);
 	if (!item || !Number.isSafeInteger(amount) || amount <= 0) return null;
 
-	return result(
+	return makeResult(
 		{ item, amount, skill: "farming" },
 		`Farming: ${amount} x ${item}`,
 	);
 }
 
-function parseSpiritRewardMessage(
+function parseSpiritReward(
 	cleanLine: string
-): SkillTrackingResult | null {
+): Result | null {
 	for (const header of spiritRewardHeaders) {
 		const match = cleanLine.trim().match(header.pattern);
 		if (!match) continue;
@@ -199,9 +198,6 @@ function parseSpiritRewardMessage(
 			statusMessage: `${header.label}: ${updates
 				.map(({ amount, item }) => `${amount} x ${item}`)
 				.join(", ")}`,
-			historyStatus: `[COUNTED: ${updates
-				.map(({ item, amount }) => `${item} +${amount}`)
-				.join(", ")}]`,
 		};
 	}
 
@@ -212,7 +208,7 @@ function buildSpiritStorageKey(
 	source: SpiritRewardSource,
 	item: string
 ): string {
-	return `${source}::${normalizeItemName(item)}`;
+	return `${source}::${normalizeTrackedItemName(item)}`;
 }
 
 function stripSpiritRewardFooter(text: string): string {
@@ -236,7 +232,7 @@ function splitSpiritRewardEntries(
 	return matches
 		.map((match) => {
 			const amount = Number(match[1].replace(/,/g, ""));
-			const item = normalizeItemName(match[2]);
+			const item = normalizeTrackedItemName(match[2]);
 			return { item, amount };
 		})
 		.filter(
@@ -260,7 +256,7 @@ function getSpiritColorClass(
 	return "spirit-item-green";
 }
 
-export function normalizeItemName(item: string): string {
+export function normalizeTrackedItemName(item: string): string {
 	const normalized = item
 		.replace(
 			/\s+\[(?:[01]\d|2[0-3])(?::[0-5]?\d?){0,2}.*$/,
@@ -274,10 +270,10 @@ export function normalizeItemName(item: string): string {
 	return knownItemOcrCorrections[normalized] ?? normalized;
 }
 
-function getSkillForTransport(
+function getTransportSkill(
 	item: string,
 	destination: string
-): TrackedSkill {
+): Skill {
 	if (destination.includes("metal bank")) return "mining";
 	if (destination.includes("material storage")) return "archaeology";
 	if (!destination.includes("bank")) return "other";
@@ -294,13 +290,12 @@ function getSkillForTransport(
 	return "other";
 }
 
-function result(
-	update: SkillItemUpdate,
+function makeResult(
+	update: ItemUpdate,
 	statusMessage: string
-): SkillTrackingResult {
+): Result {
 	return {
 		updates: [update],
 		statusMessage,
-		historyStatus: `[COUNTED: ${update.item} +${update.amount}]`,
 	};
 }

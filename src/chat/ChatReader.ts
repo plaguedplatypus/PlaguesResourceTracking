@@ -1,14 +1,11 @@
 import * as a1lib from "alt1/base";
 import ChatBoxReader from "alt1/chatbox";
 import type * as OCR from "alt1/ocr";
-import font10pt from "../../node_modules/alt1/src/fonts/chatbox/10pt.fontmeta.json";
-import font12pt from "../../node_modules/alt1/src/fonts/chatbox/12pt.fontmeta.json";
-import font14pt from "../../node_modules/alt1/src/fonts/chatbox/14pt.fontmeta.json";
-import font16pt from "../../node_modules/alt1/src/fonts/chatbox/16pt.fontmeta.json";
-import {
-  applyMaterialSupplement,
-  rereadMaterialPhysicalLine,
-} from "../invention/InventionMaterialOcr";
+import chat10pt from "./chat_10pt.json";
+import chat12pt from "./chat_12pt.json";
+import chat14pt from "./chat_14pt.json";
+import chat16pt from "./chat_16pt.json";
+import { applyMaterialSupplement } from "../invention/InventionMaterialOcr";
 import { couldStartInventionMessage } from "../invention/InventionParser";
 import {
   couldStartSkillTrackerMessage,
@@ -52,18 +49,24 @@ const trackerChatColors: readonly OCR.ColortTriplet[] = [
 const trackerOcrPalette: readonly OCR.ColortTriplet[] = trackerChatColors.map(
   ([red, green, blue]) => [red, green, blue],
 );
-const trackerChatFontCandidates: readonly ChatFontSetting[] = [
-  chatFont("10pt", 14, -9, -2, font10pt),
-  chatFont("12pt", 16, -9, -3, font12pt),
-  chatFont("14pt", 18, -10, -3, font14pt),
-  chatFont("16pt", 21, -10, -4, font16pt),
+const trackerChatFonts: readonly ChatFontSetting[] = [
+  chatFont("10pt", 14, -9, -2, chat10pt),
+  chatFont("12pt", 16, -9, -3, chat12pt),
+  chatFont("14pt", 18, -10, -3, chat14pt),
+  chatFont("16pt", 21, -10, -4, chat16pt),
 ];
+const chatFontDefinitions: Readonly<Record<string, OCR.FontDefinition>> = {
+  "10pt": chat10pt,
+  "12pt": chat12pt,
+  "14pt": chat14pt,
+  "16pt": chat16pt,
+};
 const leadingTimestampRegex = /^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]\s*/;
 
 export default class ResourceChatReader {
   private readonly reader = new ChatBoxReader();
   private readonly customDecoder = new CustomPhysicalRowDecoder(
-    trackerChatFontCandidates,
+    trackerChatFonts,
     trackerOcrPalette,
   );
   private readonly lineDiff = new VisibleLineDiff();
@@ -110,10 +113,10 @@ export default class ResourceChatReader {
   read(): LogicalChatMessage[] {
     const defaultLines = this.readDefaultLines();
     const customLines = this.readCustomLines();
-    const physicalLines = mergePhysicalLines(defaultLines, customLines);
+    const physicalLines = mergeLines(defaultLines, customLines);
     if (physicalLines.length === 0) this.materialContextActive = false;
     const enhancedLines = physicalLines.map((line) => this.enhanceMaterialLine(line));
-    const grouped = groupPhysicalLines(enhancedLines, {
+    const grouped = groupLines(enhancedLines, {
       pendingMessage: this.pendingMessage,
       pendingTimestamp: this.pendingTimestamp,
     }, physicalLines.length === 0);
@@ -123,12 +126,21 @@ export default class ResourceChatReader {
   }
 
   private readDefaultLines(): PhysicalChatLine[] {
+    this.applyFontDefinition();
     const lines = (this.reader.read() ?? []) as PhysicalChatLine[];
-    if (!isSupportedTrackerFont(this.reader.font?.name)) {
+    this.applyFontDefinition();
+    if (!isSupportedFont(this.reader.font?.name)) {
       this.reader.font = null;
       return [];
     }
     return lines;
+  }
+
+  private applyFontDefinition(): void {
+    const detectedFont = this.reader.font;
+    if (!detectedFont) return;
+    const replacement = chatFontDefinitions[detectedFont.name];
+    if (replacement) detectedFont.def = replacement;
   }
 
   private readCustomLines(): PhysicalChatLine[] {
@@ -147,16 +159,13 @@ export default class ResourceChatReader {
     return applyMaterialSupplement(
       line,
       startsMaterialMessage || (!hasTimestamp && this.materialContextActive),
-      (physicalLine) => rereadMaterialPhysicalLine(
-        physicalLine,
-        trackerOcrPalette,
-        (absoluteBaseline, colors) => this.customDecoder.decodeCapturedRow(
+      (physicalLine) =>
+        this.customDecoder.decodeCapturedRow(
           this.reader,
-          absoluteBaseline,
-          colors.slice(),
+          physicalLine.basey,
+          trackerOcrPalette.slice(),
         ),
-      ),
-    ).line;
+    );
   }
 
   private resetForRefind(): void {
@@ -185,15 +194,15 @@ function chatFont(
   return { name, lineheight, badgey, dy, def: definition as OCR.FontDefinition };
 }
 
-function isSupportedTrackerFont(name: string | undefined): boolean {
-  return trackerChatFontCandidates.some((font) => font.name === name);
+function isSupportedFont(name: string | undefined): boolean {
+  return trackerChatFonts.some((font) => font.name === name);
 }
 
-function mergePhysicalLines(
+function mergeLines(
   defaultLines: readonly PhysicalChatLine[],
   customLines: readonly PhysicalChatLine[],
 ): PhysicalChatLine[] {
-  const fallbackLines = customLines.filter(isCustomFallbackLine);
+  const fallbackLines = customLines.filter(isFallbackLine);
   if (fallbackLines.length === 0) return [...defaultLines];
 
   const fallbackBaselines = new Set(fallbackLines.map((line) => line.basey));
@@ -203,18 +212,18 @@ function mergePhysicalLines(
   ].sort((left, right) => left.basey - right.basey);
 }
 
-function isCustomFallbackLine(line: PhysicalChatLine): boolean {
+function isFallbackLine(line: PhysicalChatLine): boolean {
   const body = stripTimestamp(normalizeChatWhitespace(line.text));
   return (
     isMaterialsGainedMessage(body) ||
     isSpiritRewardMessage(body) ||
     couldStartInventionMessage(body) ||
     couldStartSkillTrackerMessage(body) ||
-    isTrackerContinuation(body)
+    isContinuation(body)
   );
 }
 
-function isTrackerContinuation(text: string): boolean {
+function isContinuation(text: string): boolean {
   return (
     isQuantityEntry(text) ||
     /^Junk[,.]?\s*$/i.test(text) ||
@@ -225,7 +234,7 @@ function isTrackerContinuation(text: string): boolean {
 type GroupState = { pendingMessage: string | null; pendingTimestamp: string | null };
 type GroupResult = GroupState & { messages: string[] };
 
-function groupPhysicalLines(
+function groupLines(
   lines: ReadonlyArray<Pick<PhysicalChatLine, "text">>,
   state: GroupState,
   flushOnEmpty: boolean,
@@ -344,7 +353,7 @@ class VisibleLineDiff {
         const resumeIndex = findNextTimestampIndex(current, watermarkIndex + 1, this.lastTimestamp);
         this.previous = current;
         this.captureInterrupted = false;
-        this.updateLastTimestamp(current);
+        this.updateTimestamp(current);
         return resumeIndex === -1 ? [] : current.slice(resumeIndex);
       }
       const newestTimestamp = getLastTimestamp(current);
@@ -354,11 +363,11 @@ class VisibleLineDiff {
     const overlap = findSequenceOverlap(this.previous, current);
     const newLines = current.slice(overlap);
     this.previous = current;
-    this.updateLastTimestamp(current);
+    this.updateTimestamp(current);
     return newLines;
   }
 
-  private updateLastTimestamp(lines: readonly Pick<PhysicalChatLine, "text">[]): void {
+  private updateTimestamp(lines: readonly Pick<PhysicalChatLine, "text">[]): void {
     const timestamp = getLastTimestamp(lines);
     if (timestamp) this.lastTimestamp = timestamp;
   }
@@ -399,11 +408,12 @@ function findNextTimestampIndex(lines: readonly Pick<PhysicalChatLine, "text">[]
   return -1;
 }
 
-function isTimestampAfter(candidate: string, previous: string): boolean {
+function isTimestampAfter(nextTimestamp: string, previous: string): boolean {
   const toSeconds = (timestamp: string) => {
     const [hour, minute, second] = timestamp.slice(1, -1).split(":").map(Number);
     return hour * 3600 + minute * 60 + second;
   };
-  const forward = (toSeconds(candidate) - toSeconds(previous) + 86400) % 86400;
+  const forward =
+    (toSeconds(nextTimestamp) - toSeconds(previous) + 86400) % 86400;
   return forward > 0 && forward <= 12 * 60 * 60;
 }

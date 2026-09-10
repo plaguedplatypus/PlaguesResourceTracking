@@ -1,12 +1,10 @@
-export type ReleaseNote = {
+type ReleaseNote = {
 	version: string;
 	title?: string;
 	items: string[];
 };
 
-//export const RT_DISCORD_INVITE_URL = "";
-
-export const RT_RELEASE_HISTORY: ReleaseNote[] = [
+const releaseHistory: ReleaseNote[] = [
 	{
 		version: "v1.10",
 		title: "The Tracker Update",
@@ -14,7 +12,7 @@ export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 			"Farming Tracking is here, toggle it in the settings.",
 			"Can now Toggle Tracked Skills and Events ON/OFF in the settings.",
 			"Can now reset counts per tab without clearing the tracker.",
-			"There is now a confirmation when clearing the Tracker. (no more miss-clicks)",
+			"There is now a confirmation when clearing the Tracker. (no more misclicks)",
 			"Added a Dig Site filter to Archaeology.",
 			"Added a [+] button to Invention Tracker to add components.",
 		],
@@ -78,9 +76,9 @@ export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 	},
 	{
 		version: "v1.5",
-		title: "Dissasembling Fix",
+		title: "Disassembling Fix",
 		items: [
-			"Fixed tracking dissasembled components that appear on a new line.",
+			"Fixed tracking disassembled components that appear on a new line.",
 		],
 	},
 	{
@@ -121,16 +119,13 @@ export const RT_RELEASE_HISTORY: ReleaseNote[] = [
 ];
 
 export function latestReleaseNote(): ReleaseNote | null {
-	return RT_RELEASE_HISTORY[0] || null;
+	return releaseHistory[0] || null;
 }
 
 export function allReleaseNotes(): ReleaseNote[] {
-	return RT_RELEASE_HISTORY;
+	return releaseHistory;
 }
 
 const latest = latestReleaseNote();
 
-export const RT_VERSION = latest?.version || "v0.0.0";
-export const RT_UPDATE_ID = RT_VERSION;
-export const RT_UPDATE_TITLE = latest ? `Update ${latest.version}` : "Update";
-export const RT_UPDATE_NOTES = latest?.items || [];
+export const trackerVersion = latest?.version || "v0.0.0";

@@ -39,12 +39,6 @@ body.session-window-body {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
 }
 
-.session-wrap {
-  box-sizing: border-box;
-  height: 100%;
-  min-height: 0;
-}
-
 .session-window-panel button {
   height: 22px;
   box-sizing: border-box;
@@ -70,7 +64,7 @@ body.session-window-body {
   margin-bottom: 7px;
 }
 
-.separator {
+.session-separator {
   margin: 5px 0;
   border-top: 1px solid rgba(216, 197, 138, 0.28);
 }
@@ -87,6 +81,11 @@ body.session-window-body {
   padding: 6px;
   margin-bottom: 7px;
   line-height: 1.5;
+}
+
+.session-note {
+  font-size: 12px;
+  font-style: italic;
 }
 
 .session-options {
@@ -113,7 +112,7 @@ body.session-window-body {
 .session-total-value { color: #7cfc7c; font-weight: bold; }
 .session-total-gp { color: #d8c26a; font-weight: bold; text-align: right; }
 
-.section-title {
+.session-section-title {
   box-sizing: border-box;
   padding: 2px 0 3px 2px;
   margin-bottom: 5px;
@@ -126,16 +125,16 @@ body.session-window-body {
   text-transform: uppercase;
 }
 
-table {
+.session-window-panel table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
-table[hidden] { display: none; }
+.session-window-panel table[hidden] { display: none; }
 
-th,
-td {
+.session-window-panel th,
+.session-window-panel td {
   padding: 3px 2px;
   border-bottom: 1px solid rgba(216, 197, 138, 0.18);
   white-space: nowrap;
@@ -143,20 +142,20 @@ td {
   text-overflow: ellipsis;
 }
 
-th {
+.session-window-panel th {
   color: #bbb;
   font-size: 10px;
   font-weight: normal;
   text-align: left;
 }
 
-td { color: #ddd; font-size: 11px; }
-.item-name { width: 52%; }
-body.show-gp .item-name { width: 34%; }
+.session-window-panel td { color: #ddd; font-size: 11px; }
+.session-item-name { width: 52%; }
+body.show-gp .session-item-name { width: 34%; }
 body:not(.show-gp) .gp-column { display: none; }
-.number { text-align: right; }
-.empty { padding: 8px 0; color: #aaa; font-style: italic; }
-.empty[hidden] { display: none; }
-.paused { color: #ffd700; }
-.running { color: #7cfc7c; }
-.idle { color: #aaa; }
+.session-number { text-align: right; }
+.session-empty { padding: 8px 0; color: #aaa; font-style: italic; }
+.session-empty[hidden] { display: none; }
+.session-window-panel .paused { color: #ffd700; }
+.session-window-panel .running { color: #7cfc7c; }
+.session-window-panel .idle { color: #aaa; }

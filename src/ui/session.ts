@@ -3,45 +3,42 @@ import "./session.css";
 
 export type SessionStatus = "idle" | "running" | "paused";
 
-type SessionItemUpdate = {
+type ItemUpdate = {
 	item: string;
 	amount: number;
 	storageKey?: string;
 };
 
 export function getSessionStatus(): SessionStatus {
-	if (sessionStatus === "running") return "running";
-	if (sessionStatus === "paused") return "paused";
-
-	return "idle";
+	return sessionStatus;
 }
 
-type SessionItem = {
+type Item = {
 	count: number;
 	lastUpdated: number;
 	displayName: string;
 };
 
-type PriceCacheItem = {
+type CacheItem = {
 	price: number | null;
 	checkedAt: number;
 };
 
-type PriceCache = Record<string, PriceCacheItem>;
+type Cache = Record<string, CacheItem>;
 
-type SessionSettings = {
+type Settings = {
 	showGpValue?: boolean;
 };
 
-type WeirdGloopLatestEntry = {
+type LatestEntry = {
 	price?: number;
 };
 
-type WeirdGloopLatestResponse = Record<string, WeirdGloopLatestEntry>;
+type LatestResponse = Record<string, LatestEntry>;
 
-type SessionWindowUpdateMode = "full" | "clock" | "items" | "prices";
+type UpdateMode = "full" | "clock" | "items" | "prices";
 
-type SessionRowElements = {
+type RowElements = {
 	row: HTMLTableRowElement;
 	name: HTMLTableCellElement;
 	count: HTMLTableCellElement;
@@ -60,17 +57,17 @@ let sessionStartedAt: number | null = null;
 let activeStartedAt: number | null = null;
 let elapsedBeforePauseMs = 0;
 
-let sessionItems: Record<string, SessionItem> = {};
+let sessionItems: Record<string, Item> = {};
 let sessionWindow: Window | null = null;
 let sessionRefreshTimer: number | null = null;
 let sessionUiOwner: Window | null = null;
 
-let showGpValue = loadSessionSettings().showGpValue ?? false;
+let showGpValue = loadSettings().showGpValue ?? false;
 
-const pendingPriceLookups = new Set<string>();
-const sessionRows = new Map<string, SessionRowElements>();
+const pendingPrices = new Set<string>();
+const sessionRows = new Map<string, RowElements>();
 
-export function recordSessionUpdates(updates: SessionItemUpdate[]) {
+export function recordSessionUpdates(updates: ItemUpdate[]) {
 	if (sessionStatus !== "running") return;
 	if (updates.length === 0) return;
 
@@ -94,7 +91,7 @@ export function recordSessionUpdates(updates: SessionItemUpdate[]) {
 		}
 	}
 
-	updateSessionWindow("items");
+	updateWindow("items");
 }
 
 export function showSessionWindow() {
@@ -108,8 +105,8 @@ export function showSessionWindow() {
 		sessionRows.clear();
 	}
 
-	startSessionRefreshTimer();
-	setTimeout(() => updateSessionWindow("full"), 50);
+	startRefreshTimer();
+	setTimeout(() => updateWindow("full"), 50);
 }
 
 function toggleSession() {
@@ -123,10 +120,10 @@ function toggleSession() {
 		sessionItems = {};
 
 		if (showGpValue) {
-			void ensurePricesForSessionItems();
+			void ensurePrices();
 		}
 
-		updateSessionWindow("full");
+		updateWindow("full");
 		return;
 	}
 
@@ -134,15 +131,13 @@ function toggleSession() {
 		elapsedBeforePauseMs = getElapsedMs();
 		activeStartedAt = null;
 		sessionStatus = "paused";
-		updateSessionWindow("full");
+		updateWindow("full");
 		return;
 	}
 
-	if (sessionStatus === "paused") {
-		activeStartedAt = now;
-		sessionStatus = "running";
-		updateSessionWindow("full");
-	}
+	activeStartedAt = now;
+	sessionStatus = "running";
+	updateWindow("full");
 }
 
 function resetSession() {
@@ -155,43 +150,43 @@ function resetSession() {
 	// No need to reset prices constantly, they hardly ever change.
 	// Cached prices expire automatically after 24 hours.
 
-	updateSessionWindow("full");
+	updateWindow("full");
 }
 
-function requestSessionReset(doc: Document): void {
-	if (doc.querySelector(".settings-confirm-overlay")) return;
+function requestReset(doc: Document): void {
+	if (doc.querySelector(".tracker-confirmation-overlay")) return;
 
 	const overlay = doc.createElement("div");
-	overlay.className = "settings-confirm-overlay";
+	overlay.className = "tracker-confirmation-overlay";
 
 	const dialog = doc.createElement("section");
-	dialog.className = "settings-clear-confirmation";
+	dialog.className = "tracker-confirmation";
 	dialog.setAttribute("role", "dialog");
 	dialog.setAttribute("aria-modal", "true");
 	dialog.setAttribute("aria-labelledby", "session-reset-confirmation-title");
 
 	const title = doc.createElement("div");
-	title.className = "settings-clear-confirmation-title";
+	title.className = "tracker-confirmation-title";
 	title.id = "session-reset-confirmation-title";
 	title.textContent = "Reset Session?";
 
 	const message = doc.createElement("div");
-	message.className = "settings-clear-confirmation-message";
+	message.className = "tracker-confirmation-message";
 	message.textContent =
-		"This will reset the session timer and all current session item statistics.";
+		"This will reset the timer and all current item statistics.";
 
 	const actions = doc.createElement("div");
-	actions.className = "settings-clear-confirmation-actions";
+	actions.className = "tracker-confirmation-actions";
 
 	const cancel = doc.createElement("button");
 	cancel.type = "button";
-	cancel.className = "settings-clear-confirmation-cancel";
+	cancel.className = "tracker-confirmation-cancel";
 	cancel.textContent = "Cancel";
 
 	const confirm = doc.createElement("button");
 	confirm.type = "button";
-	confirm.className = "settings-clear-confirmation-confirm";
-	confirm.textContent = "Reset Session";
+	confirm.className = "tracker-confirmation-confirm";
+	confirm.textContent = "Reset";
 
 	const close = () => {
 		doc.removeEventListener("keydown", onKeyDown);
@@ -224,36 +219,36 @@ function requestSessionReset(doc: Document): void {
 function updateShowGpValue(value: boolean) {
 	showGpValue = value;
 
-	saveSessionSettings({
+	saveSettings({
 		showGpValue,
 	});
 
 	if (showGpValue) {
-		void ensurePricesForSessionItems();
+	void ensurePrices();
 	}
 
-	updateSessionWindow("full");
+	updateWindow("full");
 }
 
-function updateSessionWindow(mode: SessionWindowUpdateMode = "full") {
+function updateWindow(mode: UpdateMode = "full") {
 	if (!sessionWindow || sessionWindow.closed) return;
 
 	const doc = sessionWindow.document;
 
 	if (!doc.body) {
-		setTimeout(() => updateSessionWindow(mode), 50);
+		setTimeout(() => updateWindow(mode), 50);
 		return;
 	}
 
-	const initializedNow = ensureSessionWindowUi(doc);
+	const initializedNow = ensureUi(doc);
 	const effectiveMode = initializedNow ? "full" : mode;
 
-	updateSessionChrome(doc);
-	updateSessionTotals(doc);
-	syncSessionRows(doc, effectiveMode);
+	updateChrome(doc);
+	updateTotals(doc);
+	syncRows(doc, effectiveMode);
 }
 
-function ensureSessionWindowUi(doc: Document) {
+function ensureUi(doc: Document) {
 	const alreadyInitialized =
 		sessionUiOwner === sessionWindow &&
 		Boolean(doc.getElementById("session-root"));
@@ -261,9 +256,9 @@ function ensureSessionWindowUi(doc: Document) {
 	if (alreadyInitialized) return false;
 
 	doc.title = "Session Stats";
-	doc.head.replaceChildren(...cloneApplicationStyles(doc));
+	doc.head.replaceChildren(...cloneStyles(doc));
 	doc.body.className = "nis session-window-body";
-	doc.body.innerHTML = renderSessionWindowShellHtml();
+	doc.body.innerHTML = renderShellHtml();
 
 	doc
 		.getElementById("session-toggle")
@@ -271,7 +266,7 @@ function ensureSessionWindowUi(doc: Document) {
 
 	doc
 		.getElementById("session-reset")
-		?.addEventListener("click", () => requestSessionReset(doc));
+		?.addEventListener("click", () => requestReset(doc));
 
 	const showGpInput = doc.getElementById("show-gp-value") as HTMLInputElement | null;
 
@@ -286,7 +281,7 @@ function ensureSessionWindowUi(doc: Document) {
 	return true;
 }
 
-function updateSessionChrome(doc: Document) {
+function updateChrome(doc: Document) {
 	const toggleText =
 		sessionStatus === "idle"
 			? "Start Session"
@@ -327,10 +322,10 @@ function updateSessionChrome(doc: Document) {
 	if (totals) totals.hidden = !showGpValue;
 }
 
-function updateSessionTotals(doc: Document) {
+function updateTotals(doc: Document) {
 	if (!showGpValue) return;
 
-	const totals = getSessionValueTotals();
+	const totals = getValueTotals();
 	const totalValueText = totals.hasLoadingPrices
 		? "..."
 		: formatGp(totals.totalValue);
@@ -342,7 +337,7 @@ function updateSessionTotals(doc: Document) {
 	setText(doc, "session-total-gp-hour", totalGpPerHourText);
 }
 
-function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
+function syncRows(doc: Document, mode: UpdateMode) {
 	const orderedKeys = Object.keys(sessionItems).sort((a, b) =>
 		sessionItems[b].lastUpdated - sessionItems[a].lastUpdated
 	);
@@ -370,7 +365,7 @@ function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
 			let elements = sessionRows.get(key);
 
 			if (!elements) {
-				elements = createSessionRow(doc);
+				elements = createRow(doc);
 				sessionRows.set(key, elements);
 			}
 
@@ -379,7 +374,6 @@ function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
 			elements.name.title = renderedName;
 			elements.count.textContent = itemData.count.toLocaleString();
 
-			// Appending an existing row only moves it when the recent-item order changed.
 			tbody.appendChild(elements.row);
 		}
 	}
@@ -390,7 +384,7 @@ function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
 	for (const key of orderedKeys) {
 		const elements = sessionRows.get(key);
 		const itemData = sessionItems[key];
-		if (!elements || !itemData) continue;
+		if (!elements) continue;
 
 		const perHour = elapsedHours > 0
 			? itemData.count / elapsedHours
@@ -399,7 +393,7 @@ function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
 
 		if (!showGpValue) continue;
 
-		const price = getFreshCachedPrice(itemData.displayName);
+		const price = getCachedPrice(itemData.displayName);
 		const totalValue = typeof price === "number"
 			? itemData.count * price
 			: null;
@@ -416,7 +410,7 @@ function syncSessionRows(doc: Document, mode: SessionWindowUpdateMode) {
 	empty.hidden = hasItems;
 }
 
-function createSessionRow(doc: Document): SessionRowElements {
+function createRow(doc: Document): RowElements {
 	const row = doc.createElement("tr");
 	const name = doc.createElement("td");
 	const count = doc.createElement("td");
@@ -449,7 +443,7 @@ function setText(doc: Document, id: string, value: string) {
 	}
 }
 
-function startSessionRefreshTimer() {
+function startRefreshTimer() {
 	if (sessionRefreshTimer !== null) return;
 
 	sessionRefreshTimer = window.setInterval(() => {
@@ -465,12 +459,12 @@ function startSessionRefreshTimer() {
 		}
 
 		if (sessionStatus === "running") {
-			updateSessionWindow("clock");
+			updateWindow("clock");
 		}
 	}, 1000);
 }
 
-function cloneApplicationStyles(doc: Document): Node[] {
+function cloneStyles(doc: Document): Node[] {
 	const base = doc.createElement("base");
 	base.href = document.baseURI;
 
@@ -482,18 +476,18 @@ function cloneApplicationStyles(doc: Document): Node[] {
 	];
 }
 
-function renderSessionWindowShellHtml() {
+function renderShellHtml() {
 	return `
 
-		<div id="session-root" class="session-window-panel session-wrap">
+		<div id="session-root" class="session-window-panel">
 			<div class="session-controls">
-				<button id="session-toggle">Start Session</button>
-				<button id="session-reset">Reset Session</button>
+				<button id="session-toggle">Start</button>
+				<button id="session-reset">Reset</button>
 			</div>
 
 			<div class="session-meta">
-				<div style="font-size: 12px; font-style: italic;">Session continues while this window is closed.</div>
-				<div class="separator"></div>
+				<div class="session-note">Continues while this window is closed.</div>
+				<div class="session-separator"></div>
 
 				<div><strong>Session Started:</strong> <span id="session-started">—</span></div>
 				<div><strong>Status:</strong> <span id="session-status" class="idle">Not running</span></div>
@@ -507,7 +501,7 @@ function renderSessionWindowShellHtml() {
 
 			<div id="session-totals" class="session-totals" hidden>
 				<div>
-					Total session value:
+					Total value:
 					<span id="session-total-value" class="session-total-value">0</span>
 				</div>
 
@@ -516,17 +510,17 @@ function renderSessionWindowShellHtml() {
 				</div>
 			</div>
 
-			<div class="section-title">Recent Session Items</div>
-			<div id="session-empty" class="empty">No session items yet.</div>
+			<div class="session-section-title">Recent Items</div>
+			<div id="session-empty" class="session-empty">No items yet.</div>
 
 			<table id="session-items-table" hidden>
 				<thead>
 					<tr>
-						<th class="item-name">Item</th>
-						<th class="number">Count</th>
-						<th id="session-per-hour-heading" class="number">/hr</th>
-						<th class="number gp-column">Value</th>
-						<th class="number gp-column">GP/hr</th>
+						<th class="session-item-name">Item</th>
+						<th class="session-number">Count</th>
+						<th id="session-per-hour-heading" class="session-number">/hr</th>
+						<th class="session-number gp-column">Value</th>
+						<th class="session-number gp-column">GP/hr</th>
 					</tr>
 				</thead>
 				<tbody id="session-items-body"></tbody>
@@ -535,7 +529,7 @@ function renderSessionWindowShellHtml() {
 	`;
 }
 
-function getSessionValueTotals() {
+function getValueTotals() {
 	const items = Object.keys(sessionItems);
 	const elapsedMs = getElapsedMs();
 	const elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
@@ -544,7 +538,7 @@ function getSessionValueTotals() {
 	let hasLoadingPrices = false;
 
 	for (const item of items) {
-		const price = getFreshCachedPrice(
+		const price = getCachedPrice(
 			sessionItems[item].displayName
 		);
 
@@ -582,7 +576,7 @@ function getElapsedMs() {
 	return elapsedBeforePauseMs;
 }
 
-async function ensurePricesForSessionItems() {
+async function ensurePrices() {
 	const items = Object.keys(sessionItems);
 
 	for (const item of items) {
@@ -595,12 +589,12 @@ async function ensurePriceForItem(item: string) {
 
 	if (isCoinsItem(item)) return;
 
-	const cachedPrice = getFreshCachedPrice(item);
+	const cachedPrice = getCachedPrice(item);
 
 	if (cachedPrice !== undefined) return;
-	if (pendingPriceLookups.has(cacheKey)) return;
+	if (pendingPrices.has(cacheKey)) return;
 
-	pendingPriceLookups.add(cacheKey);
+	pendingPrices.add(cacheKey);
 
 	try {
 		const price = await fetchItemPrice(item);
@@ -622,8 +616,8 @@ async function ensurePriceForItem(item: string) {
 
 		savePriceCache(cache);
 	} finally {
-		pendingPriceLookups.delete(cacheKey);
-		updateSessionWindow("prices");
+		pendingPrices.delete(cacheKey);
+		updateWindow("prices");
 	}
 }
 
@@ -641,7 +635,7 @@ async function fetchItemPrice(item: string): Promise<number | null> {
 
 	if (!response.ok) return null;
 
-	const json = await response.json() as WeirdGloopLatestResponse;
+	const json = await response.json() as LatestResponse;
 	const firstResult = Object.values(json)[0];
 
 	if (!firstResult || typeof firstResult.price !== "number") {
@@ -651,7 +645,7 @@ async function fetchItemPrice(item: string): Promise<number | null> {
 	return firstResult.price;
 }
 
-function getFreshCachedPrice(item: string): number | null | undefined {
+function getCachedPrice(item: string): number | null | undefined {
 	if (isCoinsItem(item)) return 1;
 
 	const cache = loadPriceCache();
@@ -666,35 +660,35 @@ function getFreshCachedPrice(item: string): number | null | undefined {
 	return entry.price;
 }
 
-function loadPriceCache(): PriceCache {
+function loadPriceCache(): Cache {
 	const raw = localStorage.getItem(priceCacheKey);
 
 	if (!raw) return {};
 
 	try {
-		return JSON.parse(raw) as PriceCache;
+		return JSON.parse(raw) as Cache;
 	} catch {
 		return {};
 	}
 }
 
-function savePriceCache(cache: PriceCache) {
+function savePriceCache(cache: Cache) {
 	localStorage.setItem(priceCacheKey, JSON.stringify(cache));
 }
 
-function loadSessionSettings(): SessionSettings {
+function loadSettings(): Settings {
 	const raw = localStorage.getItem(sessionSettingsKey);
 
 	if (!raw) return {};
 
 	try {
-		return JSON.parse(raw) as SessionSettings;
+		return JSON.parse(raw) as Settings;
 	} catch {
 		return {};
 	}
 }
 
-function saveSessionSettings(settings: SessionSettings) {
+function saveSettings(settings: Settings) {
 	localStorage.setItem(sessionSettingsKey, JSON.stringify(settings));
 }
 
@@ -760,7 +754,7 @@ function formatPriceValue(
 function formatGpPerHour(value: number | null) {
 	if (value === null || !isFinite(value)) return "—";
 
-	return `${formatGp(value)}`;
+	return formatGp(value);
 }
 
 function formatGp(value: number) {

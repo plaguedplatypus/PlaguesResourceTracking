@@ -1,6 +1,6 @@
 import * as a1lib from "alt1/base";
 import type DialogReader from "alt1/dialog";
-import { normalizeItemName } from "../tracking/SkillTracker";
+import { normalizeTrackedItemName } from "../tracking/SkillTracker";
 
 declare function require(moduleName: "alt1/dialog"): {
 	default: typeof DialogReader;
@@ -14,7 +14,7 @@ type DialogPosition = {
 	legacy?: boolean;
 };
 
-interface ArtifactDialogReader {
+interface DialogApi {
 	pos: DialogPosition | null;
 	find(): unknown;
 	checkDialog(image: unknown): boolean;
@@ -34,13 +34,13 @@ interface ArtifactCaptureReader {
 	reset(): void;
 }
 
-const damagedArtifactDialogRegex =
+const damagedArtifactRegex =
 	/^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
 const maxDialogReadFails = 3;
 
-function createDefaultDialogReader(): ArtifactDialogReader {
-	const Reader = require("alt1/dialog").default;
-	return new Reader() as unknown as ArtifactDialogReader;
+function createDefaultDialogReader(): DialogApi {
+	const dialogReaderClass = require("alt1/dialog").default;
+	return new dialogReaderClass() as unknown as DialogApi;
 }
 
 export function createArtifactCaptureReader(): ArtifactCaptureReader {
@@ -65,9 +65,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 			originalPos.height
 		);
 
-		// A saved position can outlive the dialog. Do not run the permissive
-		// offset OCR against ordinary game pixels or they can look like text and
-		// keep the previous artifact marked as the still-open dialog.
+		// Don't run permissive offset OCR on normal game pixels; they can look like text and leave the previous artefact open.
 		if (!reader.checkDialog(image)) {
 			return { visible: false, texts: [] as string[] };
 		}
@@ -83,13 +81,12 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 
 		addText(dialog && dialog.text ? dialog.text : null);
 
-		if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
+		if (texts.some((text) => damagedArtifactRegex.test(text))) {
 			return { visible: true, texts };
 		}
-
-		// DialogReader's fixed line-start probes can mistake a horizontal glyph
-		// stroke for "_", then skip past the real line. Small horizontal offsets
-		// move those probes while OCRing the same dialog pixels.
+		// DialogReader's fixed line-start probes can mistake a
+		// horizontal glyph stroke for "_", then skip past the real line.
+		// Small horizontal offsets move those probes while OCRing the same dialog pixels.
 		try {
 			for (const offsetX of [0, -30, -20, 5, 10, 20, 30]) {
 				const shiftedX = originalPos.x + offsetX;
@@ -102,7 +99,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 				reader.pos = { ...originalPos, x: shiftedX };
 				addText(reader.readDialog(image, true));
 
-				if (texts.some((text) => damagedArtifactDialogRegex.test(text))) {
+				if (texts.some((text) => damagedArtifactRegex.test(text))) {
 					break;
 				}
 			}
@@ -150,18 +147,18 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 			let match: RegExpMatchArray | null = null;
 
 			for (const text of dialogResult.texts) {
-				const candidateMatch = text.match(damagedArtifactDialogRegex);
+				const artifactMatch = text.match(damagedArtifactRegex);
 
-				if (candidateMatch) {
+				if (artifactMatch) {
 					rawText = text;
-					match = candidateMatch;
+					match = artifactMatch;
 					break;
 				}
 			}
 
-			if (!match || !rawText) return null;
+			if (!match) return null;
 
-			const item = normalizeItemName(match[1]);
+			const item = normalizeTrackedItemName(match[1]);
 			if (!item) return null;
 
 			currentDialogCounted = true;

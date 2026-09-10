@@ -3,14 +3,13 @@ import {
 	isKnownMaterial,
 	MaterialSuffix,
 } from "./components";
-import { normalizeInventionMessage } from "./InventionNormalizer";
 import {
 	getMaterialsGainedPayload,
 	isIgnoredTrackerMessage,
 	isMaterialsGainedMessage,
 } from "../tracking/trackerMessages";
 
-type InventionMaterialUpdate = {
+type MaterialUpdate = {
 	item: string;
 	amount: number;
 	skill: "invention";
@@ -18,13 +17,12 @@ type InventionMaterialUpdate = {
 	source?: string;
 };
 
-type InventionParseResult = {
-	updates: InventionMaterialUpdate[];
-	countedMaterials: string[];
+type ParseResult = {
+	updates: MaterialUpdate[];
 	statusMessage: string;
 };
 
-type ParsedMaterial = {
+type Material = {
 	item: string;
 	amount: number;
 	root: string;
@@ -32,13 +30,13 @@ type ParsedMaterial = {
 };
 
 export function processInventionMaterials(
-rawLine: string
- ): InventionParseResult | null {
- 	const cleanLine = normalizeInventionMessage(rawLine);
+	rawLine: string
+): ParseResult | null {
+	const cleanLine = normalizeInventionMessage(rawLine);
 	if (isIgnoredTrackerMessage(cleanLine)) return null;
 	const scavengingMatch = cleanLine.match(/^Your Scavenging perk adds:\s*(.+)$/i);
 	if (scavengingMatch) {
-		const scavengingMaterial = parseExplicitMaterialEntry(scavengingMatch[1]);
+		const scavengingMaterial = parseExplicitEntry(scavengingMatch[1]);
 		return scavengingMaterial ? buildParseResult([scavengingMaterial]) : null;
 	}
 
@@ -46,13 +44,13 @@ rawLine: string
 		/^Your Leagues? Scavenging perk finds:?\s*(.+)$/i
 	);
 	if (leagueMaterialMatch) {
-		const leagueMaterial = parseLeagueMaterialEntry(leagueMaterialMatch[1]);
+		const leagueMaterial = parseLeagueEntry(leagueMaterialMatch[1]);
 		return leagueMaterial ? buildParseResult([leagueMaterial]) : null;
 	}
 
- 	const receivedMaterial = parseReceivedMaterial(cleanLine);
- 	if (receivedMaterial) {
- 		return buildParseResult([receivedMaterial]);
+	const receivedMaterial = parseReceived(cleanLine);
+	if (receivedMaterial) {
+		return buildParseResult([receivedMaterial]);
 	}
 
 	const materialText = getMaterialsGainedPayload(cleanLine);
@@ -64,10 +62,10 @@ rawLine: string
 	const entries = materialText !== null
 		? materialText
 			.split(",")
-			.map(parseExplicitMaterialEntry)
-			.filter((entry): entry is ParsedMaterial => entry !== null)
-		: [parseExplicitMaterialEntry(cleanLine)].filter(
-			(entry): entry is ParsedMaterial => entry !== null
+			.map(parseExplicitEntry)
+			.filter((entry): entry is Material => entry !== null)
+		: [parseExplicitEntry(cleanLine)].filter(
+			(entry): entry is Material => entry !== null
 		);
 
 	if (entries.length === 0) return null;
@@ -88,38 +86,34 @@ export function couldStartInventionMessage(text: string): boolean {
 }
 
 function buildParseResult(
-	entries: ParsedMaterial[]
-): InventionParseResult {
-	const updates = entries.map(toMaterialUpdate);
-	const countedMaterials = entries.map(
-		({ item, amount }) => `${titleCase(item)} +${amount}`
-	);
+	entries: Material[]
+): ParseResult {
+	const updates = entries.map(toUpdate);
 	const last = entries[entries.length - 1];
 
 	return {
 		updates,
-		countedMaterials,
 		statusMessage: `💡: ${last.amount} x ${last.item}`,
 	};
 }
 
-function parseReceivedMaterial(
+function parseReceived(
 	text: string
-): ParsedMaterial | null {
+): Material | null {
 	const match = text.match(
 		/^You receive\s+((?:[1-9]\d{0,2}(?:,\d{3})+)|(?:[1-9]\d*))\s+(.+?)\.?$/i
 	);
 	if (!match) return null;
 
-	return parseMaterial(
+	return parseEntry(
 		match[1].replace(/,/g, ""),
 		match[2]
 	);
 }
 
-function parseExplicitMaterialEntry(
+function parseExplicitEntry(
 	text: string
-): ParsedMaterial | null {
+): Material | null {
 	const match = text
 		.trim()
 		.replace(/\.$/, "")
@@ -127,11 +121,11 @@ function parseExplicitMaterialEntry(
 
 	if (!match) return null;
 
-	return parseMaterial(match[1], match[2]);
+	return parseEntry(match[1], match[2]);
 }
 
-function parseLeagueMaterialEntry(text: string): ParsedMaterial | null {
-	const explicitEntry = parseExplicitMaterialEntry(text);
+function parseLeagueEntry(text: string): Material | null {
+	const explicitEntry = parseExplicitEntry(text);
 	if (explicitEntry) return explicitEntry;
 
 	const match = text.trim().match(
@@ -139,13 +133,13 @@ function parseLeagueMaterialEntry(text: string): ParsedMaterial | null {
 	);
 	if (!match) return null;
 
-	return parseMaterial(match[1], match[2]);
+	return parseEntry(match[1], match[2]);
 }
 
-function parseMaterial(
+function parseEntry(
 	amountText: string,
 	materialText: string
-): ParsedMaterial | null {
+): Material | null {
 	const amount = Number(amountText);
 	if (
 		!Number.isSafeInteger(amount) ||
@@ -177,12 +171,12 @@ function parseMaterial(
 }
 
 export function isExplicitMaterialEntry(text: string): boolean {
-	return parseExplicitMaterialEntry(text) !== null;
+	return parseExplicitEntry(text) !== null;
 }
 
-function toMaterialUpdate(
-	entry: ParsedMaterial
-): InventionMaterialUpdate {
+function toUpdate(
+	entry: Material
+): MaterialUpdate {
 	const componentTier =
 		entry.suffix === "components"
 			? getComponentTier(entry.root)
@@ -201,6 +195,9 @@ function toMaterialUpdate(
 	};
 }
 
-function titleCase(text: string): string {
-	return text.replace(/\b\w/g, (char) => char.toUpperCase());
+function normalizeInventionMessage(text: string): string {
+	return text
+		.replace(/\s+/g, " ")
+		.replace(/\s+,/g, ",")
+		.trim();
 }

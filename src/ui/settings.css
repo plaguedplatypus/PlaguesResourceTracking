@@ -46,7 +46,7 @@ body.settings-window-body {
   flex-direction: column;
   gap: 3px;
   padding: 4px 6px 0 4px;
-  border-right: 0px solid #5a4a2a;
+  border-right: 0;
   background: rgba(0, 0, 0, 0.35);
 }
 .settings-sidebar-item {
@@ -113,7 +113,6 @@ body.settings-window-body {
   font-size: 12px;
 }
 .settings-setting-label {
-  color: #dddddd;
   font-size: 11px;
   font-weight: 600;
 }
@@ -343,7 +342,7 @@ input.tracker-size { width: 88px; padding: 0; }
   color: #bbbbbb;
   font-size: 11px;
 }
-.settings-confirm-overlay {
+.tracker-confirmation-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -353,7 +352,7 @@ input.tracker-size { width: 88px; padding: 0; }
   box-sizing: border-box;
   background: rgba(0, 0, 0, 0.62);
 }
-.settings-clear-confirmation {
+.tracker-confirmation {
   width: min(248px, calc(100vw - 24px));
   padding: 9px;
   box-sizing: border-box;
@@ -363,30 +362,30 @@ input.tracker-size { width: 88px; padding: 0; }
   border-radius: 6px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.72);
 }
-.settings-clear-confirmation-title {
+.tracker-confirmation-title {
   padding-bottom: 5px;
   color: #d8c58a;
   font-size: 12px;
   font-weight: bold;
   border-bottom: 1px solid rgba(216, 197, 138, 0.3);
 }
-.settings-clear-confirmation-message {
+.tracker-confirmation-message {
   margin: 7px 0 9px;
   color: #ded9cb;
   font-size: 12px;
   line-height: 1.35;
 }
-.settings-clear-confirmation-actions {
+.tracker-confirmation-actions {
   display: flex;
   justify-content: flex-end;
   gap: 5px;
 }
-.settings-clear-confirmation-actions button {
+.tracker-confirmation-actions button {
   min-height: 22px;
   padding: 3px 7px;
   font-size: 12px;
 }
-.settings-clear-confirmation-confirm {
+.tracker-confirmation-confirm {
   color: #ffd0b8;
   border-color: #9b5636;
   background: linear-gradient(#4b2a1d, #21130e);

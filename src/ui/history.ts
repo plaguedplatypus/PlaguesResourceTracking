@@ -1,30 +1,30 @@
-type TrackedHistorySource = "chat" | "dialog";
+type Source = "chat" | "dialog";
 
-type TrackedHistoryEntry = {
+type Entry = {
 	id: number;
 	text: string;
-	source: TrackedHistorySource;
+	source: Source;
 };
 
-type HistoryAppendResult = {
-	entry: TrackedHistoryEntry;
-	evicted: TrackedHistoryEntry | null;
+type AppendResult = {
+	entry: Entry;
+	evicted: Entry | null;
 };
 
-class TrackedHistoryLog {
-	private entries: TrackedHistoryEntry[] = [];
+class Log {
+	private entries: Entry[] = [];
 	private nextId = 1;
 
 	constructor(private readonly maximum = 100) {}
 
-	getAll(): readonly TrackedHistoryEntry[] {
+	getAll(): readonly Entry[] {
 		return this.entries;
 	}
 
 	add(
 		text: string,
-		source: TrackedHistorySource
-	): HistoryAppendResult {
+		source: Source
+	): AppendResult {
 		const entry = {
 			id: this.nextId++,
 			text,
@@ -33,7 +33,7 @@ class TrackedHistoryLog {
 		this.entries.push(entry);
 		const evicted =
 			this.entries.length > this.maximum
-				? this.entries.shift() ?? null
+				? this.entries.shift()!
 				: null;
 		return { entry, evicted };
 	}
@@ -45,29 +45,29 @@ class TrackedHistoryLog {
 	}
 }
 
-type HistoryScrollState = {
+type ScrollState = {
 	top: number;
 	height: number;
 };
 
-type HistoryListAdapter<Node> = {
-	createRow(entry: TrackedHistoryEntry): Node;
-	replaceAll(rows: readonly Node[]): void;
-	prepend(row: Node): void;
-	remove(row: Node): void;
-	getScrollState(): HistoryScrollState;
+type ListAdapter<Row> = {
+	createRow(entry: Entry): Row;
+	replaceAll(rows: readonly Row[]): void;
+	prepend(row: Row): void;
+	remove(row: Row): void;
+	getScrollState(): ScrollState;
 	setScrollTop(top: number): void;
 };
 
-class IncrementalHistoryRenderer<Node> {
-	private readonly nodes = new Map<number, Node>();
+class Renderer<Row> {
+	private readonly nodes = new Map<number, Row>();
 
 	constructor(
-		private readonly adapter: HistoryListAdapter<Node>,
+		private readonly adapter: ListAdapter<Row>,
 		private readonly followTolerance = 8
 	) {}
 
-	renderInitial(entries: readonly TrackedHistoryEntry[]): void {
+	renderInitial(entries: readonly Entry[]): void {
 		this.nodes.clear();
 		const rows = [...entries]
 			.reverse()
@@ -79,7 +79,7 @@ class IncrementalHistoryRenderer<Node> {
 		this.adapter.replaceAll(rows);
 	}
 
-	append(entry: TrackedHistoryEntry): void {
+	append(entry: Entry): void {
 		const before = this.adapter.getScrollState();
 		const following = before.top <= this.followTolerance;
 		const row = this.adapter.createRow(entry);
@@ -109,9 +109,9 @@ class IncrementalHistoryRenderer<Node> {
 
 }
 
-const maxRecentHistory = 100;
+const historyLimit = 100;
 const maxRecentProcessedMessages = 100;
-const trackedHistory = new TrackedHistoryLog(maxRecentHistory);
+const trackedHistory = new Log(historyLimit);
 const recentProcessedMessageKeys: string[] = [];
 const recentProcessedMessageSet = new Set<string>();
 const leadingTimestampRegex =
@@ -119,19 +119,19 @@ const leadingTimestampRegex =
 
 let historyWindow: Window | null = null;
 let historyList: HTMLElement | null = null;
-let historyRenderer: IncrementalHistoryRenderer<HTMLElement> | null = null;
+let historyRenderer: Renderer<HTMLElement> | null = null;
 
 export function hasProcessedChatMessage(chatLine: string): boolean {
-	const candidate = chatLine.trim();
-	if (recentProcessedMessageSet.has(candidate)) return true;
+	const message = chatLine.trim();
+	if (recentProcessedMessageSet.has(message)) return true;
 
-	const timestamp = getLeadingTimestamp(candidate);
+	const timestamp = getLeadingTimestamp(message);
 	if (!timestamp) return false;
 
 	return recentProcessedMessageKeys.some((processed) =>
-		processed.length > candidate.length &&
+		processed.length > message.length &&
 		getLeadingTimestamp(processed) === timestamp &&
-		processed.startsWith(candidate)
+		processed.startsWith(message)
 	);
 }
 
@@ -145,8 +145,8 @@ export function rememberProcessedChatMessage(chatLine: string): void {
 		recentProcessedMessageKeys.length >
 		maxRecentProcessedMessages
 	) {
-		const oldKey = recentProcessedMessageKeys.shift();
-		if (oldKey) recentProcessedMessageSet.delete(oldKey);
+		const oldKey = recentProcessedMessageKeys.shift()!;
+		recentProcessedMessageSet.delete(oldKey);
 	}
 }
 
@@ -159,10 +159,10 @@ function getLeadingTimestamp(chatLine: string): string | null {
 
 export function addTrackedHistoryEntry(
 	text: string,
-	source: TrackedHistorySource
-): TrackedHistoryEntry {
+	source: Source
+): Entry {
 	const { entry, evicted } = trackedHistory.add(text, source);
-	const renderer = getOpenRenderer();
+	const renderer = getRenderer();
 	if (renderer) {
 		renderer.append(entry);
 		if (evicted) renderer.remove(evicted.id);
@@ -181,15 +181,15 @@ export function showChatHistory(): void {
 		historyRenderer = null;
 	}
 
-	setTimeout(initializeHistoryWindow, 50);
+	setTimeout(initializeWindow, 50);
 }
 
-function clearTrackedHistory(): void {
+function clearHistory(): void {
 	if (!trackedHistory.clear()) return;
 	historyRenderer?.clear();
 }
 
-function getOpenRenderer(): IncrementalHistoryRenderer<HTMLElement> | null {
+function getRenderer(): Renderer<HTMLElement> | null {
 	if (
 		!historyWindow ||
 		historyWindow.closed ||
@@ -202,12 +202,12 @@ function getOpenRenderer(): IncrementalHistoryRenderer<HTMLElement> | null {
 	return historyRenderer;
 }
 
-function initializeHistoryWindow(): void {
+function initializeWindow(): void {
 	if (!historyWindow || historyWindow.closed) return;
 
 	const doc = historyWindow.document;
 	if (!doc.body) {
-		setTimeout(initializeHistoryWindow, 50);
+		setTimeout(initializeWindow, 50);
 		return;
 	}
 	if (historyRenderer && historyList?.isConnected) return;
@@ -261,7 +261,7 @@ function initializeHistoryWindow(): void {
 	const clearButton = doc.createElement("button");
 	clearButton.textContent = "Clear Display";
 	clearButton.className = "history-clear-button";
-	clearButton.addEventListener("click", clearTrackedHistory);
+	clearButton.addEventListener("click", clearHistory);
 	toolbar.append(clearButton);
 
 	historyList = doc.createElement("div");
@@ -274,21 +274,20 @@ function initializeHistoryWindow(): void {
 	historyList.style.fontSize = "10px";
 
 	doc.body.replaceChildren(toolbar, historyList);
-	historyRenderer = new IncrementalHistoryRenderer(
-		createHistoryDomAdapter(doc, historyList)
+	historyRenderer = new Renderer(
+		createDomAdapter(doc, historyList)
 	);
 	historyRenderer.renderInitial(trackedHistory.getAll());
 }
 
-function createHistoryDomAdapter(
+function createDomAdapter(
 	doc: Document,
 	list: HTMLElement
-): HistoryListAdapter<HTMLElement> {
+): ListAdapter<HTMLElement> {
 	return {
 		createRow(entry) {
 			const row = doc.createElement("div");
 			row.className = `history-entry history-entry-${entry.source}`;
-			row.dataset.historyId = String(entry.id);
 			row.textContent = entry.text;
 			return row;
 		},
