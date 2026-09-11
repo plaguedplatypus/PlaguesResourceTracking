@@ -25,7 +25,7 @@ export interface LocalChatbox {
   line0y: number;
 }
 
-export interface ChatboxPosition {
+export interface ChatPosition {
   mainbox: LocalChatbox;
   boxes: LocalChatbox[];
 }
@@ -45,7 +45,7 @@ export interface CapturedChatBuffer {
 }
 
 export interface ChatReaderState {
-  pos: ChatboxPosition | null;
+  pos: ChatPosition | null;
   font: ChatFontSetting | null;
 }
 

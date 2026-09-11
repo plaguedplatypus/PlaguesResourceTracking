@@ -2,7 +2,7 @@ export type ComponentTier = "ancient" | "rare" | "uncommon";
 export type MaterialSuffix = "parts" | "components";
 export type InventionMaterialFilter = ComponentTier | "common";
 
-export type InventionMaterialOption = {
+export type InventionOption = {
 	item: string;
 	filter: InventionMaterialFilter;
 	source: string;
@@ -113,8 +113,8 @@ const componentTiers: ReadonlyArray<
 	["uncommon", uncommonComponents],
 ];
 
-const inventionMaterialOptions: readonly InventionMaterialOption[] = componentTiers.reduce<
-	InventionMaterialOption[]
+const inventionMaterialOptions: readonly InventionOption[] = componentTiers.reduce<
+	InventionOption[]
 >(
 	(options, [tier, roots]) =>
 		options.concat(
@@ -134,7 +134,7 @@ const inventionMaterialOptions: readonly InventionMaterialOption[] = componentTi
 	})),
 ]).sort((a, b) => a.item.localeCompare(b.item));
 
-export function getInventionMaterialOptions(): readonly InventionMaterialOption[] {
+export function getInventionOption(): readonly InventionOption[] {
 	return inventionMaterialOptions;
 }
 

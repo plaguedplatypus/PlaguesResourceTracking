@@ -18,7 +18,7 @@ function markReleaseSeen(releaseId: string) {
 	}
 }
 
-export function maybeShowUpdateToast() {
+export function maybeShowUpdate() {
 	if (typeof window === "undefined" || typeof document === "undefined") return;
 
 	const latest = latestReleaseNote();
@@ -62,7 +62,7 @@ export function maybeShowUpdateToast() {
 	document.body.appendChild(toast);
 }
 
-export function showPatchNotesModal(targetDocument?: Document) {
+export function showPatchNotes(targetDocument?: Document) {
 	if (typeof window === "undefined" || typeof document === "undefined") return;
 	const modalDocument = targetDocument || document;
 

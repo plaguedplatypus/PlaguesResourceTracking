@@ -116,4 +116,4 @@ export const digsiteMaterials = {
   ],
 } as const;
 
-export type ArchaeologyDigsite = keyof typeof digsiteMaterials;
+export type Digsite = keyof typeof digsiteMaterials;

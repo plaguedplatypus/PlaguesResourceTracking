@@ -7,40 +7,37 @@ import chat14pt from "./chat_14pt.json";
 import chat16pt from "./chat_16pt.json";
 import { applyMaterialSupplement } from "../invention/InventionMaterialOcr";
 import { couldStartInventionMessage } from "../invention/InventionParser";
-import {
-  couldStartSkillTrackerMessage,
-  isMaterialsGainedMessage,
-  isSpiritRewardMessage,
-} from "../tracking/trackerMessages";
-import type {
-  ChatFontSetting,
-  ChatboxPosition,
-  LogicalChatMessage,
-  PhysicalChatLine,
-} from "./chatTypes";
+import { couldStartSkillMessage, isMaterialsGainedMessage, isSpiritRewardMessage, } from "../tracking/trackerMessages";
+import type { ChatFontSetting, ChatPosition, LogicalChatMessage, PhysicalChatLine, } from "./chatTypes";
 import { CustomPhysicalRowDecoder } from "./customPhysicalRowDecoder";
 
-export { ChatboxPosition };
+export { ChatPosition };
 
 const trackerChatColors: readonly OCR.ColortTriplet[] = [
   [255, 255, 255], // Normal tracked text and timestamp brackets.
   [127, 169, 255], // Timestamp digits.
   [255, 0, 0], // Red Invention material names.
+  [0, 255, 0], // Bright green Forge Phoenix/Fire Spirit rewards.
 
+  // best matches found for invention components...
+  [67, 188, 188], // Teal Invention component names.
   [245, 135, 55], // Orange Invention material names.
   [255, 128, 0], // Orange Invention component variant.
   [235, 119, 3], // 10pt orange component variant.
   [255, 165, 0], // Scavenging orange component names.
   [245, 159, 1], // Scavenging orange component names.
+  
+  // ocr has issue with how boon messages render, these are the best I could find
+  // sometimes they work, most times they don't, good luck.
+  [57,182,26], // Boon messages 
+  [60,183,30], // Anti-aliasing variant
 
-  [67, 188, 188], // Teal Invention component names.
-  [0, 255, 0], // Bright green Forge Phoenix/Fire Spirit rewards.
   [51, 197, 20], // Faded green spirit reward variant.
   [59, 181, 20], // Green spirit reward variant.
   [59, 181, 30], // Green reward anti-aliasing variant.
   [59, 176, 30], // 10pt–12pt green spirit reward variant.
-  [41, 77, 27], // Green anti-aliasing.
-  [40, 67, 28], // Green anti-aliasing.
+  //[41, 77, 27], // Green anti-aliasing.
+  //[40, 67, 28], // Green anti-aliasing.
 
   [0, 255, 255], // Seren spirit reward text.
   [127, 255, 255], // Seren reward anti-aliasing variant.
@@ -63,7 +60,7 @@ const chatFontDefinitions: Readonly<Record<string, OCR.FontDefinition>> = {
 };
 const leadingTimestampRegex = /^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]\s*/;
 
-export default class ResourceChatReader {
+export default class ChatReader {
   private readonly reader = new ChatBoxReader();
   private readonly customDecoder = new CustomPhysicalRowDecoder(
     trackerChatFonts,
@@ -72,7 +69,7 @@ export default class ResourceChatReader {
   private readonly lineDiff = new VisibleLineDiff();
   private pendingMessage: string | null = null;
   private pendingTimestamp: string | null = null;
-  private materialContextActive = false;
+  private inMaterialContext = false;
   private findErrorReported = false;
 
   constructor() {
@@ -81,11 +78,11 @@ export default class ResourceChatReader {
     );
   }
 
-  get pos(): ChatboxPosition | null {
-    return this.reader.pos as ChatboxPosition | null;
+  get pos(): ChatPosition | null {
+    return this.reader.pos as ChatPosition | null;
   }
 
-  set pos(value: ChatboxPosition | null) {
+  set pos(value: ChatPosition | null) {
     this.reader.pos = value as typeof this.reader.pos;
   }
 
@@ -93,12 +90,12 @@ export default class ResourceChatReader {
     return this.reader.font?.name ?? null;
   }
 
-  find(): ChatboxPosition | null {
+  find(): ChatPosition | null {
     if (typeof window === "undefined" || !window.alt1) return null;
     a1lib.resetEnvironment();
     this.resetForRefind();
     try {
-      const position = this.reader.find() as ChatboxPosition | null;
+      const position = this.reader.find() as ChatPosition | null;
       this.findErrorReported = false;
       return position;
     } catch (error) {
@@ -114,7 +111,7 @@ export default class ResourceChatReader {
     const defaultLines = this.readDefaultLines();
     const customLines = this.readCustomLines();
     const physicalLines = mergeLines(defaultLines, customLines);
-    if (physicalLines.length === 0) this.materialContextActive = false;
+    if (physicalLines.length === 0) this.inMaterialContext = false;
     const enhancedLines = physicalLines.map((line) => this.enhanceMaterialLine(line));
     const grouped = groupLines(enhancedLines, {
       pendingMessage: this.pendingMessage,
@@ -153,12 +150,12 @@ export default class ResourceChatReader {
     const hasTimestamp = leadingTimestampRegex.test(line.text);
     const body = line.text.replace(leadingTimestampRegex, "").trim();
     const startsMaterialMessage = isMaterialsGainedMessage(body);
-    if (hasTimestamp) this.materialContextActive = startsMaterialMessage;
-    else if (startsMaterialMessage) this.materialContextActive = true;
+    if (hasTimestamp) this.inMaterialContext = startsMaterialMessage;
+    else if (startsMaterialMessage) this.inMaterialContext = true;
 
     return applyMaterialSupplement(
       line,
-      startsMaterialMessage || (!hasTimestamp && this.materialContextActive),
+      startsMaterialMessage || (!hasTimestamp && this.inMaterialContext),
       (physicalLine) =>
         this.customDecoder.decodeCapturedRow(
           this.reader,
@@ -180,7 +177,7 @@ export default class ResourceChatReader {
     this.lineDiff.reset();
     this.pendingMessage = null;
     this.pendingTimestamp = null;
-    this.materialContextActive = false;
+    this.inMaterialContext = false;
   }
 }
 
@@ -218,7 +215,7 @@ function isFallbackLine(line: PhysicalChatLine): boolean {
     isMaterialsGainedMessage(body) ||
     isSpiritRewardMessage(body) ||
     couldStartInventionMessage(body) ||
-    couldStartSkillTrackerMessage(body) ||
+    couldStartSkillMessage(body) ||
     isContinuation(body)
   );
 }

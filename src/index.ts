@@ -1,35 +1,17 @@
 import * as a1lib from "alt1/base";
 import { processInventionMaterials } from "./invention/InventionParser";
-import {
-  getInventionMaterialOptions,
-  type InventionMaterialOption,
-} from "./invention/components";
-import {
-  digsiteMaterials,
-  type ArchaeologyDigsite,
-} from "./tracking/materials";
-import { parseSkillTrackerMessage } from "./tracking/SkillTracker";
+import { getInventionOption, type InventionOption, } from "./invention/components";
+import { digsiteMaterials, type Digsite, } from "./tracking/materials";
+import { parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredTrackerMessage } from "./tracking/trackerMessages";
-import {
-  recordSessionUpdates,
-  showSessionWindow,
-  getSessionStatus,
-} from "./ui/session";
-import {
-  addTrackedHistoryEntry,
-  hasProcessedChatMessage,
-  rememberProcessedChatMessage,
-  showChatHistory,
-} from "./ui/history";
+import { recordSession, showSession, getSessionStatus, } from "./ui/session";
+import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
-import {
-  maybeShowUpdateToast,
-  showPatchNotesModal,
-} from "./updates/updateToast";
-import ResourceChatReader, { ChatboxPosition } from "./chat/ChatReader";
-import { createArtifactCaptureReader } from "./dialog/artifactCapture";
-import { processChatPollMessages } from "./chatPoll";
-import { createSettingsWindowController } from "./ui/Settings";
+import { maybeShowUpdate, showPatchNotes, } from "./updates/updateToast";
+import ChatReader, { ChatPosition } from "./chat/ChatReader";
+import { createArtifactReader } from "./dialog/artifactCapture";
+import { processMessages } from "./chatPoll";
+import { createSettingsWindow } from "./ui/Settings";
 
 import "./index.html";
 import "./appconfig.json";
@@ -67,7 +49,7 @@ type ItemUpdate = {
 };
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
-type ArchaeologyFilter = "all" | ArchaeologyDigsite;
+type ArchaeologyFilter = "all" | Digsite;
 type TrackableSkill = Exclude<SkillType, "all">;
 type SkillSelection = Record<TrackableSkill, boolean>;
 type SortMode = "recent" | "alpha" | "count";
@@ -175,7 +157,7 @@ let hideUnknownSection = true;
 let trackerSize = trackerSizeDefault;
 let openSettingsItem: string | null = null;
 let tabsCollapsed = false;
-let reader = new ResourceChatReader();
+let reader = new ChatReader();
 let chatFontState: "waiting" | "ready" = "waiting";
 let activeChatFontName: string | null = null;
 
@@ -223,8 +205,8 @@ hideUnknownSection = savedData.hideUnknownSection ?? true;
 trackerSize = savedData.trackerSize ?? trackerSizeDefault;
 sortMode = savedData.sortMode || "recent";
 
-const artifactCaptureReader = createArtifactCaptureReader();
-const settingsWindow = createSettingsWindowController({
+const artifactReader = createArtifactReader();
+const settingsWindow = createSettingsWindow({
   getState: () => ({
     chatTypes: reader.pos?.boxes.map((box) => box.type) || [],
     selectedChat: getSaveData().chat || "0",
@@ -248,8 +230,8 @@ const settingsWindow = createSettingsWindowController({
   }),
   selectChat,
   findChat: refreshChatboxes,
-  showHistory: showChatHistory,
-  showSession: showSessionWindow,
+  showHistory: showHistory,
+  showSession: showSession,
   togglePorters,
   toggleShortNames,
   setCountPosition,
@@ -265,7 +247,7 @@ const settingsWindow = createSettingsWindowController({
   importData,
   clearTab,
   resetTabCounts,
-  showPatchNotes: showPatchNotesModal,
+  showPatchNotes: showPatchNotes,
 });
 
 window.setTimeout(function () {
@@ -289,7 +271,7 @@ window.setTimeout(function () {
     showSelectedChat(reader.pos);
     chatFontState = "waiting";
     activeChatFontName = null;
-    status.innerText = supportedChatFontWaitingMessage();
+    status.innerText = getChatFontWaitMessage();
     render();
 
     const runReaderPoll = (readerName: "chat" | "dialog", read: () => void) => {
@@ -350,7 +332,7 @@ function selectSavedChat() {
   settingsWindow.refresh();
 }
 
-function showSelectedChat(pos: ChatboxPosition) {
+function showSelectedChat(pos: ChatPosition) {
   if (!pos || !pos.mainbox) return;
   if (!alt1.permissionOverlay) return;
 
@@ -366,14 +348,14 @@ function showSelectedChat(pos: ChatboxPosition) {
 }
 
 function readDialogBox() {
-  const result = artifactCaptureReader.poll();
+  const result = artifactReader.poll();
   if (!result) return;
 
   incrementItem(result.item, result.quantity, result.source);
   setStatus(`Added: ${result.item}`);
 
-  rememberProcessedChatMessage(result.rawText);
-  addTrackedHistoryEntry(result.rawText, "dialog");
+  markSeenMessage(result.rawText);
+  addHistoryEntry(result.rawText, "dialog");
 }
 
 function createPollTransaction() {
@@ -387,7 +369,7 @@ function createPollTransaction() {
 
       data ??= getSaveData();
       applyItemUpdatesToData(data, updates);
-      recordSessionUpdatesSafely(updates);
+      recordSessionSafely(updates);
       buildHighlightedItems(updates, highlightItem).forEach((item) =>
         highlightedItems.add(item),
       );
@@ -409,7 +391,7 @@ function readChatbox() {
     if (chatFontState !== "waiting") {
       chatFontState = "waiting";
       activeChatFontName = null;
-      status.innerText = supportedChatFontWaitingMessage();
+      status.innerText = getChatFontWaitMessage();
     }
     return;
   }
@@ -421,17 +403,17 @@ function readChatbox() {
   }
 
   const transaction = createPollTransaction();
-  processChatPollMessages(messages, {
-    hasProcessed: hasProcessedChatMessage,
+  processMessages(messages, {
+    hasProcessed: hasSeenMessage,
     processMessage: (message) =>
       processChatLine(message, transaction.increment),
-    rememberProcessed: rememberProcessedChatMessage,
-    addHistory: (message) => addTrackedHistoryEntry(message, "chat"),
+    rememberProcessed: markSeenMessage,
+    addHistory: (message) => addHistoryEntry(message, "chat"),
     commitChanges: transaction.commit,
   });
 }
 
-function supportedChatFontWaitingMessage(): string {
+function getChatFontWaitMessage(): string {
   return "Waiting for readable 10pt, 12pt, 14pt, or 16pt chat. Change the RuneScape chat font, then click Find Chat.";
 }
 
@@ -457,7 +439,7 @@ function processChatLine(
     return true;
   }
 
-  const trackingResult = parseSkillTrackerMessage(cleanLine, {
+  const trackingResult = parseSkillMessage(cleanLine, {
     fishingUsePorters,
   });
   if (!trackingResult) return false;
@@ -574,9 +556,9 @@ function applyItemUpdatesToData(data: SaveData, updates: ItemUpdate[]) {
   for (const update of updates) applyItemUpdate(data, update, timestamp);
 }
 
-function recordSessionUpdatesSafely(updates: ItemUpdate[]) {
+function recordSessionSafely(updates: ItemUpdate[]) {
   try {
-    recordSessionUpdates(updates);
+    recordSession(updates);
   } catch (error) {
     console.warn("Session update failed", error);
   }
@@ -602,7 +584,7 @@ function incrementItems(updates: ItemUpdate[], highlightItem?: string) {
 
   const data = getSaveData();
   applyItemUpdatesToData(data, updates);
-  recordSessionUpdatesSafely(updates);
+  recordSessionSafely(updates);
   saveData(data);
   render(buildHighlightedItems(updates, highlightItem), data);
 }
@@ -639,11 +621,11 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
   tracker.innerHTML = "";
 
   if (activeSkillTab === "mining") {
-    renderMiningTrackingNotice();
+    renderMiningNotice();
   }
 
   if (activeSkillTab === "farming") {
-    renderFarmingTrackingNotice();
+    renderFarmingNotice();
   }
 
   if (items.length === 0) {
@@ -661,7 +643,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
   if (activeSkillTab === "archaeology") {
     const materials = items.filter(function (item) {
-      return !isDamagedArtefact(item) && archaeologyFilterMatches(item);
+      return !isDamagedArtefact(item) && matchesArchaeologyFilter(item);
     });
 
     const artefacts = showArchaeologyArtefacts
@@ -734,14 +716,14 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
   renderGoalSortedTab(items, data, highlightItems);
 }
 
-function renderMiningTrackingNotice() {
+function renderMiningNotice() {
   tracker.insertAdjacentHTML(
     "beforeend",
     `<div class="skill-tracking-notice" title="Porters and similar chat messages can be tracked.">Tracking requires bank-teleport chat messages.</div>`,
   );
 }
 
-function renderFarmingTrackingNotice() {
+function renderFarmingNotice() {
   tracker.insertAdjacentHTML(
     "beforeend",
     `<div class="skill-tracking-notice" title="Porters, Farming cape procs, and similar chat messages can be tracked.">Tracking requires bank-teleport chat messages.</div>`,
@@ -1201,7 +1183,7 @@ function normalizeMaterialName(value: string) {
   return value.trim().toLowerCase();
 }
 
-function archaeologyFilterMatches(item: string) {
+function matchesArchaeologyFilter(item: string) {
   if (archaeologyFilter === "all" || !showArchaeologyFilter) return true;
 
   const normalizedItem = normalizeMaterialName(item);
@@ -1221,8 +1203,8 @@ function updateInventionFilterButton() {
 
 function getAvailableInventionMaterials(
   data: SaveData,
-): readonly InventionMaterialOption[] {
-  return getInventionMaterialOptions().filter(
+): readonly InventionOption[] {
+  return getInventionOption().filter(
     (material) =>
       (inventionFilter === "all" || material.filter === inventionFilter) &&
       !data.items[material.item],
@@ -1263,7 +1245,7 @@ function updateInventionAddMenu() {
 function addInventionMaterials(items: readonly string[]) {
   const data = getSaveData();
   const optionsByItem = new Map(
-    getInventionMaterialOptions().map((option) => [option.item, option]),
+    getInventionOption().map((option) => [option.item, option]),
   );
   const addedItems: string[] = [];
 
@@ -1470,11 +1452,11 @@ function deleteItem(item: string) {
 function refreshChatboxes() {
   if (!window.alt1) return;
 
-  reader = new ResourceChatReader();
+  reader = new ChatReader();
   chatFontState = "waiting";
   activeChatFontName = null;
 
-  const found = reader.find() as ChatboxPosition | null;
+  const found = reader.find() as ChatPosition | null;
 
   if (!found || found.boxes.length === 0) {
     status.innerText = "No chatbox found.";
@@ -1498,7 +1480,7 @@ function refreshChatboxes() {
   settingsWindow.refresh();
 
   showSelectedChat(found);
-  status.innerText = supportedChatFontWaitingMessage();
+  status.innerText = getChatFontWaitMessage();
 }
 
 function clearTab() {
@@ -1712,7 +1694,7 @@ updateSkillTabs();
 updateInventionAddMenu();
 updateSortButtonLabel();
 settingsWindow.refresh();
-maybeShowUpdateToast();
+maybeShowUpdate();
 updateTabsCollapsedUi();
 updateCountPositionUi();
 updateStatusFooterUi();
@@ -1733,7 +1715,7 @@ compactSettingsButton?.addEventListener("click", function () {
   settingsWindow.show();
 });
 
-sessionQuickButton?.addEventListener("click", showSessionWindow);
+sessionQuickButton?.addEventListener("click", showSession);
 
 sortButton?.addEventListener("click", cycleSortMode);
 compactSortButton?.addEventListener("click", cycleSortMode);

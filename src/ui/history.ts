@@ -110,7 +110,7 @@ class Renderer<Row> {
 }
 
 const historyLimit = 100;
-const maxRecentProcessedMessages = 100;
+const recentMessageLimit = 100;
 const trackedHistory = new Log(historyLimit);
 const recentMessages: string[] = [];
 const seenMessages = new Set<string>();
@@ -121,7 +121,7 @@ let historyWindow: Window | null = null;
 let historyList: HTMLElement | null = null;
 let historyRenderer: Renderer<HTMLElement> | null = null;
 
-export function hasProcessedChatMessage(chatLine: string): boolean {
+export function hasSeenMessage(chatLine: string): boolean {
 	const message = chatLine.trim();
 	if (seenMessages.has(message)) return true;
 
@@ -135,7 +135,7 @@ export function hasProcessedChatMessage(chatLine: string): boolean {
 	);
 }
 
-export function rememberProcessedChatMessage(chatLine: string): void {
+export function markSeenMessage(chatLine: string): void {
 	const message = chatLine.trim();
 	if (!message || seenMessages.has(message)) return;
 
@@ -143,7 +143,7 @@ export function rememberProcessedChatMessage(chatLine: string): void {
 	seenMessages.add(message);
 	if (
 		recentMessages.length >
-		maxRecentProcessedMessages
+		recentMessageLimit
 	) {
 		const oldMessage = recentMessages.shift()!;
 		seenMessages.delete(oldMessage);
@@ -157,7 +157,7 @@ function getLeadingTimestamp(chatLine: string): string | null {
 		: null;
 }
 
-export function addTrackedHistoryEntry(
+export function addHistoryEntry(
 	text: string,
 	source: Source
 ): Entry {
@@ -170,12 +170,12 @@ export function addTrackedHistoryEntry(
 	return entry;
 }
 
-export function showChatHistory(): void {
+export function showHistory(): void {
 	if (!historyWindow || historyWindow.closed) {
 		historyWindow = window.open(
 			"",
 			"historyWindow",
-			"width=350,height=450"
+			"width=400,height=175"
 		);
 		historyList = null;
 		historyRenderer = null;

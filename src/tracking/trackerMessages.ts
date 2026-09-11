@@ -7,8 +7,8 @@ type SpiritRewardHeader = {
   label: string;
 };
 
-const materialsGainedHeaderPattern = /^Materials gained:\s*/i;
-export const bareMaterialsGainedHeaderPattern = /^Materials gained:\s*$/i;
+const materialsGainedPattern = /^Materials gained:\s*/i;
+export const materialsPattern = /^Materials gained:\s*$/i;
 
 export const spiritRewardHeaders: readonly SpiritRewardHeader[] = [
   {
@@ -32,11 +32,11 @@ export const spiritRewardHeaders: readonly SpiritRewardHeader[] = [
 ];
 
 export function isMaterialsGainedMessage(text: string): boolean {
-  return materialsGainedHeaderPattern.test(text.trim());
+  return materialsGainedPattern.test(text.trim());
 }
 
 /** Returns the material payload when a line is a Materials gained message. */
-export function getMaterialsGainedPayload(text: string): string | null {
+export function getMaterialsPayload(text: string): string | null {
   const match = text.trim().match(/^Materials gained:\s*(.*)$/i);
   return match ? match[1].trim() : null;
 }
@@ -50,13 +50,13 @@ export function isIgnoredTrackerMessage(text: string): boolean {
   return ignoredMessages.some((pattern) => pattern.test(cleanLine));
 }
 
-export function couldStartSkillTrackerMessage(text: string): boolean {
+export function couldStartSkillMessage(text: string): boolean {
   const cleanLine = text.trim();
   if (isIgnoredTrackerMessage(cleanLine)) return false;
 
   return (
     /^You (?:get|catch|find)\b/i.test(cleanLine) ||
-    /^Your (?:Boon of Crondis|Boon of Cronos|Farming skillcape perk|Fortune|imp-souled)\b/i.test(cleanLine) ||
+    /^Your (?:Boon of Crondis|Farming skillcape perk|Fortune|imp-souled)\b/i.test(cleanLine) ||
     /^The (?:Seren spirit|forge phoenix|fire spirit) gifts you:/i.test(
       cleanLine,
     ) ||

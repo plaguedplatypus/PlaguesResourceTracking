@@ -67,7 +67,7 @@ let showGpValue = loadSettings().showGpValue ?? false;
 const pendingPrices = new Set<string>();
 const sessionRows = new Map<string, RowElements>();
 
-export function recordSessionUpdates(updates: ItemUpdate[]) {
+export function recordSession(updates: ItemUpdate[]) {
 	if (sessionStatus !== "running") return;
 	if (updates.length === 0) return;
 
@@ -94,7 +94,7 @@ export function recordSessionUpdates(updates: ItemUpdate[]) {
 	updateWindow("items");
 }
 
-export function showSessionWindow() {
+export function showSession() {
 	if (!sessionWindow || sessionWindow.closed) {
 		sessionWindow = window.open(
 			"",

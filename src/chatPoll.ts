@@ -10,7 +10,7 @@ type Dependencies = {
   commitChanges: () => void;
 };
 
-export function processChatPollMessages(
+export function processMessages(
   messages: readonly Message[],
   dependencies: Dependencies,
 ): void {

@@ -1,18 +1,8 @@
 import * as a1lib from "alt1/base";
-import type {
-  CapturedChatBuffer,
-  ChatFontSetting,
-  ChatReaderState,
-  LocalChatbox,
-  PhysicalChatLine,
-} from "./chatTypes";
+import type { CapturedChatBuffer, ChatFontSetting, ChatReaderState, LocalChatbox, PhysicalChatLine, } from "./chatTypes";
 import * as OCR from "alt1/ocr";
 import { couldStartInventionMessage } from "../invention/InventionParser";
-import {
-  couldStartSkillTrackerMessage,
-  isMaterialsGainedMessage,
-  isSpiritRewardMessage,
-} from "../tracking/trackerMessages";
+import { couldStartSkillMessage, isMaterialsGainedMessage, isSpiritRewardMessage, } from "../tracking/trackerMessages";
 
 type ConfirmedGlyph = {
   char: string;
@@ -1639,7 +1629,7 @@ function classifyTrackerRow(
     return "contextual";
   }
 
-  if (couldStartInventionMessage(body) || couldStartSkillTrackerMessage(body)) {
+  if (couldStartInventionMessage(body) || couldStartSkillMessage(body)) {
     return "relevant";
   }
 
@@ -1673,7 +1663,7 @@ function advanceTrackerContext(
   }
   if (
     couldStartInventionMessage(body) ||
-    couldStartSkillTrackerMessage(body) ||
+    couldStartSkillMessage(body) ||
     (classification === "uncertain" && looksLikeDamagedPrefix(body))
   ) {
     return { kind: "tracked", timestamp };

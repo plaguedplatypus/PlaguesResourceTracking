@@ -70,7 +70,7 @@ type Confirmation = {
   confirmLabel: string;
 };
 
-export function createSettingsWindowController(
+export function createSettingsWindow(
 	actions: Actions,
 ): Controller {
   let settingsWindow: Window | null = null;

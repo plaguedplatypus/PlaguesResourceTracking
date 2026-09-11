@@ -1,13 +1,5 @@
-import {
-	getComponentTier,
-	isKnownMaterial,
-	MaterialSuffix,
-} from "./components";
-import {
-	getMaterialsGainedPayload,
-	isIgnoredTrackerMessage,
-	isMaterialsGainedMessage,
-} from "../tracking/trackerMessages";
+import { getComponentTier, isKnownMaterial,	MaterialSuffix, } from "./components";
+import { getMaterialsPayload, isIgnoredTrackerMessage, isMaterialsGainedMessage, } from "../tracking/trackerMessages";
 
 type MaterialUpdate = {
 	item: string;
@@ -53,7 +45,7 @@ export function processInventionMaterials(
 		return buildParseResult([receivedMaterial]);
 	}
 
-	const materialText = getMaterialsGainedPayload(cleanLine);
+	const materialText = getMaterialsPayload(cleanLine);
 
 	if (materialText !== null && /,\s*$/.test(materialText)) {
 		return null;

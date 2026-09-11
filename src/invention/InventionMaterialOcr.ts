@@ -1,12 +1,6 @@
 import type { PhysicalChatLine } from "../chat/chatTypes";
-import {
-	bareMaterialsGainedHeaderPattern,
-	getMaterialsGainedPayload,
-} from "../tracking/trackerMessages";
-import {
-	isKnownMaterial,
-	MaterialSuffix,
-} from "./components";
+import { materialsPattern, getMaterialsPayload, } from "../tracking/trackerMessages";
+import { isKnownMaterial, MaterialSuffix, } from "./components";
 import { isExplicitMaterialEntry } from "./InventionParser";
 
 type LineRereader = (
@@ -48,7 +42,7 @@ export function applyMaterialSupplement(
 
 function hasIncompleteMaterialEntry(text: string): boolean {
 	const body = text.replace(leadingTimestampRegex, "").trim();
-	if (bareMaterialsGainedHeaderPattern.test(body)) return true;
+	if (materialsPattern.test(body)) return true;
 
 	const materialText = getText(text);
 	if (!materialText) return true;
@@ -92,7 +86,7 @@ function isKnownMaterialContinuation(text: string): boolean {
 
 function getText(text: string): string {
 	const body = text.replace(leadingTimestampRegex, "").trim();
-	const payload = getMaterialsGainedPayload(body);
+	const payload = getMaterialsPayload(body);
 	if (payload !== null) return payload;
 
 	return body;

@@ -1,11 +1,5 @@
-import {
-  getFarmingProduce,
-} from "./farming";
-import {
-  isIgnoredTrackerMessage,
-  spiritRewardHeaders,
-  type SpiritRewardSource,
-} from "./trackerMessages";
+import { getFarmingProduce, } from "./farming";
+import { isIgnoredTrackerMessage, spiritRewardHeaders, type SpiritRewardSource, } from "./trackerMessages";
 
 type Skill =
 	| "mining"
@@ -89,7 +83,7 @@ const knownItemOcrCorrections: Readonly<Record<string, string>> = {
 	"raw swor": "raw swordfish",
 };
 
-export function parseSkillTrackerMessage(
+export function parseSkillMessage(
 	cleanLine: string,
 	options: Options
 ): Result | null {
@@ -157,7 +151,7 @@ function parseFarmingMessage(
 			/^Your Farming skillcape perk harvested and noted\s+([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
 		) ??
 		normalizedLine.match(
-			/^Your Boon of Cronos has doubled the following item and sent it to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+			/^Your Boon of Crondis has doubled the following item and sent it to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
 		);
 
 	if (!match) return null;
@@ -180,7 +174,7 @@ function parseSpiritReward(
 		if (!match) continue;
 
 		const entries = splitSpiritRewardEntries(
-			stripSpiritRewardFooter(match[1])
+			stripSpiritReward(match[1])
 		);
 		if (entries.length === 0) return null;
 
@@ -211,7 +205,7 @@ function buildSpiritStorageId(
 	return `${source}::${normalizeTrackedItemName(item)}`;
 }
 
-function stripSpiritRewardFooter(text: string): string {
+function stripSpiritReward(text: string): string {
 	return text.replace(
 		/\s+The gift is sent to your bank\.?\s*$/i,
 		""

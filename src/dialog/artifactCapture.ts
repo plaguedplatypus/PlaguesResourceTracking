@@ -38,14 +38,14 @@ const damagedArtifactRegex =
 	/^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
 const maxDialogReadFails = 3;
 
-function createDefaultDialogReader(): DialogApi {
+function createDialogReader(): DialogApi {
 	const dialogReaderClass = require("alt1/dialog").default;
 	return new dialogReaderClass() as unknown as DialogApi;
 }
 
-export function createArtifactCaptureReader(): ArtifactCaptureReader {
-	const reader = createDefaultDialogReader();
-	let currentDialogCounted = false;
+export function createArtifactReader(): ArtifactCaptureReader {
+	const reader = createDialogReader();
+	let dialogCounted = false;
 	let dialogReadFailCount = 0;
 
 	function readLocatedDialogTexts() {
@@ -118,7 +118,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 				reader.find();
 
 				if (!reader.pos) {
-					currentDialogCounted = false;
+					dialogCounted = false;
 					return null;
 				}
 			}
@@ -131,7 +131,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 				if (dialogReadFailCount >= maxDialogReadFails) {
 					reader.pos = null;
 					dialogReadFailCount = 0;
-					currentDialogCounted = false;
+					dialogCounted = false;
 				}
 
 				return null;
@@ -139,7 +139,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 
 			dialogReadFailCount = 0;
 
-			if (currentDialogCounted || dialogResult.texts.length === 0) {
+			if (dialogCounted || dialogResult.texts.length === 0) {
 				return null;
 			}
 
@@ -161,7 +161,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 			const item = normalizeTrackedItemName(match[1]);
 			if (!item) return null;
 
-			currentDialogCounted = true;
+			dialogCounted = true;
 
 			return {
 				item,
@@ -173,7 +173,7 @@ export function createArtifactCaptureReader(): ArtifactCaptureReader {
 
 		reset() {
 			reader.pos = null;
-			currentDialogCounted = false;
+			dialogCounted = false;
 			dialogReadFailCount = 0;
 		},
 	};
