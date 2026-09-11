@@ -1,10 +1,10 @@
 import { allReleaseNotes, latestReleaseNote } from "./updateNotes";
 
-const updateToastSeenKey = "RT-update-toast-seen-id";
+const seenReleaseStorageId = "RT-update-toast-seen-id";
 
 function getSeenReleaseId() {
 	try {
-		return window.localStorage.getItem(updateToastSeenKey);
+		return window.localStorage.getItem(seenReleaseStorageId);
 	} catch {
 		return null;
 	}
@@ -12,7 +12,7 @@ function getSeenReleaseId() {
 
 function markReleaseSeen(releaseId: string) {
 	try {
-		window.localStorage.setItem(updateToastSeenKey, releaseId);
+		window.localStorage.setItem(seenReleaseStorageId, releaseId);
 	} catch {
 		// localStorage can be unavailable in some embedded contexts.
 	}

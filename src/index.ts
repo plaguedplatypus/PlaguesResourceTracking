@@ -63,13 +63,13 @@ type ItemUpdate = {
   skill: InternalSkillType;
   colorClass?: string;
   source?: string;
-  storageKey?: string;
+  storageId?: string;
 };
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type ArchaeologyFilter = "all" | ArchaeologyDigsite;
 type TrackableSkill = Exclude<SkillType, "all">;
-type SkillVisibility = Record<TrackableSkill, boolean>;
+type SkillSelection = Record<TrackableSkill, boolean>;
 type SortMode = "recent" | "alpha" | "count";
 type CountPosition = "right" | "left";
 
@@ -97,7 +97,7 @@ type SaveData = {
   showInventionFilter?: boolean;
   showArchaeologyFilter?: boolean;
   showArchaeologyArtefacts?: boolean;
-  visibleSkills?: Partial<SkillVisibility>;
+  visibleSkills?: Partial<SkillSelection>;
   hideUnknownSection?: boolean;
   trackerSize?: number;
   sortMode?: SortMode;
@@ -170,7 +170,7 @@ let showStatusFooter = true;
 let showInventionFilter = true;
 let showArchaeologyFilter = true;
 let showArchaeologyArtefacts = true;
-let visibleSkills: SkillVisibility;
+let visibleSkills: SkillSelection;
 let hideUnknownSection = true;
 let trackerSize = trackerSizeDefault;
 let openSettingsItem: string | null = null;
@@ -218,7 +218,7 @@ showStatusFooter = savedData.showStatusFooter ?? true;
 showInventionFilter = savedData.showInventionFilter ?? true;
 showArchaeologyFilter = savedData.showArchaeologyFilter ?? true;
 showArchaeologyArtefacts = savedData.showArchaeologyArtefacts ?? true;
-visibleSkills = normalizeSkillVisibility(savedData.visibleSkills);
+visibleSkills = normalizeSkillSelection(savedData.visibleSkills);
 hideUnknownSection = savedData.hideUnknownSection ?? true;
 trackerSize = savedData.trackerSize ?? trackerSizeDefault;
 sortMode = savedData.sortMode || "recent";
@@ -517,7 +517,7 @@ function getSaveData(): SaveData {
       showInventionFilter: data.showInventionFilter ?? true,
       showArchaeologyFilter: data.showArchaeologyFilter ?? true,
       showArchaeologyArtefacts: data.showArchaeologyArtefacts ?? true,
-      visibleSkills: normalizeSkillVisibility(data.visibleSkills),
+      visibleSkills: normalizeSkillSelection(data.visibleSkills),
       hideUnknownSection: data.hideUnknownSection ?? true,
       trackerSize: normalizeTrackerSize(data.trackerSize),
       sortMode: data.sortMode || "recent",
@@ -550,22 +550,22 @@ function applyItemUpdate(
   update: ItemUpdate,
   timestamp: number,
 ) {
-  const key = update.storageKey || update.item;
-  ensureItem(data, key);
+  const id = update.storageId || update.item;
+  ensureItem(data, id);
 
-  data.items[key].count += update.amount;
-  data.items[key].skill = update.skill;
-  data.items[key].lastUpdated = timestamp;
-  if (update.storageKey) {
-    data.items[key].displayName = update.item;
+  data.items[id].count += update.amount;
+  data.items[id].skill = update.skill;
+  data.items[id].lastUpdated = timestamp;
+  if (update.storageId) {
+    data.items[id].displayName = update.item;
   }
 
   if (update.colorClass) {
-    data.items[key].colorClass = update.colorClass;
+    data.items[id].colorClass = update.colorClass;
   }
 
   if (update.source) {
-    data.items[key].source = update.source;
+    data.items[id].source = update.source;
   }
 }
 
@@ -584,14 +584,14 @@ function recordSessionUpdatesSafely(updates: ItemUpdate[]) {
 
 function buildHighlightedItems(updates: ItemUpdate[], highlightItem?: string) {
   const highlightedItems = new Set(
-    updates.map((update) => update.storageKey || update.item),
+    updates.map((update) => update.storageId || update.item),
   );
 
   if (highlightItem) {
     const highlightedUpdate = updates.find(
       (update) => update.item === highlightItem,
     );
-    highlightedItems.add(highlightedUpdate?.storageKey || highlightItem);
+    highlightedItems.add(highlightedUpdate?.storageId || highlightItem);
   }
 
   return highlightedItems;
@@ -974,16 +974,16 @@ function updateCountPositionUi() {
   document.body.classList.toggle("counts-left", countPosition === "left");
 }
 
-function normalizeSkillVisibility(value: unknown): SkillVisibility {
-  const savedVisibility = value as Partial<SkillVisibility> | undefined;
+function normalizeSkillSelection(value: unknown): SkillSelection {
+  const savedSelection = value as Partial<SkillSelection> | undefined;
   return {
-    mining: savedVisibility?.mining ?? true,
-    woodcutting: savedVisibility?.woodcutting ?? true,
-    fishing: savedVisibility?.fishing ?? false,
-    farming: savedVisibility?.farming ?? false,
-    archaeology: savedVisibility?.archaeology ?? true,
-    invention: savedVisibility?.invention ?? true,
-    seren: savedVisibility?.seren ?? true,
+    mining: savedSelection?.mining ?? true,
+    woodcutting: savedSelection?.woodcutting ?? true,
+    fishing: savedSelection?.fishing ?? false,
+    farming: savedSelection?.farming ?? false,
+    archaeology: savedSelection?.archaeology ?? true,
+    invention: savedSelection?.invention ?? true,
+    seren: savedSelection?.seren ?? true,
   };
 }
 
@@ -1050,7 +1050,7 @@ function toggleInventionFilter() {
   data.showInventionFilter = showInventionFilter;
   saveData(data);
 
-  updateInventionFilterVisibility();
+  updateInventionFilterUi();
   settingsWindow.refresh();
   render();
 }
@@ -1062,7 +1062,7 @@ function toggleArchaeologyFilter() {
   data.showArchaeologyFilter = showArchaeologyFilter;
   saveData(data);
 
-  updateArchaeologyFilterVisibility();
+  updateArchaeologyFilterUi();
   settingsWindow.refresh();
   render();
 }
@@ -1090,7 +1090,7 @@ function setSkillVisible(skill: TrackableSkill, visible: boolean) {
   data.visibleSkills = visibleSkills;
   saveData(data);
 
-  updateSkillTabVisibility();
+  updateSkillTabs();
   settingsWindow.refresh();
   render();
 }
@@ -1124,7 +1124,7 @@ function setTrackerSize(value: number, persist: boolean) {
 }
 
 // Hide invention filters when not on invention tab
-function updateInventionFilterVisibility() {
+function updateInventionFilterUi() {
   if (!inventionFilters) return;
 
   const visible = activeSkillTab === "invention" && showInventionFilter;
@@ -1136,7 +1136,7 @@ function updateInventionFilterVisibility() {
   }
 }
 
-function updateArchaeologyFilterVisibility() {
+function updateArchaeologyFilterUi() {
   if (!archaeologyFilters) return;
 
   archaeologyFilters.classList.toggle(
@@ -1145,7 +1145,7 @@ function updateArchaeologyFilterVisibility() {
   );
 }
 
-function updateSkillTabVisibility() {
+function updateSkillTabs() {
   const enabledSkills = (Object.keys(visibleSkills) as TrackableSkill[]).filter(
     (skill) => visibleSkills[skill],
   );
@@ -1180,8 +1180,8 @@ function updateSkillTabVisibility() {
     document.querySelectorAll<HTMLElement>(".skill-tab").forEach((tab) => {
       tab.classList.toggle("active", tab.dataset.skill === activeSkillTab);
     });
-    updateInventionFilterVisibility();
-    updateArchaeologyFilterVisibility();
+    updateInventionFilterUi();
+    updateArchaeologyFilterUi();
     settingsWindow.refresh();
   }
 
@@ -1387,8 +1387,8 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 
     target.classList.add("active");
 
-    updateInventionFilterVisibility();
-    updateArchaeologyFilterVisibility();
+    updateInventionFilterUi();
+    updateArchaeologyFilterUi();
     settingsWindow.refresh();
     render();
   });
@@ -1600,7 +1600,7 @@ function importData(file: File) {
         showInventionFilter: imported.showInventionFilter ?? true,
         showArchaeologyFilter: imported.showArchaeologyFilter ?? true,
         showArchaeologyArtefacts: imported.showArchaeologyArtefacts ?? true,
-        visibleSkills: normalizeSkillVisibility(imported.visibleSkills),
+        visibleSkills: normalizeSkillSelection(imported.visibleSkills),
         hideUnknownSection: imported.hideUnknownSection ?? true,
         trackerSize: normalizeTrackerSize(imported.trackerSize),
         sortMode: imported.sortMode || "recent",
@@ -1617,15 +1617,15 @@ function importData(file: File) {
       showInventionFilter = data.showInventionFilter ?? true;
       showArchaeologyFilter = data.showArchaeologyFilter ?? true;
       showArchaeologyArtefacts = data.showArchaeologyArtefacts ?? true;
-      visibleSkills = normalizeSkillVisibility(data.visibleSkills);
+      visibleSkills = normalizeSkillSelection(data.visibleSkills);
       hideUnknownSection = data.hideUnknownSection ?? true;
       trackerSize = data.trackerSize ?? trackerSizeDefault;
 
       updateCountPositionUi();
       updateStatusFooterUi();
-      updateInventionFilterVisibility();
-      updateArchaeologyFilterVisibility();
-      updateSkillTabVisibility();
+      updateInventionFilterUi();
+      updateArchaeologyFilterUi();
+      updateSkillTabs();
       updateTrackerSizeUi();
       settingsWindow.refresh();
       render();
@@ -1705,10 +1705,10 @@ if (savedTabButton) {
 }
 
 updateInventionFilterButton();
-updateInventionFilterVisibility();
+updateInventionFilterUi();
 updateArchaeologyFilterButton();
-updateArchaeologyFilterVisibility();
-updateSkillTabVisibility();
+updateArchaeologyFilterUi();
+updateSkillTabs();
 updateInventionAddMenu();
 updateSortButtonLabel();
 settingsWindow.refresh();

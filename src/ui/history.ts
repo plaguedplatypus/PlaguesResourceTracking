@@ -112,8 +112,8 @@ class Renderer<Row> {
 const historyLimit = 100;
 const maxRecentProcessedMessages = 100;
 const trackedHistory = new Log(historyLimit);
-const recentProcessedMessageKeys: string[] = [];
-const recentProcessedMessageSet = new Set<string>();
+const recentMessages: string[] = [];
+const seenMessages = new Set<string>();
 const leadingTimestampRegex =
 	/^\[\s*(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})\s*\]/;
 
@@ -123,12 +123,12 @@ let historyRenderer: Renderer<HTMLElement> | null = null;
 
 export function hasProcessedChatMessage(chatLine: string): boolean {
 	const message = chatLine.trim();
-	if (recentProcessedMessageSet.has(message)) return true;
+	if (seenMessages.has(message)) return true;
 
 	const timestamp = getLeadingTimestamp(message);
 	if (!timestamp) return false;
 
-	return recentProcessedMessageKeys.some((processed) =>
+	return recentMessages.some((processed) =>
 		processed.length > message.length &&
 		getLeadingTimestamp(processed) === timestamp &&
 		processed.startsWith(message)
@@ -137,16 +137,16 @@ export function hasProcessedChatMessage(chatLine: string): boolean {
 
 export function rememberProcessedChatMessage(chatLine: string): void {
 	const message = chatLine.trim();
-	if (!message || recentProcessedMessageSet.has(message)) return;
+	if (!message || seenMessages.has(message)) return;
 
-	recentProcessedMessageKeys.push(message);
-	recentProcessedMessageSet.add(message);
+	recentMessages.push(message);
+	seenMessages.add(message);
 	if (
-		recentProcessedMessageKeys.length >
+		recentMessages.length >
 		maxRecentProcessedMessages
 	) {
-		const oldKey = recentProcessedMessageKeys.shift()!;
-		recentProcessedMessageSet.delete(oldKey);
+		const oldMessage = recentMessages.shift()!;
+		seenMessages.delete(oldMessage);
 	}
 }
 

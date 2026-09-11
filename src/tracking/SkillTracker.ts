@@ -22,7 +22,7 @@ type ItemUpdate = {
 	skill: Skill;
 	colorClass?: string;
 	source?: SpiritRewardSource | string;
-	storageKey?: string;
+	storageId?: string;
 };
 
 type Result = {
@@ -190,7 +190,7 @@ function parseSpiritReward(
 			skill: "seren" as const,
 			colorClass: getSpiritColorClass(header.source, item),
 			source: header.source,
-			storageKey: buildSpiritStorageKey(header.source, item),
+			storageId: buildSpiritStorageId(header.source, item),
 		}));
 
 		return {
@@ -204,7 +204,7 @@ function parseSpiritReward(
 	return null;
 }
 
-function buildSpiritStorageKey(
+function buildSpiritStorageId(
 	source: SpiritRewardSource,
 	item: string
 ): string {

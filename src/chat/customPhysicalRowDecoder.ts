@@ -218,7 +218,7 @@ export class CustomPhysicalRowDecoder {
   private readonly ocr: RowOcrPrimitives = OCR;
   private lastReadBuffer: CapturedChatBuffer | null = null;
   private capturedReadCache: {
-    key: string;
+    signature: string;
     pixels: Uint8ClampedArray;
     result: PhysicalChatLine[];
   } | null = null;
@@ -261,10 +261,10 @@ export class CustomPhysicalRowDecoder {
     if (!reader.font) return [];
 
     const colors = this.ocrPalette.slice();
-    const cacheKey = buildReadCacheKey(reader, image, colors);
+    const signature = buildReadSignature(reader, image, colors);
     if (
       this.capturedReadCache &&
-      this.capturedReadCache.key === cacheKey &&
+      this.capturedReadCache.signature === signature &&
       haveEqualPixels(this.capturedReadCache.pixels, image.data)
     ) {
       return this.capturedReadCache.result;
@@ -272,7 +272,7 @@ export class CustomPhysicalRowDecoder {
 
     const result = this.decodeCapturedRows(reader, colors);
     this.capturedReadCache = {
-      key: cacheKey,
+      signature,
       pixels: new Uint8ClampedArray(image.data),
       result,
     };
@@ -289,7 +289,7 @@ export class CustomPhysicalRowDecoder {
     if (!buffer || !box || !font) return [];
 
     const lines: PhysicalChatLine[] = [];
-    const rowCacheContext = buildReadCacheKey(
+    const rowCacheContext = buildReadSignature(
       reader,
       buffer.buf,
       colors,
@@ -325,14 +325,14 @@ export class CustomPhysicalRowDecoder {
     let continuationContext: ContinuationContext = null;
     for (const row of rows.reverse()) {
       const { absoluteBaseline, rowSignature } = row;
-      const contextKey = buildContextKey(continuationContext);
-      const cacheKey =
-        rowSignature === null ? null : `${rowSignature}|${contextKey}`;
+      const contextTag = buildContextTag(continuationContext);
+      const signature =
+        rowSignature === null ? null : `${rowSignature}|${contextTag}`;
       const hasCachedRow =
-        cacheKey !== null && this.decodedRowCache.has(cacheKey);
+        signature !== null && this.decodedRowCache.has(signature);
       const decoded = hasCachedRow
         ? rebaseRow(
-            this.decodedRowCache.get(cacheKey!) ?? null,
+            this.decodedRowCache.get(signature!) ?? null,
             absoluteBaseline,
           )
         : this.decodeScreenedRow(
@@ -341,8 +341,8 @@ export class CustomPhysicalRowDecoder {
             colors,
             continuationContext,
           );
-      if (cacheKey !== null) {
-        this.rememberDecodedRow(cacheKey, decoded);
+      if (signature !== null) {
+        this.rememberDecodedRow(signature, decoded);
       }
       if (!decoded) continue;
       lines.push(decoded);
@@ -584,7 +584,7 @@ function calculateStartX(bufferX: number, box: LocalChatbox): number {
   return box.leftfound ? nominalStartX : Math.max(0, nominalStartX - 300);
 }
 
-function buildContextKey(
+function buildContextTag(
   context: ContinuationContext,
 ): string {
   return context ? `${context.kind}:${context.timestamp ?? ""}` : "none";
@@ -709,7 +709,7 @@ function rebaseRow(
   };
 }
 
-function buildReadCacheKey(
+function buildReadSignature(
   reader: ChatReaderState,
   image: ImageData,
   colors: readonly OCR.ColortTriplet[],
@@ -1150,7 +1150,7 @@ function findBoundaryMatch(
       /\]\s*$/.test(currentText) ||
         /Materials gained:\s*$/i.test(currentText) ||
         /\b(?:parts|components),\s*$/i.test(currentText),
-      getBoundaryColorHintKey(currentText),
+      getBoundaryHintId(currentText),
       boundaryColorHints,
     );
   const allowsSecondaryComma = !/[\]:]\s*$/.test(currentText);
@@ -1262,7 +1262,7 @@ function findBoundaryMatch(
   return primary;
 }
 
-function getBoundaryColorHintKey(currentText: string): string | null {
+function getBoundaryHintId(currentText: string): string | null {
   if (/^\[[A-Za-z0-9: ]+\]\s*$/.test(currentText)) {
     return "post-timestamp";
   }
@@ -1286,14 +1286,14 @@ function findBestBoundaryGlyph(
   ocr: RowOcrPrimitives,
   colorLimit = maxRankedColors,
   arbitrateSeedRead = false,
-  colorHintKey: string | null = null,
+  hintId: string | null = null,
   colorHints: Map<string, OCR.ColortTriplet> | undefined = undefined,
 ): BoundaryMatch | null {
-  if (arbitrateSeedRead && colorHintKey && colorHints?.has(colorHintKey)) {
+  if (arbitrateSeedRead && hintId && colorHints?.has(hintId)) {
     const hinted = readHintedBoundaryGlyph(
       buffer,
       font,
-      colorHints.get(colorHintKey)!,
+      colorHints.get(hintId)!,
       cursor,
       baselineY,
       gaps,
@@ -1339,11 +1339,11 @@ function findBestBoundaryGlyph(
   if (!best) return null;
   if (
     arbitrateSeedRead &&
-    colorHintKey &&
+    hintId &&
     best.glyph.seedRead &&
     isStrongBoundarySeedRead(best.glyph.seedRead)
   ) {
-    colorHints?.set(colorHintKey, best.glyph.color);
+    colorHints?.set(hintId, best.glyph.color);
   }
   return {
     gap: best.gap,

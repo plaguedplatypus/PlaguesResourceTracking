@@ -6,7 +6,7 @@ export type SessionStatus = "idle" | "running" | "paused";
 type ItemUpdate = {
 	item: string;
 	amount: number;
-	storageKey?: string;
+	storageId?: string;
 };
 
 export function getSessionStatus(): SessionStatus {
@@ -48,8 +48,8 @@ type RowElements = {
 };
 
 const appName = "ResourceTracker";
-const sessionSettingsKey = `${appName}_SessionSettings`;
-const priceCacheKey = `${appName}_PriceCache`;
+const sessionSettingsId = `${appName}_SessionSettings`;
+const priceCacheId = `${appName}_PriceCache`;
 const priceCacheDurationMs = 24 * 60 * 60 * 1000;
 
 let sessionStatus: SessionStatus = "idle";
@@ -74,17 +74,17 @@ export function recordSessionUpdates(updates: ItemUpdate[]) {
 	const timestamp = Date.now();
 
 	for (const update of updates) {
-		const key = update.storageKey || update.item;
-		if (!sessionItems[key]) {
-			sessionItems[key] = {
+		const id = update.storageId || update.item;
+		if (!sessionItems[id]) {
+			sessionItems[id] = {
 				count: 0,
 				lastUpdated: timestamp,
 				displayName: update.item,
 			};
 		}
 
-		sessionItems[key].count += update.amount;
-		sessionItems[key].lastUpdated = timestamp;
+		sessionItems[id].count += update.amount;
+		sessionItems[id].lastUpdated = timestamp;
 
 		if (showGpValue) {
 			void ensurePriceForItem(update.item);
@@ -338,11 +338,11 @@ function updateTotals(doc: Document) {
 }
 
 function syncRows(doc: Document, mode: UpdateMode) {
-	const orderedKeys = Object.keys(sessionItems).sort((a, b) =>
+	const orderedIds = Object.keys(sessionItems).sort((a, b) =>
 		sessionItems[b].lastUpdated - sessionItems[a].lastUpdated
 	);
 	const shouldReconcileStructure = mode === "full" || mode === "items";
-	const activeKeys = new Set(orderedKeys);
+	const activeIds = new Set(orderedIds);
 	const tbody = doc.getElementById("session-items-body") as HTMLTableSectionElement | null;
 	const table = doc.getElementById("session-items-table") as HTMLTableElement | null;
 	const empty = doc.getElementById("session-empty");
@@ -350,23 +350,23 @@ function syncRows(doc: Document, mode: UpdateMode) {
 	if (!tbody || !table || !empty) return;
 
 	if (shouldReconcileStructure) {
-		const removedKeys: string[] = [];
-		sessionRows.forEach((elements, key) => {
-			if (activeKeys.has(key)) return;
+		const removedIds: string[] = [];
+		sessionRows.forEach((elements, id) => {
+			if (activeIds.has(id)) return;
 			elements.row.remove();
-			removedKeys.push(key);
+			removedIds.push(id);
 		});
-		for (const key of removedKeys) {
-			sessionRows.delete(key);
+		for (const id of removedIds) {
+			sessionRows.delete(id);
 		}
 
-		for (const key of orderedKeys) {
-			const itemData = sessionItems[key];
-			let elements = sessionRows.get(key);
+		for (const id of orderedIds) {
+			const itemData = sessionItems[id];
+			let elements = sessionRows.get(id);
 
 			if (!elements) {
 				elements = createRow(doc);
-				sessionRows.set(key, elements);
+				sessionRows.set(id, elements);
 			}
 
 			const renderedName = titleCase(itemData.displayName);
@@ -381,9 +381,9 @@ function syncRows(doc: Document, mode: UpdateMode) {
 	const elapsedMs = getElapsedMs();
 	const elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
 
-	for (const key of orderedKeys) {
-		const elements = sessionRows.get(key);
-		const itemData = sessionItems[key];
+	for (const id of orderedIds) {
+		const elements = sessionRows.get(id);
+		const itemData = sessionItems[id];
 		if (!elements) continue;
 
 		const perHour = elapsedHours > 0
@@ -405,7 +405,7 @@ function syncRows(doc: Document, mode: UpdateMode) {
 		elements.gpPerHour.textContent = formatGpPerHour(gpPerHour);
 	}
 
-	const hasItems = orderedKeys.length > 0;
+	const hasItems = orderedIds.length > 0;
 	table.hidden = !hasItems;
 	empty.hidden = hasItems;
 }
@@ -585,22 +585,22 @@ async function ensurePrices() {
 }
 
 async function ensurePriceForItem(item: string) {
-	const cacheKey = getItemCacheKey(item);
+	const priceId = getPriceId(item);
 
 	if (isCoinsItem(item)) return;
 
 	const cachedPrice = getCachedPrice(item);
 
 	if (cachedPrice !== undefined) return;
-	if (pendingPrices.has(cacheKey)) return;
+	if (pendingPrices.has(priceId)) return;
 
-	pendingPrices.add(cacheKey);
+	pendingPrices.add(priceId);
 
 	try {
 		const price = await fetchItemPrice(item);
 		const cache = loadPriceCache();
 
-		cache[cacheKey] = {
+		cache[priceId] = {
 			price,
 			checkedAt: Date.now(),
 		};
@@ -609,14 +609,14 @@ async function ensurePriceForItem(item: string) {
 	} catch {
 		const cache = loadPriceCache();
 
-		cache[cacheKey] = {
+		cache[priceId] = {
 			price: null,
 			checkedAt: Date.now(),
 		};
 
 		savePriceCache(cache);
 	} finally {
-		pendingPrices.delete(cacheKey);
+		pendingPrices.delete(priceId);
 		updateWindow("prices");
 	}
 }
@@ -649,7 +649,7 @@ function getCachedPrice(item: string): number | null | undefined {
 	if (isCoinsItem(item)) return 1;
 
 	const cache = loadPriceCache();
-	const entry = cache[getItemCacheKey(item)];
+	const entry = cache[getPriceId(item)];
 
 	if (!entry) return undefined;
 
@@ -661,7 +661,7 @@ function getCachedPrice(item: string): number | null | undefined {
 }
 
 function loadPriceCache(): Cache {
-	const raw = localStorage.getItem(priceCacheKey);
+	const raw = localStorage.getItem(priceCacheId);
 
 	if (!raw) return {};
 
@@ -673,11 +673,11 @@ function loadPriceCache(): Cache {
 }
 
 function savePriceCache(cache: Cache) {
-	localStorage.setItem(priceCacheKey, JSON.stringify(cache));
+	localStorage.setItem(priceCacheId, JSON.stringify(cache));
 }
 
 function loadSettings(): Settings {
-	const raw = localStorage.getItem(sessionSettingsKey);
+	const raw = localStorage.getItem(sessionSettingsId);
 
 	if (!raw) return {};
 
@@ -689,7 +689,7 @@ function loadSettings(): Settings {
 }
 
 function saveSettings(settings: Settings) {
-	localStorage.setItem(sessionSettingsKey, JSON.stringify(settings));
+	localStorage.setItem(sessionSettingsId, JSON.stringify(settings));
 }
 
 function cleanItemNameForPrice(item: string) {
@@ -700,7 +700,7 @@ function cleanItemNameForPrice(item: string) {
 		.trim();
 }
 
-function getItemCacheKey(item: string) {
+function getPriceId(item: string) {
 	return cleanItemNameForPrice(item);
 }
 

@@ -16,15 +16,15 @@ export function processChatPollMessages(
 ): void {
   try {
     for (const { text: chatLine } of messages) {
-      const historyKey = chatLine.trim();
-      if (!historyKey) continue;
+      const message = chatLine.trim();
+      if (!message) continue;
 
-      if (dependencies.hasProcessed(historyKey)) continue;
+      if (dependencies.hasProcessed(message)) continue;
 
       const tracked = dependencies.processMessage(chatLine);
-      dependencies.rememberProcessed(historyKey);
+      dependencies.rememberProcessed(message);
       if (!tracked) continue;
-      dependencies.addHistory(historyKey);
+      dependencies.addHistory(message);
     }
   } finally {
     dependencies.commitChanges();
