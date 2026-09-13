@@ -13,8 +13,6 @@ import { createArtifactReader } from "./dialog/artifactCapture";
 import { processMessages } from "./chatPoll";
 import { createSettingsWindow } from "./ui/Settings";
 
-import "./index.html";
-import "./appconfig.json";
 import "./ui/style.css";
 
 type SkillType =
