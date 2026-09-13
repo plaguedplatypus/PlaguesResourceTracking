@@ -24,6 +24,7 @@ body {
 }
 
 .title {
+    flex: 0 0 auto;
     color: #d8c58a;
     font-size: 11px;
     font-weight: normal;
@@ -70,6 +71,7 @@ body {
 }
 
 .skill-tabs-wrap {
+    flex: 0 0 auto;
     position: relative;
     min-width: 0;
     margin: 0;
@@ -154,6 +156,7 @@ body {
 
 .invention-filters,
 .archaeology-filters {
+    flex: 0 0 auto;
     display: none;
     position: relative;
     gap: 3px;
