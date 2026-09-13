@@ -82,4 +82,5 @@ Source: https://github.com/plaguedplatypus/PlaguesResourceTracking
 - Mining is only trackable when using Porters or Grace of the Elves.
 - Some Woodcutting resources may be approximate when gathered directly to inventory without porter messages.
 - Farming, herbs, Herblore, and general loot tracking are not currently supported though may still appear in the "ALL" tab.
-- If something is missed, enable the debug/history option to view tracked and ignored chat lines. Copy the chat log if something needs to be fixed.
+
+
