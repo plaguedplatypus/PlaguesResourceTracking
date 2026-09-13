@@ -1,5 +1,5 @@
 import { getComponentTier, isKnownMaterial,	MaterialSuffix, } from "./components";
-import { getMaterialsPayload, isIgnoredTrackerMessage, isMaterialsGainedMessage, } from "../tracking/trackerMessages";
+import { getMaterialsPayload, isIgnoredMessage, isMaterialsGainedMessage, } from "../tracking/trackerMessages";
 
 type MaterialUpdate = {
 	item: string;
@@ -11,7 +11,6 @@ type MaterialUpdate = {
 
 type ParseResult = {
 	updates: MaterialUpdate[];
-	statusMessage: string;
 };
 
 type Material = {
@@ -25,7 +24,7 @@ export function processInventionMaterials(
 	rawLine: string
 ): ParseResult | null {
 	const cleanLine = normalizeInventionMessage(rawLine);
-	if (isIgnoredTrackerMessage(cleanLine)) return null;
+	if (isIgnoredMessage(cleanLine)) return null;
 	const scavengingMatch = cleanLine.match(/^Your Scavenging perk adds:\s*(.+)$/i);
 	if (scavengingMatch) {
 		const scavengingMaterial = parseExplicitEntry(scavengingMatch[1]);
@@ -67,7 +66,7 @@ export function processInventionMaterials(
 
 export function couldStartInventionMessage(text: string): boolean {
 	const cleanLine = normalizeInventionMessage(text);
-	if (isIgnoredTrackerMessage(cleanLine)) return false;
+	if (isIgnoredMessage(cleanLine)) return false;
 	return (
 		isMaterialsGainedMessage(cleanLine) ||
 		/^Your Scavenging perk adds:/i.test(cleanLine) ||
@@ -80,12 +79,8 @@ export function couldStartInventionMessage(text: string): boolean {
 function buildParseResult(
 	entries: Material[]
 ): ParseResult {
-	const updates = entries.map(toUpdate);
-	const last = entries[entries.length - 1];
-
 	return {
-		updates,
-		statusMessage: `💡: ${last.amount} x ${last.item}`,
+		updates: entries.map(toUpdate),
 	};
 }
 

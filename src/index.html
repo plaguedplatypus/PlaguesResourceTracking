@@ -3,13 +3,14 @@
 
 <body class="nis">
     <div class="app">
-        <div>
-            <div class="title">
+        <div class="title">
+            <div class="title-controls">
                 <button class="tabs-toggle" title="Compact Mode">-</button>
-                <button class="compact-sort-button compact-only" title="Sort">⇵</button>
-                <button class="compact-settings-button compact-only" title="Settings">⚙</button>
-                Resource Tracker
+                <button class="sort-button" title="Sort">⇵</button>
+                <button class="session-quick-button" title="Session">S</button>
+                <button class="app-cog" title="Settings">⚙</button>
             </div>
+            Resource Tracker
         </div>
 
         <div class="skill-tabs-wrap">
@@ -60,15 +61,7 @@
 
         <div class="tracker"></div>
 
-        <div class="footer">
-            <span class="status">Initializing...</span>
-        </div>
-
-        <div class="app-settings">
-            <button class="sort-button" title="Sort">⇵</button>
-            <button class="session-quick-button" title="Session">S</button>
-            <button class="app-cog" title="Settings">⚙</button>
-        </div>
+        <div class="tracker-message" role="status" aria-live="polite" hidden></div>
 
         <script src="./main.js"></script>
 </body>

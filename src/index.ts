@@ -2,8 +2,8 @@ import * as a1lib from "alt1/base";
 import { processInventionMaterials } from "./invention/InventionParser";
 import { getInventionOption, type InventionOption, } from "./invention/components";
 import { digsiteMaterials, type Digsite, } from "./tracking/materials";
-import { parseSkillMessage } from "./tracking/SkillTracker";
-import { isIgnoredTrackerMessage } from "./tracking/trackerMessages";
+import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
+import { isIgnoredMessage } from "./tracking/trackerMessages";
 import { recordSession, showSession, getSessionStatus, } from "./ui/session";
 import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
@@ -49,7 +49,7 @@ type ItemUpdate = {
 };
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
-type ArchaeologyFilter = "all" | Digsite;
+type ArchFilter = "all" | Digsite;
 type TrackableSkill = Exclude<SkillType, "all">;
 type SkillSelection = Record<TrackableSkill, boolean>;
 type SortMode = "recent" | "alpha" | "count";
@@ -58,6 +58,7 @@ type CountPosition = "right" | "left";
 const trackerSizeMin = 10;
 const trackerSizeMax = 16;
 const trackerSizeDefault = 12;
+const messageDurationMs = 5000;
 const skillIconIds = new Set<InternalSkillType>([
   "mining",
   "woodcutting",
@@ -75,10 +76,9 @@ type SaveData = {
   shortInventionNames?: boolean;
   countPosition?: CountPosition;
   showAllTabIcons?: boolean;
-  showStatusFooter?: boolean;
   showInventionFilter?: boolean;
-  showArchaeologyFilter?: boolean;
-  showArchaeologyArtefacts?: boolean;
+  showArchFilter?: boolean;
+  showArchArtefacts?: boolean;
   visibleSkills?: Partial<SkillSelection>;
   hideUnknownSection?: boolean;
   trackerSize?: number;
@@ -90,12 +90,6 @@ const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
 const tabsToggleButton = document.querySelector(
   ".tabs-toggle",
-) as HTMLElement | null;
-const compactSortButton = document.querySelector(
-  ".compact-sort-button",
-) as HTMLElement | null;
-const compactSettingsButton = document.querySelector(
-  ".compact-settings-button",
 ) as HTMLElement | null;
 
 const skillTabs = document.querySelector(".skill-tabs") as HTMLElement;
@@ -114,8 +108,7 @@ const sessionQuickButton = document.querySelector(
 ) as HTMLElement | null;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
-const status = document.querySelector(".status") as HTMLElement;
-const footer = document.querySelector(".footer") as HTMLElement;
+const message = document.querySelector(".tracker-message") as HTMLElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 
 const inventionFilters = document.querySelector(
@@ -130,17 +123,17 @@ const inventionAddButton = document.querySelector(
 const inventionAddMenu = document.querySelector(
   ".invention-add-menu",
 ) as HTMLElement;
-const archaeologyFilters = document.querySelector(
+const archFilters = document.querySelector(
   ".archaeology-filters",
 ) as HTMLElement;
-const archaeologyFilterButton = document.querySelector(
+const archFilterButton = document.querySelector(
   ".archaeology-filter-cycle",
 ) as HTMLElement;
 
 const savedData = getSaveData();
 
 let inventionFilter: InventionFilter = "all";
-let archaeologyFilter: ArchaeologyFilter = "all";
+let archFilter: ArchFilter = "all";
 let inventionAddMenuOpen = false;
 let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
@@ -148,10 +141,9 @@ let fishingUsePorters = true;
 let shortInventionNames = false;
 let countPosition: CountPosition = "right";
 let showAllTabIcons = true;
-let showStatusFooter = true;
 let showInventionFilter = true;
-let showArchaeologyFilter = true;
-let showArchaeologyArtefacts = true;
+let showArchFilter = true;
+let showArchArtefacts = true;
 let visibleSkills: SkillSelection;
 let hideUnknownSection = true;
 let trackerSize = trackerSizeDefault;
@@ -160,9 +152,10 @@ let tabsCollapsed = false;
 let reader = new ChatReader();
 let chatFontState: "waiting" | "ready" = "waiting";
 let activeChatFontName: string | null = null;
+let messageTimer: number | undefined;
 
-const archaeologyFilterCycle: ReadonlyArray<{
-  filter: ArchaeologyFilter;
+const archFilterCycle: ReadonlyArray<{
+  filter: ArchFilter;
   label: string;
 }> = [
   { filter: "all", label: "All" },
@@ -192,17 +185,7 @@ activeSkillTab =
   savedActiveTab === "other"
     ? "all"
     : ((savedData.activeTab || "all") as SkillType);
-fishingUsePorters = savedData.fishingUsePorters ?? true;
-shortInventionNames = savedData.shortInventionNames ?? false;
-countPosition = savedData.countPosition === "left" ? "left" : "right";
-showAllTabIcons = savedData.showAllTabIcons ?? true;
-showStatusFooter = savedData.showStatusFooter ?? true;
-showInventionFilter = savedData.showInventionFilter ?? true;
-showArchaeologyFilter = savedData.showArchaeologyFilter ?? true;
-showArchaeologyArtefacts = savedData.showArchaeologyArtefacts ?? true;
-visibleSkills = normalizeSkillSelection(savedData.visibleSkills);
-hideUnknownSection = savedData.hideUnknownSection ?? true;
-trackerSize = savedData.trackerSize ?? trackerSizeDefault;
+applySavedSettings(savedData);
 sortMode = savedData.sortMode || "recent";
 
 const artifactReader = createArtifactReader();
@@ -214,10 +197,9 @@ const settingsWindow = createSettingsWindow({
     shortInventionNames,
     countPosition,
     showAllTabIcons,
-    showStatusFooter,
     showInventionFilter,
-    showArchaeologyFilter,
-    showArchaeologyArtefacts,
+    showArchFilter,
+    showArchArtefacts,
     trackedSkills: visibleSkills,
     hideUnknownSection,
     trackerSize,
@@ -230,16 +212,15 @@ const settingsWindow = createSettingsWindow({
   }),
   selectChat,
   findChat: refreshChatboxes,
-  showHistory: showHistory,
-  showSession: showSession,
+  showHistory,
+  showSession,
   togglePorters,
   toggleShortNames,
   setCountPosition,
   toggleAllIcons,
-  toggleFooter,
   toggleInventionFilter,
-  toggleArchaeologyFilter,
-  toggleArchaeologyArtefacts,
+  toggleArchFilter,
+  toggleArchArtefacts,
   setSkillVisible,
   toggleUnknownSection,
   setTrackerSize,
@@ -247,7 +228,7 @@ const settingsWindow = createSettingsWindow({
   importData,
   clearTab,
   resetTabCounts,
-  showPatchNotes: showPatchNotes,
+  showPatchNotes,
 });
 
 window.setTimeout(function () {
@@ -261,7 +242,6 @@ window.setTimeout(function () {
   const findChat = setInterval(function () {
     if (reader.pos === null) {
       reader.find();
-      status.innerText = "Looking for chatbox...";
       return;
     }
 
@@ -271,7 +251,7 @@ window.setTimeout(function () {
     showSelectedChat(reader.pos);
     chatFontState = "waiting";
     activeChatFontName = null;
-    status.innerText = getChatFontWaitMessage();
+    showMessage(getChatFontWaitMessage());
     render();
 
     const runReaderPoll = (readerName: "chat" | "dialog", read: () => void) => {
@@ -279,8 +259,7 @@ window.setTimeout(function () {
         read();
       } catch (error) {
         console.warn(`${readerName} reader failed`, error);
-        status.innerText =
-          "Tracking read failed. Click Find Chat if tracking stopped.";
+        showMessage("Tracking read failed. Click Find Chat if tracking stopped.");
       }
     };
 
@@ -302,7 +281,10 @@ if (window.alt1) {
   alt1.identifyAppUrl("./appconfig.json");
 } else {
   const appUrl = `alt1://addapp/${new URL("./appconfig.json", document.location.href).href}`;
-  status.innerHTML = `Alt1 not detected. <a href='${appUrl}'>Add this app to Alt1</a>`;
+  showMessage(
+    `Alt1 not detected. <a href='${appUrl}'>Add this app to Alt1</a>`,
+    true,
+  );
 }
 
 function selectChat(value: string) {
@@ -311,23 +293,30 @@ function selectChat(value: string) {
   reader.pos.mainbox = reader.pos.boxes[Number(value)];
   showSelectedChat(reader.pos);
 
-  const data = getSaveData();
-  data.chat = value;
-  saveData(data);
+  saveSetting("chat", value);
   settingsWindow.refresh();
-  status.innerText = `Using Chat ${value}.`;
+}
+
+function resolveSavedChat(pos: ChatPosition, savedChat: string | undefined) {
+  const savedIndex = Number(savedChat || "0");
+  const index = pos.boxes[savedIndex] ? savedIndex : 0;
+
+  return {
+    box: pos.boxes[index],
+    index,
+  };
 }
 
 function selectSavedChat() {
-  if (!reader.pos) return;
+  const pos = reader.pos;
+  if (!pos) return;
 
   const data = getSaveData();
-  const savedChat = data.chat || "0";
+  const selected = resolveSavedChat(pos, data.chat);
 
-  reader.pos.mainbox =
-    reader.pos.boxes[Number(savedChat)] || reader.pos.boxes[0];
+  pos.mainbox = selected.box;
 
-  data.chat = savedChat;
+  data.chat = String(selected.index);
   saveData(data);
   settingsWindow.refresh();
 }
@@ -352,7 +341,6 @@ function readDialogBox() {
   if (!result) return;
 
   incrementItem(result.item, result.quantity, result.source);
-  setStatus(`Added: ${result.item}`);
 
   markSeenMessage(result.rawText);
   addHistoryEntry(result.rawText, "dialog");
@@ -391,7 +379,7 @@ function readChatbox() {
     if (chatFontState !== "waiting") {
       chatFontState = "waiting";
       activeChatFontName = null;
-      status.innerText = getChatFontWaitMessage();
+      showMessage(getChatFontWaitMessage());
     }
     return;
   }
@@ -399,7 +387,7 @@ function readChatbox() {
   if (chatFontState !== "ready" || activeChatFontName !== selectedFontName) {
     chatFontState = "ready";
     activeChatFontName = selectedFontName;
-    status.innerText = `Tracking ${selectedFontName} chat.`;
+    showMessage(`Tracking ${selectedFontName} chat.`);
   }
 
   const transaction = createPollTransaction();
@@ -423,7 +411,7 @@ function processChatLine(
   increment: (updates: ItemUpdate[], highlightItem?: string) => void,
 ): boolean {
   const cleanLine = chatLine.replace(timestampRegex, "").trim();
-  if (isIgnoredTrackerMessage(cleanLine)) return false;
+  if (isIgnoredMessage(cleanLine)) return false;
 
   // Invention materials
   const inventionResult = processInventionMaterials(cleanLine);
@@ -433,8 +421,6 @@ function processChatLine(
       inventionResult.updates,
       inventionResult.updates[inventionResult.updates.length - 1].item,
     );
-
-    setStatus(inventionResult.statusMessage);
 
     return true;
   }
@@ -448,7 +434,6 @@ function processChatLine(
     trackingResult.updates,
     trackingResult.updates[trackingResult.updates.length - 1].item,
   );
-  setStatus(trackingResult.statusMessage);
   return true;
 }
 
@@ -465,57 +450,89 @@ function isDamagedArtefact(item: string) {
   return item.toLowerCase().includes("(damaged)");
 }
 
-// Show the latest tracked event in the status footer.
-function getTimestamp() {
-  return new Date().toLocaleTimeString("en-US", {
-    hour12: false,
-  });
+function showMessage(text: string, markup = false) {
+  window.clearTimeout(messageTimer);
+
+  if (markup) {
+    message.innerHTML = text;
+  } else {
+    message.innerText = text;
+  }
+
+  message.hidden = false;
+  messageTimer = window.setTimeout(() => {
+    message.replaceChildren();
+    message.hidden = true;
+  }, messageDurationMs);
 }
-function setStatus(message: string) {
-  status.innerText = `${message} @ ${getTimestamp()}`;
+
+function normalizeSaveData(value: unknown): SaveData {
+  if (value === undefined) {
+    return {
+      sortMode: "recent",
+      trackerSize: trackerSizeDefault,
+      items: {},
+    };
+  }
+
+  const data = value as Partial<SaveData>;
+
+  return {
+    chat: data.chat,
+    activeTab: data.activeTab || "all",
+    fishingUsePorters: data.fishingUsePorters ?? true,
+    shortInventionNames: data.shortInventionNames ?? false,
+    countPosition: data.countPosition === "left" ? "left" : "right",
+    showAllTabIcons: data.showAllTabIcons ?? true,
+    showInventionFilter: data.showInventionFilter ?? true,
+    showArchFilter: data.showArchFilter ?? true,
+    showArchArtefacts: data.showArchArtefacts ?? true,
+    visibleSkills: normalizeSkillSelection(data.visibleSkills),
+    hideUnknownSection: data.hideUnknownSection ?? true,
+    trackerSize: normalizeTrackerSize(data.trackerSize),
+    sortMode: data.sortMode || "recent",
+    items: data.items || {},
+  };
+}
+
+function applySavedSettings(data: SaveData) {
+  fishingUsePorters = data.fishingUsePorters ?? true;
+  shortInventionNames = data.shortInventionNames ?? false;
+  countPosition = data.countPosition === "left" ? "left" : "right";
+  showAllTabIcons = data.showAllTabIcons ?? true;
+  showInventionFilter = data.showInventionFilter ?? true;
+  showArchFilter = data.showArchFilter ?? true;
+  showArchArtefacts = data.showArchArtefacts ?? true;
+  visibleSkills = normalizeSkillSelection(data.visibleSkills);
+  hideUnknownSection = data.hideUnknownSection ?? true;
+  trackerSize = data.trackerSize ?? trackerSizeDefault;
 }
 
 function getSaveData(): SaveData {
   const raw = localStorage.getItem(appName);
 
   if (!raw) {
-    return {
-      sortMode: "recent",
-      trackerSize: trackerSizeDefault,
-      items: {},
-    };
+    return normalizeSaveData(undefined);
   }
 
   try {
-    const data = JSON.parse(raw);
-    return {
-      chat: data.chat,
-      activeTab: data.activeTab || "all",
-      fishingUsePorters: data.fishingUsePorters ?? true,
-      shortInventionNames: data.shortInventionNames ?? false,
-      countPosition: data.countPosition === "left" ? "left" : "right",
-      showAllTabIcons: data.showAllTabIcons ?? true,
-      showStatusFooter: data.showStatusFooter ?? true,
-      showInventionFilter: data.showInventionFilter ?? true,
-      showArchaeologyFilter: data.showArchaeologyFilter ?? true,
-      showArchaeologyArtefacts: data.showArchaeologyArtefacts ?? true,
-      visibleSkills: normalizeSkillSelection(data.visibleSkills),
-      hideUnknownSection: data.hideUnknownSection ?? true,
-      trackerSize: normalizeTrackerSize(data.trackerSize),
-      sortMode: data.sortMode || "recent",
-      items: data.items || {},
-    };
+    return normalizeSaveData(JSON.parse(raw));
   } catch {
-    return {
-      sortMode: "recent",
-      trackerSize: trackerSizeDefault,
-      items: {},
-    };
+    return normalizeSaveData(undefined);
   }
 }
 
 function saveData(data: SaveData) {
   localStorage.setItem(appName, JSON.stringify(data));
+}
+
+function saveSetting<Field extends keyof SaveData>(
+  field: Field,
+  value: SaveData[Field],
+) {
+  const data = getSaveData();
+  data[field] = value;
+  saveData(data);
 }
 
 function ensureItem(data: SaveData, item: string) {
@@ -532,7 +549,7 @@ function applyItemUpdate(
   update: ItemUpdate,
   timestamp: number,
 ) {
-  const id = update.storageId || update.item;
+  const id = getUpdateId(update);
   ensureItem(data, id);
 
   data.items[id].count += update.amount;
@@ -565,15 +582,15 @@ function recordSessionSafely(updates: ItemUpdate[]) {
 }
 
 function buildHighlightedItems(updates: ItemUpdate[], highlightItem?: string) {
-  const highlightedItems = new Set(
-    updates.map((update) => update.storageId || update.item),
-  );
+  const highlightedItems = new Set(updates.map(getUpdateId));
 
   if (highlightItem) {
     const highlightedUpdate = updates.find(
       (update) => update.item === highlightItem,
     );
-    highlightedItems.add(highlightedUpdate?.storageId || highlightItem);
+    highlightedItems.add(
+      highlightedUpdate ? getUpdateId(highlightedUpdate) : highlightItem,
+    );
   }
 
   return highlightedItems;
@@ -643,10 +660,10 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
   if (activeSkillTab === "archaeology") {
     const materials = items.filter(function (item) {
-      return !isDamagedArtefact(item) && matchesArchaeologyFilter(item);
+      return !isDamagedArtefact(item) && matchesArchFilter(item);
     });
 
-    const artefacts = showArchaeologyArtefacts
+    const artefacts = showArchArtefacts
       ? items.filter(function (item) {
           return isDamagedArtefact(item);
         })
@@ -932,10 +949,7 @@ function sortItems(items: string[], data: SaveData) {
 
 function togglePorters() {
   fishingUsePorters = !fishingUsePorters;
-
-  const data = getSaveData();
-  data.fishingUsePorters = fishingUsePorters;
-  saveData(data);
+  saveSetting("fishingUsePorters", fishingUsePorters);
 
   settingsWindow.refresh();
   render();
@@ -943,10 +957,7 @@ function togglePorters() {
 
 function toggleShortNames() {
   shortInventionNames = !shortInventionNames;
-
-  const data = getSaveData();
-  data.shortInventionNames = shortInventionNames;
-  saveData(data);
+  saveSetting("shortInventionNames", shortInventionNames);
 
   settingsWindow.refresh();
   render();
@@ -977,10 +988,7 @@ function isSkillVisible(skill: InternalSkillType | undefined) {
 function setCountPosition(position: CountPosition) {
     if (countPosition === position) return;
     countPosition = position;
-
-    const data = getSaveData();
-    data.countPosition = countPosition;
-    saveData(data);
+    saveSetting("countPosition", countPosition);
 
     updateCountPositionUi();
     settingsWindow.refresh();
@@ -1001,60 +1009,33 @@ function normalizeTrackerSize(value: unknown): number {
 
 function toggleAllIcons() {
   showAllTabIcons = !showAllTabIcons;
-
-  const data = getSaveData();
-  data.showAllTabIcons = showAllTabIcons;
-  saveData(data);
+  saveSetting("showAllTabIcons", showAllTabIcons);
 
   settingsWindow.refresh();
   render();
 }
 
-function updateStatusFooterUi() {
-  footer.hidden = !showStatusFooter;
-}
-
-function toggleFooter() {
-  showStatusFooter = !showStatusFooter;
-
-  const data = getSaveData();
-  data.showStatusFooter = showStatusFooter;
-  saveData(data);
-
-  updateStatusFooterUi();
-  settingsWindow.refresh();
-}
-
 function toggleInventionFilter() {
   showInventionFilter = !showInventionFilter;
-
-  const data = getSaveData();
-  data.showInventionFilter = showInventionFilter;
-  saveData(data);
+  saveSetting("showInventionFilter", showInventionFilter);
 
   updateInventionFilterUi();
   settingsWindow.refresh();
   render();
 }
 
-function toggleArchaeologyFilter() {
-  showArchaeologyFilter = !showArchaeologyFilter;
+function toggleArchFilter() {
+  showArchFilter = !showArchFilter;
+  saveSetting("showArchFilter", showArchFilter);
 
-  const data = getSaveData();
-  data.showArchaeologyFilter = showArchaeologyFilter;
-  saveData(data);
-
-  updateArchaeologyFilterUi();
+  updateArchFilterUi();
   settingsWindow.refresh();
   render();
 }
 
-function toggleArchaeologyArtefacts() {
-  showArchaeologyArtefacts = !showArchaeologyArtefacts;
-
-  const data = getSaveData();
-  data.showArchaeologyArtefacts = showArchaeologyArtefacts;
-  saveData(data);
+function toggleArchArtefacts() {
+  showArchArtefacts = !showArchArtefacts;
+  saveSetting("showArchArtefacts", showArchArtefacts);
 
   settingsWindow.refresh();
   render();
@@ -1067,10 +1048,7 @@ function setSkillVisible(skill: TrackableSkill, visible: boolean) {
     ...visibleSkills,
     [skill]: visible,
   };
-
-  const data = getSaveData();
-  data.visibleSkills = visibleSkills;
-  saveData(data);
+  saveSetting("visibleSkills", visibleSkills);
 
   updateSkillTabs();
   settingsWindow.refresh();
@@ -1079,10 +1057,7 @@ function setSkillVisible(skill: TrackableSkill, visible: boolean) {
 
 function toggleUnknownSection() {
   hideUnknownSection = !hideUnknownSection;
-
-  const data = getSaveData();
-  data.hideUnknownSection = hideUnknownSection;
-  saveData(data);
+  saveSetting("hideUnknownSection", hideUnknownSection);
 
   settingsWindow.refresh();
   render();
@@ -1097,9 +1072,7 @@ function setTrackerSize(value: number, persist: boolean) {
   updateTrackerSizeUi();
 
   if (persist) {
-    const data = getSaveData();
-    data.trackerSize = trackerSize;
-    saveData(data);
+    saveSetting("trackerSize", trackerSize);
   }
 
   settingsWindow.refresh();
@@ -1118,12 +1091,12 @@ function updateInventionFilterUi() {
   }
 }
 
-function updateArchaeologyFilterUi() {
-  if (!archaeologyFilters) return;
+function updateArchFilterUi() {
+  if (!archFilters) return;
 
-  archaeologyFilters.classList.toggle(
+  archFilters.classList.toggle(
     "visible",
-    activeSkillTab === "archaeology" && showArchaeologyFilter,
+    activeSkillTab === "archaeology" && showArchFilter,
   );
 }
 
@@ -1155,39 +1128,37 @@ function updateSkillTabs() {
 
   if (nextActiveTab !== activeSkillTab) {
     activeSkillTab = nextActiveTab;
-    const data = getSaveData();
-    data.activeTab = activeSkillTab;
-    saveData(data);
+    saveSetting("activeTab", activeSkillTab);
 
     document.querySelectorAll<HTMLElement>(".skill-tab").forEach((tab) => {
       tab.classList.toggle("active", tab.dataset.skill === activeSkillTab);
     });
     updateInventionFilterUi();
-    updateArchaeologyFilterUi();
+    updateArchFilterUi();
     settingsWindow.refresh();
   }
 
   updateSkillTabScrollButtons();
 }
 
-function updateArchaeologyFilterButton() {
-  if (!archaeologyFilterButton) return;
+function updateArchFilterButton() {
+  if (!archFilterButton) return;
 
-  const activeFilter = archaeologyFilterCycle.find(
-    (entry) => entry.filter === archaeologyFilter,
+  const activeFilter = archFilterCycle.find(
+    (entry) => entry.filter === archFilter,
   );
-  archaeologyFilterButton.innerText = `Dig Site: ${activeFilter!.label}`;
+  archFilterButton.innerText = `Dig Site: ${activeFilter!.label}`;
 }
 
 function normalizeMaterialName(value: string) {
   return value.trim().toLowerCase();
 }
 
-function matchesArchaeologyFilter(item: string) {
-  if (archaeologyFilter === "all" || !showArchaeologyFilter) return true;
+function matchesArchFilter(item: string) {
+  if (archFilter === "all" || !showArchFilter) return true;
 
   const normalizedItem = normalizeMaterialName(item);
-  return digsiteMaterials[archaeologyFilter].some(
+  return digsiteMaterials[archFilter].some(
     (material) => normalizeMaterialName(material) === normalizedItem,
   );
 }
@@ -1273,11 +1244,6 @@ function addInventionMaterials(items: readonly string[]) {
   inventionAddMenuOpen = false;
   updateInventionAddMenu();
   render();
-  setStatus(
-    addedItems.length === 1
-      ? `Added ${titleCase(addedItems[0])} at 0.`
-      : `Added ${addedItems.length} untracked materials at 0.`,
-  );
 }
 
 function updateSortButtonLabel() {
@@ -1290,10 +1256,6 @@ function updateSortButtonLabel() {
 
   if (sortButton) {
     sortButton.title = sortTitle;
-  }
-
-  if (compactSortButton) {
-    compactSortButton.title = sortTitle;
   }
 }
 
@@ -1358,10 +1320,7 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
     const target = e.currentTarget as HTMLElement;
 
     activeSkillTab = (target.dataset.skill as SkillType) || "all";
-
-    const data = getSaveData();
-    data.activeTab = activeSkillTab;
-    saveData(data);
+    saveSetting("activeTab", activeSkillTab);
 
     document.querySelectorAll(".skill-tab").forEach((btn) => {
       btn.classList.remove("active");
@@ -1370,7 +1329,7 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
     target.classList.add("active");
 
     updateInventionFilterUi();
-    updateArchaeologyFilterUi();
+    updateArchFilterUi();
     settingsWindow.refresh();
     render();
   });
@@ -1387,10 +1346,7 @@ function toggleSettings(item: string) {
 function cycleSortMode() {
   sortMode =
     sortMode === "recent" ? "alpha" : sortMode === "alpha" ? "count" : "recent";
-
-  const data = getSaveData();
-  data.sortMode = sortMode;
-  saveData(data);
+  saveSetting("sortMode", sortMode);
 
   updateSortButtonLabel();
   render();
@@ -1420,7 +1376,7 @@ function setGoal(item: string) {
   } else {
     const goal = parseInt(value, 10);
     if (isNaN(goal) || goal <= 0) {
-      status.innerText = "Goal must be a positive number.";
+      showMessage("Goal must be a positive number.");
       return;
     }
     data.items[item].goal = goal;
@@ -1459,7 +1415,7 @@ function refreshChatboxes() {
   const found = reader.find() as ChatPosition | null;
 
   if (!found || found.boxes.length === 0) {
-    status.innerText = "No chatbox found.";
+    showMessage("No chatbox found.");
     return;
   }
 
@@ -1467,20 +1423,16 @@ function refreshChatboxes() {
   settingsWindow.refresh();
 
   const data = getSaveData();
-  const savedChat = data.chat || "0";
-  const selectedIndex = Number(savedChat);
+  const selected = resolveSavedChat(found, data.chat);
 
-  const validIndex = found.boxes[selectedIndex] ? selectedIndex : 0;
-  const validChat = String(validIndex);
+  found.mainbox = selected.box;
 
-  found.mainbox = found.boxes[validIndex];
-
-  data.chat = validChat;
+  data.chat = String(selected.index);
   saveData(data);
   settingsWindow.refresh();
 
   showSelectedChat(found);
-  status.innerText = getChatFontWaitMessage();
+  showMessage(getChatFontWaitMessage());
 }
 
 function clearTab() {
@@ -1492,8 +1444,6 @@ function clearTab() {
 
     saveData(data);
     render();
-
-    status.innerText = "All items cleared.";
     return;
   }
 
@@ -1509,8 +1459,6 @@ function clearTab() {
 
   saveData(data);
   render();
-
-  status.innerText = `${getActiveTabLabel()} cleared.`;
 }
 
 function hasItemsInTab() {
@@ -1544,10 +1492,6 @@ function resetTabCounts() {
 
   saveData(data);
   render();
-  status.innerText =
-    activeSkillTab === "all"
-      ? "All counts reset."
-      : `${getActiveTabLabel()} counts reset.`;
 }
 
 function exportData() {
@@ -1570,50 +1514,21 @@ function importData(file: File) {
 
   reader.onload = function () {
     try {
-      const imported = JSON.parse(reader.result as string);
-      const data: SaveData = {
-        chat: imported.chat,
-        activeTab: imported.activeTab || "all",
-        fishingUsePorters: imported.fishingUsePorters ?? true,
-        shortInventionNames: imported.shortInventionNames ?? false,
-        countPosition: imported.countPosition === "left" ? "left" : "right",
-        showAllTabIcons: imported.showAllTabIcons ?? true,
-        showStatusFooter: imported.showStatusFooter ?? true,
-        showInventionFilter: imported.showInventionFilter ?? true,
-        showArchaeologyFilter: imported.showArchaeologyFilter ?? true,
-        showArchaeologyArtefacts: imported.showArchaeologyArtefacts ?? true,
-        visibleSkills: normalizeSkillSelection(imported.visibleSkills),
-        hideUnknownSection: imported.hideUnknownSection ?? true,
-        trackerSize: normalizeTrackerSize(imported.trackerSize),
-        sortMode: imported.sortMode || "recent",
-        items: imported.items || {},
-      };
+      const data = normalizeSaveData(JSON.parse(reader.result as string));
 
       saveData(data);
       openSettingsItem = null;
-      fishingUsePorters = data.fishingUsePorters ?? true;
-      shortInventionNames = data.shortInventionNames ?? false;
-      countPosition = data.countPosition === "left" ? "left" : "right";
-      showAllTabIcons = data.showAllTabIcons ?? true;
-      showStatusFooter = data.showStatusFooter ?? true;
-      showInventionFilter = data.showInventionFilter ?? true;
-      showArchaeologyFilter = data.showArchaeologyFilter ?? true;
-      showArchaeologyArtefacts = data.showArchaeologyArtefacts ?? true;
-      visibleSkills = normalizeSkillSelection(data.visibleSkills);
-      hideUnknownSection = data.hideUnknownSection ?? true;
-      trackerSize = data.trackerSize ?? trackerSizeDefault;
+      applySavedSettings(data);
 
       updateCountPositionUi();
-      updateStatusFooterUi();
       updateInventionFilterUi();
-      updateArchaeologyFilterUi();
+      updateArchFilterUi();
       updateSkillTabs();
       updateTrackerSizeUi();
       settingsWindow.refresh();
       render();
-      status.innerText = "Save imported.";
     } catch {
-      status.innerText = "Import failed.";
+      showMessage("Import failed.");
     }
   };
 
@@ -1688,8 +1603,8 @@ if (savedTabButton) {
 
 updateInventionFilterButton();
 updateInventionFilterUi();
-updateArchaeologyFilterButton();
-updateArchaeologyFilterUi();
+updateArchFilterButton();
+updateArchFilterUi();
 updateSkillTabs();
 updateInventionAddMenu();
 updateSortButtonLabel();
@@ -1697,7 +1612,6 @@ settingsWindow.refresh();
 maybeShowUpdate();
 updateTabsCollapsedUi();
 updateCountPositionUi();
-updateStatusFooterUi();
 updateTrackerSizeUi();
 updateSkillTabScrollButtons();
 render();
@@ -1711,14 +1625,9 @@ appCog?.addEventListener("click", function () {
   settingsWindow.show();
 });
 
-compactSettingsButton?.addEventListener("click", function () {
-  settingsWindow.show();
-});
-
 sessionQuickButton?.addEventListener("click", showSession);
 
 sortButton?.addEventListener("click", cycleSortMode);
-compactSortButton?.addEventListener("click", cycleSortMode);
 
 inventionFilterButton?.addEventListener("click", () => {
   const currentIndex = inventionFilterCycle.findIndex(
@@ -1732,14 +1641,14 @@ inventionFilterButton?.addEventListener("click", () => {
   render();
 });
 
-archaeologyFilterButton?.addEventListener("click", () => {
-  const currentIndex = archaeologyFilterCycle.findIndex(
-    (entry) => entry.filter === archaeologyFilter,
+archFilterButton?.addEventListener("click", () => {
+  const currentIndex = archFilterCycle.findIndex(
+    (entry) => entry.filter === archFilter,
   );
-  const nextIndex = (currentIndex + 1) % archaeologyFilterCycle.length;
-  archaeologyFilter = archaeologyFilterCycle[nextIndex].filter;
+  const nextIndex = (currentIndex + 1) % archFilterCycle.length;
+  archFilter = archFilterCycle[nextIndex].filter;
 
-  updateArchaeologyFilterButton();
+  updateArchFilterButton();
   render();
 });
 

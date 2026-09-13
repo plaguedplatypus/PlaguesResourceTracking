@@ -1,3 +1,4 @@
+import { getUpdateId } from "../tracking/SkillTracker";
 import "./settings.css";
 import "./session.css";
 
@@ -74,7 +75,7 @@ export function recordSession(updates: ItemUpdate[]) {
 	const timestamp = Date.now();
 
 	for (const update of updates) {
-		const id = update.storageId || update.item;
+		const id = getUpdateId(update);
 		if (!sessionItems[id]) {
 			sessionItems[id] = {
 				count: 0,

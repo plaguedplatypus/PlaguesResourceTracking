@@ -20,10 +20,9 @@ type State = {
   shortInventionNames: boolean;
   countPosition: CountPosition;
   showAllTabIcons: boolean;
-  showStatusFooter: boolean;
   showInventionFilter: boolean;
-  showArchaeologyFilter: boolean;
-  showArchaeologyArtefacts: boolean;
+  showArchFilter: boolean;
+  showArchArtefacts: boolean;
   trackedSkills: Readonly<Record<TrackableSkill, boolean>>;
   hideUnknownSection: boolean;
   trackerSize: number;
@@ -45,10 +44,9 @@ type Actions = {
   toggleShortNames(): void;
   setCountPosition(position: CountPosition): void;
   toggleAllIcons(): void;
-  toggleFooter(): void;
   toggleInventionFilter(): void;
-  toggleArchaeologyFilter(): void;
-  toggleArchaeologyArtefacts(): void;
+  toggleArchFilter(): void;
+  toggleArchArtefacts(): void;
   setSkillVisible(skill: TrackableSkill, visible: boolean): void;
   toggleUnknownSection(): void;
   setTrackerSize(value: number, persist: boolean): void;
@@ -59,7 +57,7 @@ type Actions = {
   showPatchNotes(targetDocument: Document): void;
 };
 
-type Controller = {
+type windowController = {
   show(): void;
   refresh(): void;
 };
@@ -72,7 +70,7 @@ type Confirmation = {
 
 export function createSettingsWindow(
 	actions: Actions,
-): Controller {
+): windowController {
   let settingsWindow: Window | null = null;
   let initializedWindow: Window | null = null;
   let activePage: SettingsPage = "general";
@@ -147,14 +145,6 @@ export function createSettingsWindow(
     );
     updateSwitch(
       doc,
-      ".status-footer-toggle",
-      state.showStatusFooter,
-      state.showStatusFooter
-        ? "Status is visible."
-        : "Status is hidden.",
-    );
-    updateSwitch(
-      doc,
       ".invention-filter-toggle",
       state.showInventionFilter,
       state.showInventionFilter
@@ -164,16 +154,16 @@ export function createSettingsWindow(
     updateSwitch(
       doc,
       ".archaeology-filter-toggle",
-      state.showArchaeologyFilter,
-      state.showArchaeologyFilter
+      state.showArchFilter,
+      state.showArchFilter
         ? "Dig Site filter is visible."
         : "Dig Site filter is hidden.",
     );
     updateSwitch(
       doc,
       ".archaeology-artefact-toggle",
-      state.showArchaeologyArtefacts,
-      state.showArchaeologyArtefacts
+      state.showArchArtefacts,
+      state.showArchArtefacts
         ? "Artefacts are visible."
         : "Artefacts are hidden.",
     );
@@ -263,17 +253,14 @@ export function createSettingsWindow(
       .querySelector(".all-tab-icons-toggle input")
       ?.addEventListener("change", actions.toggleAllIcons);
     doc
-      .querySelector(".status-footer-toggle input")
-      ?.addEventListener("change", actions.toggleFooter);
-    doc
       .querySelector(".invention-filter-toggle input")
       ?.addEventListener("change", actions.toggleInventionFilter);
     doc
       .querySelector(".archaeology-filter-toggle input")
-      ?.addEventListener("change", actions.toggleArchaeologyFilter);
+      ?.addEventListener("change", actions.toggleArchFilter);
     doc
       .querySelector(".archaeology-artefact-toggle input")
-      ?.addEventListener("change", actions.toggleArchaeologyArtefacts);
+      ?.addEventListener("change", actions.toggleArchArtefacts);
     doc
       .querySelectorAll<HTMLInputElement>(".settings-tracked-skill input")
       .forEach((input) => {
@@ -477,40 +464,27 @@ function updateChatSelector(
 
   if (chat.options.length !== state.chatTypes.length + 1) {
     chat.replaceChildren(new Option("Select Chat", ""));
+
     for (let index = 0; index < state.chatTypes.length; index += 1) {
       const suffix = state.chatTypes.length > 1 ? ` ${index + 1}` : "";
-      chat.add(
-        new Option(
-          `${getChatTypeLabel(state.chatTypes[index])}${suffix}`,
-          String(index),
-        ),
-      );
+      const label = chatTypeLabels[state.chatTypes[index]];
+
+      chat.add(new Option(`${label}${suffix}`, String(index)));
     }
   }
 
   chat.value = state.selectedChat;
 }
-
-function getChatTypeLabel(type: ChatboxType): string {
-  switch (type) {
-    case "main":
-      return "Main chat";
-    case "cc":
-      return "Clan chat";
-    case "fc":
-      return "Friends chat";
-    case "gc":
-      return "Group chat";
-    case "gcc":
-      return "Guest clan chat";
-    case "private":
-      return "Private chat";
-    case "gimc":
-      return "Group ironman chat";
-    default:
-      return "Chat window";
-  }
-}
+const chatTypeLabels: Record<ChatboxType, string> = {
+  main: "Main chat",
+  cc: "Clan chat",
+  fc: "Friends chat",
+  gc: "Group chat",
+  gcc: "Guest clan chat",
+  private: "Private chat",
+  gimc: "Group ironman chat",
+  unknown: "Chat window",
+};
 
 function updateSwitch(
   doc: Document,
@@ -598,8 +572,7 @@ function markup(): string {
                   <button class="settings-segment-option" type="button" data-position="right">Right</button>
                 </div>
               </div>
-                ${switchMarkup("all-tab-icons-toggle", "All-Tab Icons", "Show skill icons beside items on the All tab.")}
-              ${switchMarkup("status-footer-toggle", "Show Status Footer", "Show the tracking message at the bottom of the tracker.")}
+                ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show skill icons beside items on the main tab.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">SUPPORT</div>
@@ -631,17 +604,17 @@ function markup(): string {
             </div>
             <div class="settings-section">
               <div class="settings-section-title">INVENTION</div>
-              ${switchMarkup("short-invention-names-toggle", "Short Invention Names", "Shorten component and part labels in the tracker.")}
-              ${switchMarkup("invention-filter-toggle", "Show Invention Filter", "Show the material filter control on the Invention tab.")}
+              ${switchMarkup("short-invention-names-toggle", "Short Invention Names", "Shorten component and part labels.")}
+              ${switchMarkup("invention-filter-toggle", "Show Invention Filter", "Show the material filter.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">ARCHAEOLOGY</div>
-              ${switchMarkup("archaeology-filter-toggle", "Show Dig Site Filter", "Show the Dig Site filter control on the Archaeology tab.")}
-              ${switchMarkup("archaeology-artefact-toggle", "Show Artefacts", "Show damaged artefacts on the Archaeology tab.")}
+              ${switchMarkup("archaeology-filter-toggle", "Show Dig Site Filter", "Show the Dig Site filter.")}
+              ${switchMarkup("archaeology-artefact-toggle", "Show Artefacts", "Show damaged artefacts.")}
             </div>
             <div class="settings-section">
               <div class="settings-section-title">MISC.</div>
-              ${switchMarkup("hide-unknown-section-toggle", "Hide Unknown Items", "Hide unclassified items from the All tab.")}
+              ${switchMarkup("hide-unknown-section-toggle", "Hide Uncategorized Items", "Hide Uncategorized items.")}
             </div>
           </section>
           <section class="settings-page" data-settings-page="data" hidden>

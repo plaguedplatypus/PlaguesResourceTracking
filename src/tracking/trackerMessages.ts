@@ -4,7 +4,6 @@ type SpiritRewardHeader = {
   pattern: RegExp;
   prefix: RegExp;
   source: SpiritRewardSource;
-  label: string;
 };
 
 const materialsGainedPattern = /^Materials gained:\s*/i;
@@ -15,19 +14,16 @@ export const spiritRewardHeaders: readonly SpiritRewardHeader[] = [
     pattern: /^The Seren spirit gifts you:\s*(.+)$/i,
     prefix: /^The Seren spirit gifts you:/i,
     source: "seren-spirit",
-    label: "Seren Spirit",
   },
   {
     pattern: /^The forge phoenix gifts you:\s*(.+)$/i,
     prefix: /^The forge phoenix gifts you:/i,
     source: "Forge/Fire Spirit",
-    label: "Forge/Fire Spirit",
   },
   {
     pattern: /^The fire spirit gifts you:\s*(.+)$/i,
     prefix: /^The fire spirit gifts you:/i,
     source: "Forge/Fire Spirit",
-    label: "Forge/Fire Spirit",
   },
 ];
 
@@ -45,14 +41,14 @@ export function isSpiritRewardMessage(text: string): boolean {
   return spiritRewardHeaders.some(({ prefix }) => prefix.test(text.trim()));
 }
 
-export function isIgnoredTrackerMessage(text: string): boolean {
+export function isIgnoredMessage(text: string): boolean {
   const cleanLine = text.trim();
   return ignoredMessages.some((pattern) => pattern.test(cleanLine));
 }
 
 export function couldStartSkillMessage(text: string): boolean {
   const cleanLine = text.trim();
-  if (isIgnoredTrackerMessage(cleanLine)) return false;
+  if (isIgnoredMessage(cleanLine)) return false;
 
   return (
     /^You (?:get|catch|find)\b/i.test(cleanLine) ||

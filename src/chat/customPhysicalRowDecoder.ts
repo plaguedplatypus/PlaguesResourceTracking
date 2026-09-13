@@ -2,7 +2,7 @@ import * as a1lib from "alt1/base";
 import type { CapturedChatBuffer, ChatFontSetting, ChatReaderState, LocalChatbox, PhysicalChatLine, } from "./chatTypes";
 import * as OCR from "alt1/ocr";
 import { couldStartInventionMessage } from "../invention/InventionParser";
-import { couldStartSkillMessage, isMaterialsGainedMessage, isSpiritRewardMessage, } from "../tracking/trackerMessages";
+import { couldStartSkillMessage, isMaterialsGainedMessage, isSpiritRewardMessage, materialsPattern, } from "../tracking/trackerMessages";
 
 type ConfirmedGlyph = {
   char: string;
@@ -1138,7 +1138,7 @@ function findBoundaryMatch(
       ocr,
       maxRankedColors,
       /\]\s*$/.test(currentText) ||
-        /Materials gained:\s*$/i.test(currentText) ||
+        materialsPattern.test(currentText) ||
         /\b(?:parts|components),\s*$/i.test(currentText),
       getBoundaryHintId(currentText),
       boundaryColorHints,
@@ -1257,7 +1257,7 @@ function getBoundaryHintId(currentText: string): string | null {
     return "post-timestamp";
   }
   if (
-    /Materials gained:\s*$/i.test(currentText) ||
+    materialsPattern.test(currentText) ||
     /\b(?:parts|components),\s*$/i.test(currentText)
   ) {
     return "material-boundary";

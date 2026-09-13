@@ -1,5 +1,5 @@
 import { getFarmingProduce, } from "./farming";
-import { isIgnoredTrackerMessage, spiritRewardHeaders, type SpiritRewardSource, } from "./trackerMessages";
+import { isIgnoredMessage, spiritRewardHeaders, type SpiritRewardSource, } from "./trackerMessages";
 
 type Skill =
 	| "mining"
@@ -19,9 +19,15 @@ type ItemUpdate = {
 	storageId?: string;
 };
 
+export function getUpdateId(update: {
+	item: string;
+	storageId?: string;
+}): string {
+	return update.storageId || update.item;
+}
+
 type Result = {
 	updates: ItemUpdate[];
-	statusMessage: string;
 };
 
 type Options = {
@@ -87,7 +93,7 @@ export function parseSkillMessage(
 	cleanLine: string,
 	options: Options
 ): Result | null {
-	if (isIgnoredTrackerMessage(cleanLine)) return null;
+	if (isIgnoredMessage(cleanLine)) return null;
 
 	const spiritResult = parseSpiritReward(cleanLine);
 	if (spiritResult) return spiritResult;
@@ -114,10 +120,7 @@ export function parseSkillMessage(
 			return null;
 		}
 
-		return makeResult(
-			{ item, amount, skill },
-			`Added: ${amount} x ${item}`
-		);
+		return makeResult({ item, amount, skill });
 	}
 
 	for (const entry of skillPatterns) {
@@ -130,10 +133,7 @@ export function parseSkillMessage(
 		const item = normalizeTrackedItemName(match[1]);
 		if (!item) return null;
 
-		return makeResult(
-			{ item, amount: 1, skill: entry.skill },
-			`Added: ${item}`
-		);
+		return makeResult({ item, amount: 1, skill: entry.skill });
 	}
 
 	return null;
@@ -160,10 +160,7 @@ function parseFarmingMessage(
 	const item = getFarmingProduce(match[2]);
 	if (!item || !Number.isSafeInteger(amount) || amount <= 0) return null;
 
-	return makeResult(
-		{ item, amount, skill: "farming" },
-		`Farming: ${amount} x ${item}`,
-	);
+	return makeResult({ item, amount, skill: "farming" });
 }
 
 function parseSpiritReward(
@@ -189,9 +186,6 @@ function parseSpiritReward(
 
 		return {
 			updates,
-			statusMessage: `${header.label}: ${updates
-				.map(({ amount, item }) => `${amount} x ${item}`)
-				.join(", ")}`,
 		};
 	}
 
@@ -284,12 +278,8 @@ function getTransportSkill(
 	return "other";
 }
 
-function makeResult(
-	update: ItemUpdate,
-	statusMessage: string
-): Result {
+function makeResult(update: ItemUpdate): Result {
 	return {
 		updates: [update],
-		statusMessage,
 	};
 }
