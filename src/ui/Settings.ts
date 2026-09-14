@@ -555,7 +555,7 @@ function markup(): string {
           <section class="settings-page" data-settings-page="skills" hidden>
             <div class="settings-section">
               <div class="settings-section-title">TRACKED SKILLS/EVENTS</div>
-              <div class="settings-field-description">Choose tracked skills and events.</div>
+              <div class="settings-field-description">Choose tracked resources and events.</div>
               <div class="settings-tracked-skills">
                 ${trackedSkillsMarkup()}
               </div>
