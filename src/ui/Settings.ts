@@ -574,21 +574,6 @@ function markup(): string {
               </div>
                 ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show skill icons beside items on the main tab.")}
             </div>
-            <div class="settings-section">
-              <div class="settings-section-title">SUPPORT</div>
-              <div class="settings-field">
-                <div class="support-links">
-                  <a class="support-link" href="https://ko-fi.com/plaguedplatypus" target="_blank" rel="noopener noreferrer">
-                    <img src="./icons/coffee.png" alt="" />
-                    <span>Coffee!</span>
-                  </a>
-                  <a class="support-link" href="https://discord.com/invite/xAc578gPjW" target="_blank" rel="noopener noreferrer">
-                    <img src="./icons/discord.png" alt="" />
-                    <span>Discord</span>
-                  </a>
-                </div>
-              </div>
-            </div>
           </section>
           <section class="settings-page" data-settings-page="skills" hidden>
             <div class="settings-section">
