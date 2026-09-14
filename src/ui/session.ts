@@ -2,16 +2,39 @@ import { getUpdateId } from "../tracking/SkillTracker";
 import "./settings.css";
 import "./session.css";
 
-export type SessionStatus = "idle" | "running" | "paused";
+export type SessionStatus = "idle" | "running" | "paused" | "ended";
 
 type ItemUpdate = {
 	item: string;
 	amount: number;
+	skill?: string;
+	source?: string;
 	storageId?: string;
 };
 
 export function getSessionStatus(): SessionStatus {
 	return sessionStatus;
+}
+
+export function hasSession(): boolean {
+	return sessionStatus !== "idle";
+}
+
+export function hasSessionData(): boolean {
+	return Object.keys(sessionItems).length > 0;
+}
+
+export function clearSession(): void {
+	sessionStatus = "idle";
+	sessionStartedAt = null;
+	sessionEndedAt = null;
+	activeStartedAt = null;
+	activeMs = 0;
+	sessionItems = {};
+	sessionEvents = [];
+	localStorage.removeItem(sessionId);
+	updateWindow("full");
+	refreshApp?.();
 }
 
 type Item = {
@@ -20,16 +43,32 @@ type Item = {
 	displayName: string;
 };
 
+type ItemEvent = {
+	timestamp: number;
+	activeMs: number;
+	item: string;
+	amount: number;
+	skill?: string;
+	source?: string;
+	storageId?: string;
+	unitPrice?: number;
+};
+
+type StoredSession = {
+	status: Exclude<SessionStatus, "idle">;
+	startedAt: number;
+	endedAt?: number;
+	activeMs: number;
+	items: Record<string, Item>;
+	events: ItemEvent[];
+};
+
 type CacheItem = {
 	price: number | null;
 	checkedAt: number;
 };
 
 type Cache = Record<string, CacheItem>;
-
-type Settings = {
-	showGpValue?: boolean;
-};
 
 type LatestEntry = {
 	price?: number;
@@ -49,30 +88,45 @@ type RowElements = {
 };
 
 const appName = "ResourceTracker";
-const sessionSettingsId = `${appName}_SessionSettings`;
+const sessionId = `${appName}_Session`;
 const priceCacheId = `${appName}_PriceCache`;
 const priceCacheDurationMs = 24 * 60 * 60 * 1000;
+const checkpointIntervalMs = 5000;
 
-let sessionStatus: SessionStatus = "idle";
-let sessionStartedAt: number | null = null;
+const savedSession = loadSession();
+let sessionStatus: SessionStatus = savedSession?.status ?? "idle";
+let sessionStartedAt: number | null = savedSession?.startedAt ?? null;
+let sessionEndedAt: number | null = savedSession?.endedAt ?? null;
 let activeStartedAt: number | null = null;
-let elapsedBeforePauseMs = 0;
+let activeMs = savedSession?.activeMs ?? 0;
 
-let sessionItems: Record<string, Item> = {};
+let sessionItems: Record<string, Item> = savedSession?.items ?? {};
+let sessionEvents = savedSession?.events ?? [];
 let sessionWindow: Window | null = null;
 let sessionRefreshTimer: number | null = null;
 let sessionUiOwner: Window | null = null;
-
-let showGpValue = loadSettings().showGpValue ?? false;
+let refreshApp: (() => void) | null = null;
+let saveWarningShown = false;
 
 const pendingPrices = new Set<string>();
 const sessionRows = new Map<string, RowElements>();
+
+localStorage.removeItem(`${appName}_SessionSettings`);
+
+if (sessionStatus === "running") {
+	sessionStatus = "paused";
+	saveSession();
+}
+
+window.setInterval(checkpointSession, checkpointIntervalMs);
+window.addEventListener("pagehide", pauseForClose);
 
 export function recordSession(updates: ItemUpdate[]) {
 	if (sessionStatus !== "running") return;
 	if (updates.length === 0) return;
 
 	const timestamp = Date.now();
+	const eventActiveMs = getElapsedMs();
 
 	for (const update of updates) {
 		const id = getUpdateId(update);
@@ -87,15 +141,45 @@ export function recordSession(updates: ItemUpdate[]) {
 		sessionItems[id].count += update.amount;
 		sessionItems[id].lastUpdated = timestamp;
 
-		if (showGpValue) {
-			void ensurePriceForItem(update.item);
-		}
+		const price = getCachedPrice(update.item);
+		sessionEvents.push({
+			timestamp,
+			activeMs: eventActiveMs,
+			item: update.item,
+			amount: update.amount,
+			skill: update.skill,
+			source: update.source,
+			storageId:
+				update.storageId && update.storageId !== update.item
+					? update.storageId
+					: undefined,
+			unitPrice: typeof price === "number" ? price : undefined,
+		});
+
+		void ensurePriceForItem(update.item);
 	}
 
+	checkpointSession();
 	updateWindow("items");
 }
 
-export function showSession() {
+export function exportSessionCsv(): void {
+	if (!hasSessionData() || sessionStartedAt === null) return;
+
+	const blob = new Blob([buildCsv(sessionStartedAt)], {
+		type: "text/csv;charset=utf-8",
+	});
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = getCsvFilename(sessionStartedAt);
+	link.click();
+	URL.revokeObjectURL(url);
+}
+
+export function showSession(onChange?: () => void) {
+	if (onChange) refreshApp = onChange;
+
 	if (!sessionWindow || sessionWindow.closed) {
 		sessionWindow = window.open(
 			"",
@@ -106,55 +190,69 @@ export function showSession() {
 		sessionRows.clear();
 	}
 
+	if (sessionStatus !== "idle") {
+		void ensurePrices();
+	}
+
 	startRefreshTimer();
 	setTimeout(() => updateWindow("full"), 50);
 }
 
-function toggleSession() {
-	const now = Date.now();
-
+function toggleSession(doc: Document) {
 	if (sessionStatus === "idle") {
-		sessionStatus = "running";
-		sessionStartedAt = now;
-		activeStartedAt = now;
-		elapsedBeforePauseMs = 0;
-		sessionItems = {};
-
-		if (showGpValue) {
-			void ensurePrices();
-		}
-
-		updateWindow("full");
-		return;
+		startSession();
+	} else if (sessionStatus === "running") {
+		pauseSession();
+	} else if (sessionStatus === "paused") {
+		resumeSession();
+	} else {
+		requestNewSession(doc);
 	}
+}
 
-	if (sessionStatus === "running") {
-		elapsedBeforePauseMs = getElapsedMs();
-		activeStartedAt = null;
-		sessionStatus = "paused";
-		updateWindow("full");
-		return;
-	}
-
-	activeStartedAt = now;
+function startSession() {
+	const now = Date.now();
 	sessionStatus = "running";
-	updateWindow("full");
-}
-
-function resetSession() {
-	sessionStatus = "idle";
-	sessionStartedAt = null;
-	activeStartedAt = null;
-	elapsedBeforePauseMs = 0;
+	sessionStartedAt = now;
+	sessionEndedAt = null;
+	activeStartedAt = now;
+	activeMs = 0;
 	sessionItems = {};
-
-	// No need to reset prices constantly, they hardly ever change.
-	// Cached prices expire automatically after 24 hours.
-
+	sessionEvents = [];
+	saveSession();
 	updateWindow("full");
+	refreshApp?.();
 }
 
-function requestReset(doc: Document): void {
+function pauseSession() {
+	commitActiveTime();
+	activeStartedAt = null;
+	sessionStatus = "paused";
+	saveSession();
+	updateWindow("full");
+	refreshApp?.();
+}
+
+function resumeSession() {
+	activeStartedAt = Date.now();
+	sessionStatus = "running";
+	saveSession();
+	updateWindow("full");
+	refreshApp?.();
+}
+
+function endSession() {
+	const now = Date.now();
+	commitActiveTime(now);
+	activeStartedAt = null;
+	sessionStatus = "ended";
+	sessionEndedAt = now;
+	saveSession();
+	updateWindow("full");
+	refreshApp?.();
+}
+
+function requestNewSession(doc: Document): void {
 	if (doc.querySelector(".tracker-confirmation-overlay")) return;
 
 	const overlay = doc.createElement("div");
@@ -164,17 +262,16 @@ function requestReset(doc: Document): void {
 	dialog.className = "tracker-confirmation";
 	dialog.setAttribute("role", "dialog");
 	dialog.setAttribute("aria-modal", "true");
-	dialog.setAttribute("aria-labelledby", "session-reset-confirmation-title");
+	dialog.setAttribute("aria-labelledby", "session-new-confirmation-title");
 
 	const title = doc.createElement("div");
 	title.className = "tracker-confirmation-title";
-	title.id = "session-reset-confirmation-title";
-	title.textContent = "Reset Session?";
+	title.id = "session-new-confirmation-title";
+	title.textContent = "Start a new session?";
 
 	const message = doc.createElement("div");
 	message.className = "tracker-confirmation-message";
-	message.textContent =
-		"This will reset the timer and all current item statistics.";
+	message.textContent = "The current session data will be cleared.";
 
 	const actions = doc.createElement("div");
 	actions.className = "tracker-confirmation-actions";
@@ -187,7 +284,7 @@ function requestReset(doc: Document): void {
 	const confirm = doc.createElement("button");
 	confirm.type = "button";
 	confirm.className = "tracker-confirmation-confirm";
-	confirm.textContent = "Reset";
+	confirm.textContent = "Start New";
 
 	const close = () => {
 		doc.removeEventListener("keydown", onKeyDown);
@@ -206,7 +303,7 @@ function requestReset(doc: Document): void {
 	});
 	confirm.addEventListener("click", () => {
 		close();
-		resetSession();
+		startSession();
 	});
 	doc.addEventListener("keydown", onKeyDown);
 
@@ -215,20 +312,6 @@ function requestReset(doc: Document): void {
 	overlay.append(dialog);
 	doc.body.append(overlay);
 	cancel.focus();
-}
-
-function updateShowGpValue(value: boolean) {
-	showGpValue = value;
-
-	saveSettings({
-		showGpValue,
-	});
-
-	if (showGpValue) {
-	void ensurePrices();
-	}
-
-	updateWindow("full");
 }
 
 function updateWindow(mode: UpdateMode = "full") {
@@ -263,19 +346,11 @@ function ensureUi(doc: Document) {
 
 	doc
 		.getElementById("session-toggle")
-		?.addEventListener("click", toggleSession);
+		?.addEventListener("click", () => toggleSession(doc));
 
 	doc
-		.getElementById("session-reset")
-		?.addEventListener("click", () => requestReset(doc));
-
-	const showGpInput = doc.getElementById("show-gp-value") as HTMLInputElement | null;
-
-	if (showGpInput) {
-		showGpInput.addEventListener("change", function () {
-			updateShowGpValue(this.checked);
-		});
-	}
+		.getElementById("session-end")
+		?.addEventListener("click", endSession);
 
 	sessionUiOwner = sessionWindow;
 	sessionRows.clear();
@@ -288,7 +363,9 @@ function updateChrome(doc: Document) {
 			? "Start Session"
 			: sessionStatus === "running"
 				? "Pause Session"
-				: "Resume Session";
+				: sessionStatus === "paused"
+					? "Resume Session"
+					: "Start New Session";
 
 	const startedText = sessionStartedAt
 		? new Date(sessionStartedAt).toLocaleTimeString("en-US", {
@@ -301,7 +378,9 @@ function updateChrome(doc: Document) {
 			? "Not running"
 			: sessionStatus === "running"
 				? "Running"
-				: "Paused";
+				: sessionStatus === "paused"
+					? "Paused"
+					: "Ended";
 
 	setText(doc, "session-toggle", toggleText);
 	setText(doc, "session-started", startedText);
@@ -311,21 +390,15 @@ function updateChrome(doc: Document) {
 	const status = doc.getElementById("session-status");
 	if (status) status.className = sessionStatus;
 
-	const showGpInput = doc.getElementById("show-gp-value") as HTMLInputElement | null;
-	if (showGpInput && showGpInput.checked !== showGpValue) {
-		showGpInput.checked = showGpValue;
-	}
+	const end = doc.getElementById("session-end") as HTMLButtonElement | null;
+	if (end) end.hidden = sessionStatus === "idle" || sessionStatus === "ended";
 
-	doc.body.classList.toggle("show-gp", showGpValue);
-	setText(doc, "session-per-hour-heading", showGpValue ? "Per/hr" : "/hr");
+	const controls = doc.querySelector(".session-controls");
+	controls?.classList.toggle("single", end ? end.hidden === true : true);
 
-	const totals = doc.getElementById("session-totals");
-	if (totals) totals.hidden = !showGpValue;
 }
 
 function updateTotals(doc: Document) {
-	if (!showGpValue) return;
-
 	const totals = getValueTotals();
 	const totalValueText = totals.hasLoadingPrices
 		? "..."
@@ -379,31 +452,17 @@ function syncRows(doc: Document, mode: UpdateMode) {
 		}
 	}
 
-	const elapsedMs = getElapsedMs();
-	const elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
+	const elapsedHours = getElapsedHours();
 
 	for (const id of orderedIds) {
 		const elements = sessionRows.get(id);
 		const itemData = sessionItems[id];
 		if (!elements) continue;
 
-		const perHour = elapsedHours > 0
-			? itemData.count / elapsedHours
-			: 0;
-		elements.perHour.textContent = formatPerHour(perHour);
-
-		if (!showGpValue) continue;
-
-		const price = getCachedPrice(itemData.displayName);
-		const totalValue = typeof price === "number"
-			? itemData.count * price
-			: null;
-		const gpPerHour = totalValue !== null && elapsedHours > 0
-			? totalValue / elapsedHours
-			: null;
-
-		elements.value.textContent = formatPriceValue(price, totalValue);
-		elements.gpPerHour.textContent = formatGpPerHour(gpPerHour);
+		const values = getItemValues(itemData, elapsedHours);
+		elements.perHour.textContent = formatPerHour(values.perHour);
+		elements.value.textContent = formatPriceValue(values.price, values.totalValue);
+		elements.gpPerHour.textContent = formatGpPerHour(values.gpPerHour);
 	}
 
 	const hasItems = orderedIds.length > 0;
@@ -422,8 +481,8 @@ function createRow(doc: Document): RowElements {
 	name.className = "item-name";
 	count.className = "number";
 	perHour.className = "number";
-	value.className = "number gp-column";
-	gpPerHour.className = "number gp-column";
+	value.className = "number";
+	gpPerHour.className = "number";
 
 	row.append(name, count, perHour, value, gpPerHour);
 
@@ -483,24 +542,20 @@ function renderShellHtml() {
 		<div id="session-root" class="session-window-panel">
 			<div class="session-controls">
 				<button id="session-toggle">Start</button>
-				<button id="session-reset">Reset</button>
+				<button id="session-end" hidden>End Session</button>
 			</div>
 
 			<div class="session-meta">
-				<div class="session-note">Continues while this window is closed.</div>
+				<div class="session-note">Continues while Resource Tracker is open.</div>
 				<div class="session-separator"></div>
 
 				<div><strong>Session Started:</strong> <span id="session-started">—</span></div>
 				<div><strong>Status:</strong> <span id="session-status" class="idle">Not running</span></div>
 				<div><strong>Elapsed:</strong> <span id="session-elapsed">00:00:00</span></div>
 
-				<label class="session-options">
-					<input id="show-gp-value" type="checkbox">
-					Show GP value
-				</label>
 			</div>
 
-			<div id="session-totals" class="session-totals" hidden>
+			<div id="session-totals" class="session-totals">
 				<div>
 					Total value:
 					<span id="session-total-value" class="session-total-value">0</span>
@@ -519,9 +574,9 @@ function renderShellHtml() {
 					<tr>
 						<th class="session-item-name">Item</th>
 						<th class="session-number">Count</th>
-						<th id="session-per-hour-heading" class="session-number">/hr</th>
-						<th class="session-number gp-column">Value</th>
-						<th class="session-number gp-column">GP/hr</th>
+						<th class="session-number">Per/hr</th>
+						<th class="session-number">Value</th>
+						<th class="session-number">GP/hr</th>
 					</tr>
 				</thead>
 				<tbody id="session-items-body"></tbody>
@@ -530,29 +585,25 @@ function renderShellHtml() {
 	`;
 }
 
-function getValueTotals() {
+function getValueTotals(elapsedHours = getElapsedHours()) {
 	const items = Object.keys(sessionItems);
-	const elapsedMs = getElapsedMs();
-	const elapsedHours = elapsedMs > 0 ? elapsedMs / 3600000 : 0;
 
 	let totalValue = 0;
 	let hasLoadingPrices = false;
 
 	for (const item of items) {
-		const price = getCachedPrice(
-			sessionItems[item].displayName
-		);
+		const values = getItemValues(sessionItems[item], elapsedHours);
 
-		if (price === undefined) {
+		if (values.price === undefined) {
 			hasLoadingPrices = true;
 			continue;
 		}
 
-		if (typeof price !== "number") {
+		if (values.totalValue === null) {
 			continue;
 		}
 
-		totalValue += sessionItems[item].count * price;
+		totalValue += values.totalValue;
 	}
 
 	const totalGpPerHour =
@@ -567,14 +618,57 @@ function getValueTotals() {
 	};
 }
 
+function getElapsedHours(elapsedMs = getElapsedMs()) {
+	return elapsedMs > 0 ? elapsedMs / 3600000 : 0;
+}
+
+function getItemValues(item: Item, elapsedHours: number) {
+	const perHour = elapsedHours > 0 ? item.count / elapsedHours : 0;
+	const price = getCachedPrice(item.displayName);
+	const totalValue = typeof price === "number" ? item.count * price : null;
+	const gpPerHour = totalValue !== null && elapsedHours > 0
+		? totalValue / elapsedHours
+		: null;
+
+	return {
+		perHour,
+		price,
+		totalValue,
+		gpPerHour,
+	};
+}
+
 function getElapsedMs() {
 	if (!sessionStartedAt) return 0;
 
 	if (sessionStatus === "running" && activeStartedAt) {
-		return elapsedBeforePauseMs + (Date.now() - activeStartedAt);
+		return activeMs + (Date.now() - activeStartedAt);
 	}
 
-	return elapsedBeforePauseMs;
+	return activeMs;
+}
+
+function commitActiveTime(now = Date.now()) {
+	if (sessionStatus !== "running" || activeStartedAt === null) return;
+
+	activeMs += Math.max(0, now - activeStartedAt);
+	activeStartedAt = now;
+}
+
+function checkpointSession() {
+	if (sessionStatus !== "running") return;
+
+	commitActiveTime();
+	saveSession();
+}
+
+function pauseForClose() {
+	if (sessionStatus !== "running") return;
+
+	commitActiveTime();
+	activeStartedAt = null;
+	sessionStatus = "paused";
+	saveSession();
 }
 
 async function ensurePrices() {
@@ -607,6 +701,7 @@ async function ensurePriceForItem(item: string) {
 		};
 
 		savePriceCache(cache);
+		if (typeof price === "number") setEventPrice(item, price);
 	} catch {
 		const cache = loadPriceCache();
 
@@ -620,6 +715,20 @@ async function ensurePriceForItem(item: string) {
 		pendingPrices.delete(priceId);
 		updateWindow("prices");
 	}
+}
+
+function setEventPrice(item: string, price: number) {
+	const priceId = getPriceId(item);
+	let changed = false;
+
+	for (const event of sessionEvents) {
+		if (event.unitPrice === undefined && getPriceId(event.item) === priceId) {
+			event.unitPrice = price;
+			changed = true;
+		}
+	}
+
+	if (changed) saveSession();
 }
 
 async function fetchItemPrice(item: string): Promise<number | null> {
@@ -646,7 +755,7 @@ async function fetchItemPrice(item: string): Promise<number | null> {
 	return firstResult.price;
 }
 
-function getCachedPrice(item: string): number | null | undefined {
+export function getCachedPrice(item: string): number | null | undefined {
 	if (isCoinsItem(item)) return 1;
 
 	const cache = loadPriceCache();
@@ -659,6 +768,240 @@ function getCachedPrice(item: string): number | null | undefined {
 	if (!isFresh) return undefined;
 
 	return entry.price;
+}
+
+function buildCsv(startedAt: number) {
+	const elapsedMs = getElapsedMs();
+	const elapsedHours = getElapsedHours(elapsedMs);
+	const totals = getValueTotals(elapsedHours);
+	const sessionEnd = sessionStatus === "ended" && sessionEndedAt !== null
+		? new Date(sessionEndedAt).toISOString()
+		: "";
+	const rows: Array<Array<string | number>> = [
+		["session_start", new Date(startedAt).toISOString()],
+		["session_end", sessionEnd],
+		["session_seconds", elapsedMs / 1000],
+		["total_value", totals.hasLoadingPrices ? "" : totals.totalValue],
+		[
+			"total_gp_per_hour",
+			totals.hasLoadingPrices ? "" : roundCsv(totals.totalGpPerHour),
+		],
+		[],
+		[
+			"item",
+			"skill",
+			"source",
+			"count",
+			"per_hour",
+			"unit_price",
+			"total_value",
+			"gp_per_hour",
+		],
+	];
+	const orderedIds = Object.keys(sessionItems).sort((a, b) =>
+		sessionItems[b].lastUpdated - sessionItems[a].lastUpdated
+	);
+
+	for (const id of orderedIds) {
+		const item = sessionItems[id];
+		const details = getEventDetails(id);
+		const values = getItemValues(item, elapsedHours);
+
+		rows.push([
+			titleCase(item.displayName),
+			details.skill,
+			details.source,
+			item.count,
+			roundCsv(values.perHour),
+			typeof values.price === "number" ? values.price : "",
+			values.totalValue ?? "",
+			values.gpPerHour === null ? "" : roundCsv(values.gpPerHour),
+		]);
+	}
+
+	return `${rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")}\r\n`;
+}
+
+function getEventDetails(id: string) {
+	const skills = new Set<string>();
+	const sources = new Set<string>();
+
+	for (const event of sessionEvents) {
+		if (getUpdateId(event) !== id) continue;
+		if (event.skill) skills.add(event.skill);
+		if (event.source) sources.add(event.source);
+	}
+
+	return {
+		skill: Array.from(skills).join("; "),
+		source: Array.from(sources).join("; "),
+	};
+}
+
+function roundCsv(value: number) {
+	return Math.round(value * 1000) / 1000;
+}
+
+function escapeCsv(value: string | number) {
+	const text = String(value);
+
+	return /[",\r\n]/.test(text)
+		? `"${text.replace(/"/g, '""')}"`
+		: text;
+}
+
+function getCsvFilename(startedAt: number) {
+	const timestamp = new Date(startedAt).toISOString();
+	const date = timestamp.slice(0, 10);
+	const time = timestamp.slice(11, 19).replace(/:/g, "");
+
+	return `Resource-Tracker-session-${date}-${time}.csv`;
+}
+
+function loadSession(): StoredSession | null {
+	const raw = localStorage.getItem(sessionId);
+
+	if (!raw) return null;
+
+	try {
+		const saved = JSON.parse(raw) as unknown;
+
+		if (!saved || typeof saved !== "object") throw new Error();
+
+		const value = saved as Record<string, unknown>;
+		const status = value.status;
+		const startedAt = value.startedAt;
+		const storedEndedAt = value.endedAt;
+		const storedActiveMs = value.activeMs;
+		const storedItems = value.items;
+		const storedEvents = value.events;
+
+		if (
+			(status !== "running" && status !== "paused" && status !== "ended") ||
+			typeof startedAt !== "number" ||
+			!Number.isFinite(startedAt) ||
+			startedAt <= 0 ||
+			startedAt > 8.64e15 ||
+			(storedEndedAt !== undefined &&
+				(typeof storedEndedAt !== "number" ||
+					!Number.isFinite(storedEndedAt) ||
+					storedEndedAt < 0 ||
+					storedEndedAt > 8.64e15)) ||
+			typeof storedActiveMs !== "number" ||
+			!Number.isFinite(storedActiveMs) ||
+			storedActiveMs < 0 ||
+			!storedItems ||
+			typeof storedItems !== "object" ||
+			Array.isArray(storedItems)
+		) {
+			throw new Error();
+		}
+
+		const items: Record<string, Item> = {};
+
+		for (const [id, storedItem] of Object.entries(storedItems)) {
+			if (!storedItem || typeof storedItem !== "object") throw new Error();
+
+			const item = storedItem as Record<string, unknown>;
+
+			if (
+				typeof item.count !== "number" ||
+				!Number.isFinite(item.count) ||
+				typeof item.lastUpdated !== "number" ||
+				!Number.isFinite(item.lastUpdated) ||
+				typeof item.displayName !== "string"
+			) {
+				throw new Error();
+			}
+
+			items[id] = {
+				count: item.count,
+				lastUpdated: item.lastUpdated,
+				displayName: item.displayName,
+			};
+		}
+
+		const events: ItemEvent[] = [];
+
+		if (storedEvents !== undefined) {
+			if (!Array.isArray(storedEvents)) throw new Error();
+
+			for (const storedEvent of storedEvents) {
+				if (!storedEvent || typeof storedEvent !== "object") throw new Error();
+
+				const event = storedEvent as Record<string, unknown>;
+				if (
+					typeof event.timestamp !== "number" ||
+					!Number.isFinite(event.timestamp) ||
+					event.timestamp < 0 ||
+					event.timestamp > 8.64e15 ||
+					typeof event.activeMs !== "number" ||
+					!Number.isFinite(event.activeMs) ||
+					event.activeMs < 0 ||
+					typeof event.item !== "string" ||
+					typeof event.amount !== "number" ||
+					!Number.isFinite(event.amount) ||
+					(event.skill !== undefined && typeof event.skill !== "string") ||
+					(event.source !== undefined && typeof event.source !== "string") ||
+					(event.storageId !== undefined && typeof event.storageId !== "string") ||
+					(event.unitPrice !== undefined &&
+						(typeof event.unitPrice !== "number" ||
+							!Number.isFinite(event.unitPrice)))
+				) {
+					throw new Error();
+				}
+
+				events.push({
+					timestamp: event.timestamp,
+					activeMs: event.activeMs,
+					item: event.item,
+					amount: event.amount,
+					skill: event.skill,
+					source: event.source,
+					storageId: event.storageId,
+					unitPrice: event.unitPrice,
+				} as ItemEvent);
+			}
+		}
+
+		return {
+			status,
+			startedAt,
+			endedAt: typeof storedEndedAt === "number" ? storedEndedAt : undefined,
+			activeMs: storedActiveMs,
+			items,
+			events,
+		};
+	} catch {
+		localStorage.removeItem(sessionId);
+		return null;
+	}
+}
+
+function saveSession() {
+	if (sessionStatus === "idle" || sessionStartedAt === null) {
+		localStorage.removeItem(sessionId);
+		return;
+	}
+
+	const session: StoredSession = {
+		status: sessionStatus,
+		startedAt: sessionStartedAt,
+		endedAt: sessionEndedAt ?? undefined,
+		activeMs,
+		items: sessionItems,
+		events: sessionEvents,
+	};
+
+	try {
+		localStorage.setItem(sessionId, JSON.stringify(session));
+		saveWarningShown = false;
+	} catch (error) {
+		if (!saveWarningShown) {
+			console.warn("Session save failed", error);
+			saveWarningShown = true;
+		}
+	}
 }
 
 function loadPriceCache(): Cache {
@@ -675,22 +1018,6 @@ function loadPriceCache(): Cache {
 
 function savePriceCache(cache: Cache) {
 	localStorage.setItem(priceCacheId, JSON.stringify(cache));
-}
-
-function loadSettings(): Settings {
-	const raw = localStorage.getItem(sessionSettingsId);
-
-	if (!raw) return {};
-
-	try {
-		return JSON.parse(raw) as Settings;
-	} catch {
-		return {};
-	}
-}
-
-function saveSettings(settings: Settings) {
-	localStorage.setItem(sessionSettingsId, JSON.stringify(settings));
 }
 
 function cleanItemNameForPrice(item: string) {
@@ -758,7 +1085,7 @@ function formatGpPerHour(value: number | null) {
 	return formatGp(value);
 }
 
-function formatGp(value: number) {
+export function formatGp(value: number) {
 	const rounded = Math.round(value);
 
 	if (rounded >= 1_000_000_000) {

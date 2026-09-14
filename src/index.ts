@@ -4,7 +4,7 @@ import { getInventionOption, type InventionOption, } from "./invention/component
 import { digsiteMaterials, type Digsite, } from "./tracking/materials";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
-import { recordSession, showSession, getSessionStatus, } from "./ui/session";
+import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
 import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
 import { maybeShowUpdate, showPatchNotes, } from "./updates/updateToast";
@@ -187,6 +187,11 @@ applySavedSettings(savedData);
 sortMode = savedData.sortMode || "recent";
 
 const artifactReader = createArtifactReader();
+
+function openSession() {
+  showSession(settingsWindow.refresh);
+}
+
 const settingsWindow = createSettingsWindow({
   getState: () => ({
     chatTypes: reader.pos?.boxes.map((box) => box.type) || [],
@@ -202,6 +207,8 @@ const settingsWindow = createSettingsWindow({
     hideUnknownSection,
     trackerSize,
     sessionStatus: getSessionStatus(),
+    hasSession: hasSession(),
+    canExportSession: hasSessionData(),
     clearLabel: `Clear ${getActiveTabLabel()}`,
     canClear: hasItemsInTab(),
     resetLabel: `Reset ${getActiveTabLabel()}`,
@@ -211,7 +218,9 @@ const settingsWindow = createSettingsWindow({
   selectChat,
   findChat: refreshChatboxes,
   showHistory,
-  showSession,
+  showSession: openSession,
+  clearSession,
+  exportSessionCsv,
   togglePorters,
   toggleShortNames,
   setCountPosition,
@@ -825,6 +834,7 @@ function renderItemRow(
 ) {
   const row = document.createElement("div");
   row.className = `item-row ${openSettingsItem === item ? "settings-open" : ""}`;
+  row.dataset.item = item;
 
   let goalHtml = "";
   let goalTooltip = "";
@@ -871,9 +881,29 @@ function renderItemRow(
       shortInventionNames,
     ),
   );
+  let statsHtml = "";
+
+  if (openSettingsItem === item) {
+    const price = getCachedPrice(itemData.displayName || item);
+    const unitPrice = typeof price === "number" ? formatGp(price) : "—";
+    const totalValue = typeof price === "number"
+      ? formatGp(itemData.count * price)
+      : "—";
+
+    statsHtml = `
+		<div class="item-stats">
+			<span>Price: <strong>${unitPrice}</strong></span>
+			<span>Total value: <strong>${totalValue}</strong></span>
+		</div>
+	`;
+  }
 
   row.innerHTML = `
-		<div class="item-main-row">
+		<div class="item-main-row"
+			 role="button"
+			 tabindex="0"
+			 aria-expanded="${openSettingsItem === item}"
+			 aria-label="Edit ${escapeAttr(displayName)}">
 			<div class="item-text">
 				<strong class="${escapeAttr(itemData.colorClass || "")}">
 					${displayPrefixHtml}${escapeHtml(displayName)}
@@ -883,38 +913,38 @@ function renderItemRow(
 			<div class="item-count">
     			${itemData.count.toLocaleString()}
 			</div>
-
-			<button class="cog-btn" data-item="${escapeAttr(item)}">⚙</button>
 		</div>
 
 		${goalHtml}
 
-		${openSettingsItem === item ? `<div class="item-settings-separator"></div>` : ""}
-
-		<div class="item-settings-panel ${openSettingsItem === item ? "open" : ""}">
+		${openSettingsItem === item ? `
+		<div class="item-settings-panel">
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
 				   placeholder="Goal"
 				   value="${itemData.goal || ""}">
 
-			<button class="clear-goal icon-btn" data-item="${escapeAttr(item)}" title="Clear Goal">
+			<button class="clear-goal icon-btn" title="Clear Goal">
 				<img src="./icons/clear-goal.png" alt="Clear Goal">
 			</button>
 
-			<button class="save-goal icon-btn" data-item="${escapeAttr(item)}" title="Set Goal">
+			<button class="save-goal icon-btn" title="Set Goal">
 				<img src="./icons/save-goal.png" alt="Set Goal">
 			</button>
 
 			<span class="button-separator">•</span>
 
-			<button class="reset-item icon-btn" data-item="${escapeAttr(item)}" title="Reset Count">
+			<button class="reset-item icon-btn" title="Reset Count">
 				<img src="./icons/reset-count.png" alt="Reset Count">
 			</button>
 
-			<button class="delete-item icon-btn" data-item="${escapeAttr(item)}" title="Delete Item">
+			<button class="delete-item icon-btn" title="Delete Item">
 				<img src="./icons/delete-item.png" alt="Delete Item">
 			</button>
 		</div>
+		` : ""}
+
+		${statsHtml}
 	`;
 
   if (highlightItems?.has(item)) {
@@ -1564,24 +1594,47 @@ function escapeAttr(value: string) {
 
 function bindRowEvents() {
   tracker.addEventListener("click", (e: Event) => {
-    const target = (e.target as HTMLElement).closest(
-      "button[data-item]",
+    const clicked = e.target as HTMLElement;
+    const itemRow = clicked.closest(
+      ".item-row[data-item]",
     ) as HTMLElement | null;
-    if (!target) return;
+    if (!itemRow) return;
 
-    const item = target.dataset.item || "";
+    const target = clicked.closest(".icon-btn") as HTMLElement | null;
 
-    if (target.classList.contains("cog-btn")) {
-      toggleSettings(item);
-    } else if (target.classList.contains("clear-goal")) {
-      clearGoal(item);
-    } else if (target.classList.contains("save-goal")) {
-      setGoal(item);
-    } else if (target.classList.contains("reset-item")) {
-      resetItem(item);
-    } else if (target.classList.contains("delete-item")) {
-      deleteItem(item);
+    if (target) {
+      const item = itemRow.dataset.item || "";
+
+      if (target.classList.contains("clear-goal")) {
+        clearGoal(item);
+      } else if (target.classList.contains("save-goal")) {
+        setGoal(item);
+      } else if (target.classList.contains("reset-item")) {
+        resetItem(item);
+      } else if (target.classList.contains("delete-item")) {
+        deleteItem(item);
+      }
+      return;
     }
+
+    if (clicked.closest(".item-settings-panel")) return;
+
+    if (itemRow) toggleSettings(itemRow.dataset.item || "");
+  });
+
+  tracker.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+
+    const mainRow = e.target as HTMLElement;
+    if (!mainRow.classList.contains("item-main-row")) return;
+
+    const itemRow = mainRow.closest(
+      ".item-row[data-item]",
+    ) as HTMLElement | null;
+    if (!itemRow) return;
+
+    e.preventDefault();
+    toggleSettings(itemRow.dataset.item || "");
   });
 }
 
@@ -1623,7 +1676,7 @@ appCog?.addEventListener("click", function () {
   settingsWindow.show();
 });
 
-sessionQuickButton?.addEventListener("click", showSession);
+sessionQuickButton?.addEventListener("click", openSession);
 
 sortButton?.addEventListener("click", cycleSortMode);
 

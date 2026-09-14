@@ -131,6 +131,10 @@ body.settings-window-body {
   margin-top: 3px;
 }
 .settings-data-row { grid-template-columns: 1fr 1fr; }
+.settings-data-actions {
+  display: grid;
+  gap: 3px;
+}
 .settings-chat-row,
 .settings-chat-select-row {
   display: grid;

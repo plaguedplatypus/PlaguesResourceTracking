@@ -63,6 +63,8 @@ body.session-window-body {
   gap: 4px;
   margin-bottom: 7px;
 }
+.session-controls.single { grid-template-columns: 1fr; }
+.session-controls button[hidden] { display: none; }
 
 .session-separator {
   margin: 5px 0;
@@ -88,17 +90,6 @@ body.session-window-body {
   font-style: italic;
 }
 
-.session-options {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  color: #ccc;
-  font-size: 11px;
-}
-
-.session-options input { margin: 0; }
-
 .session-totals {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -108,7 +99,6 @@ body.session-window-body {
   font-size: 12px;
 }
 
-.session-totals[hidden] { display: none; }
 .session-total-value { color: #7cfc7c; font-weight: bold; }
 .session-total-gp { color: #d8c26a; font-weight: bold; text-align: right; }
 
@@ -150,12 +140,11 @@ body.session-window-body {
 }
 
 .session-window-panel td { color: #ddd; font-size: 11px; }
-.session-item-name { width: 52%; }
-body.show-gp .session-item-name { width: 34%; }
-body:not(.show-gp) .gp-column { display: none; }
+.session-item-name { width: 34%; }
 .session-number { text-align: right; }
 .session-empty { padding: 8px 0; color: #aaa; font-style: italic; }
 .session-empty[hidden] { display: none; }
 .session-window-panel .paused { color: #ffd700; }
 .session-window-panel .running { color: #7cfc7c; }
+.session-window-panel .ended { color: #d8c58a; }
 .session-window-panel .idle { color: #aaa; }

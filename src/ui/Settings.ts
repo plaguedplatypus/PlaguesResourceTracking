@@ -27,6 +27,8 @@ type State = {
   hideUnknownSection: boolean;
   trackerSize: number;
   sessionStatus: SessionStatus;
+  hasSession: boolean;
+  canExportSession: boolean;
   clearLabel: string;
   canClear: boolean;
   resetLabel: string;
@@ -40,6 +42,8 @@ type Actions = {
   findChat(): void;
   showHistory(): void;
   showSession(): void;
+  clearSession(): void;
+  exportSessionCsv(): void;
   togglePorters(): void;
   toggleShortNames(): void;
   setCountPosition(position: CountPosition): void;
@@ -209,8 +213,30 @@ export function createSettingsWindow(
         : "No counts to reset";
     }
 
+    const clearSession = doc.querySelector(
+      ".clear-session",
+    ) as HTMLButtonElement | null;
+    if (clearSession) {
+      clearSession.disabled = !state.hasSession;
+      clearSession.title = state.hasSession
+        ? "Clear the current session"
+        : "No session to clear";
+    }
+
+    const exportSession = doc.querySelector(
+      ".export-session-csv",
+    ) as HTMLButtonElement | null;
+    if (exportSession) {
+      exportSession.disabled = !state.canExportSession;
+      exportSession.title = state.canExportSession
+        ? "Export session events as CSV"
+        : state.hasSession
+          ? "No session events to export"
+          : "No session to export";
+    }
+
     const version = doc.querySelector(".settings-version-label");
-    if (version) version.textContent = `Version ${state.version}`;
+    if (version) version.textContent = state.version;
   }
 
   function initializeDocument(doc: Document): void {
@@ -243,6 +269,21 @@ export function createSettingsWindow(
     });
     doc.querySelector(".find-chat")?.addEventListener("click", actions.findChat);
     doc.querySelector(".history-button")?.addEventListener("click", actions.showHistory);
+    doc.querySelector(".export-session-csv")?.addEventListener("click", () => {
+      if (actions.getState().canExportSession) actions.exportSessionCsv();
+    });
+    doc.querySelector(".clear-session")?.addEventListener("click", () => {
+      if (!actions.getState().hasSession) return;
+
+      requestConfirmation(doc, {
+        title: "Clear session data?",
+        message: "This permanently removes the current session and its recorded data.",
+        confirmLabel: "Clear",
+      }, () => {
+        actions.clearSession();
+        refresh();
+      });
+    });
     doc
       .querySelector(".fishing-porters-toggle input")
       ?.addEventListener("change", actions.togglePorters);
@@ -519,10 +560,12 @@ function updateStatus(doc: Document, status: SessionStatus): void {
       ? "Running"
       : status === "paused"
         ? "Paused"
-        : "Not Running";
+        : status === "ended"
+          ? "Ended"
+          : "Not Running";
 
   if (quickButton) {
-    quickButton.classList.remove("running", "paused", "idle");
+    quickButton.classList.remove("running", "paused", "ended", "idle");
     quickButton.classList.add(status);
     quickButton.title = `Session: ${statusText}`;
     quickButton.setAttribute("aria-label", `Session: ${statusText}`);
@@ -612,7 +655,11 @@ function markup(): string {
             </div>
             <div class="settings-section">
               <div class="settings-section-title">MISC.</div>
-              <button class="history-button" type="button">History</button>
+              <div class="settings-data-actions">
+                <button class="history-button" type="button">History</button>
+                <button class="export-session-csv" type="button">Export CSV</button>
+                <button class="clear-session" type="button">Clear Session</button>
+              </div>
             </div>
           </section>
       </div>
