@@ -108,7 +108,7 @@ let sessionUiOwner: Window | null = null;
 let refreshApp: (() => void) | null = null;
 let saveWarningShown = false;
 
-const pendingPrices = new Set<string>();
+const pendingPrices = new Map<string, Promise<void>>();
 const sessionRows = new Map<string, RowElements>();
 
 localStorage.removeItem(`${appName}_SessionSettings`);
@@ -687,9 +687,17 @@ async function ensurePriceForItem(item: string) {
 	const cachedPrice = getCachedPrice(item);
 
 	if (cachedPrice !== undefined) return;
-	if (pendingPrices.has(priceId)) return;
 
-	pendingPrices.add(priceId);
+	const pending = pendingPrices.get(priceId);
+	if (pending) return pending;
+
+	const request = fetchAndSavePrice(item, priceId);
+	pendingPrices.set(priceId, request);
+
+	return request;
+}
+
+async function fetchAndSavePrice(item: string, priceId: string) {
 
 	try {
 		const price = await fetchItemPrice(item);
@@ -715,6 +723,14 @@ async function ensurePriceForItem(item: string) {
 		pendingPrices.delete(priceId);
 		updateWindow("prices");
 	}
+}
+
+export async function getPrice(item: string): Promise<number | null> {
+	const cachedPrice = getCachedPrice(item);
+	if (cachedPrice !== undefined) return cachedPrice;
+
+	await ensurePriceForItem(item);
+	return getCachedPrice(item) ?? null;
 }
 
 function setEventPrice(item: string, price: number) {

@@ -29,10 +29,6 @@ type State = {
   sessionStatus: SessionStatus;
   hasSession: boolean;
   canExportSession: boolean;
-  clearLabel: string;
-  canClear: boolean;
-  resetLabel: string;
-  canReset: boolean;
   version: string;
 };
 
@@ -56,8 +52,6 @@ type Actions = {
   setTrackerSize(value: number, persist: boolean): void;
   exportData(): void;
   importData(file: File): void;
-  clearTab(): void;
-  resetTabCounts(): void;
   showPatchNotes(targetDocument: Document): void;
 };
 
@@ -195,24 +189,6 @@ export function createSettingsWindow(
       trackerSizeValue.textContent = `${state.trackerSize}px`;
     }
 
-    const clear = doc.querySelector(".clear") as HTMLButtonElement | null;
-    if (clear) {
-      clear.textContent = state.clearLabel;
-      clear.disabled = !state.canClear;
-      clear.title = state.canClear
-        ? state.clearLabel
-        : "No items to clear";
-    }
-
-    const reset = doc.querySelector(".reset") as HTMLButtonElement | null;
-    if (reset) {
-      reset.textContent = state.resetLabel;
-      reset.disabled = !state.canReset;
-      reset.title = state.canReset
-        ? state.resetLabel
-        : "No counts to reset";
-    }
-
     const clearSession = doc.querySelector(
       ".clear-session",
     ) as HTMLButtonElement | null;
@@ -333,24 +309,6 @@ export function createSettingsWindow(
       actions.setTrackerSize(Number(trackerSize.value), true);
     });
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
-    doc.querySelector(".clear")?.addEventListener("click", () => {
-      const state = actions.getState();
-      if (!state.canClear) return;
-
-      requestConfirmation(doc, clearConfirmation(state.clearLabel), () => {
-        actions.clearTab();
-        refresh();
-      });
-    });
-    doc.querySelector(".reset")?.addEventListener("click", () => {
-      const state = actions.getState();
-      if (!state.canReset) return;
-
-      requestConfirmation(doc, resetConfirmation(state.resetLabel), () => {
-        actions.resetTabCounts();
-        refresh();
-      });
-    });
 
     const importInput = doc.querySelector(".import") as HTMLInputElement;
     importInput.addEventListener("change", () => {
@@ -378,32 +336,6 @@ function cloneStyles(doc: Document): Node[] {
       document.head.querySelectorAll('style, link[rel="stylesheet"]'),
     ).map((node) => doc.importNode(node, true)),
   ];
-}
-
-function clearConfirmation(clearLabel: string): Confirmation {
-  const isAll = clearLabel === "Clear ALL";
-  const scope = clearLabel.replace(/^Clear\s+/, "");
-
-  return {
-    title: isAll ? "Clear all tracking data?" : `${clearLabel}?`,
-    message: isAll
-      ? "This will remove all items and counts from every tab."
-      : `This will remove all ${scope} items and counts.`,
-    confirmLabel: clearLabel,
-  };
-}
-
-function resetConfirmation(resetLabel: string): Confirmation {
-  const isAll = resetLabel === "Reset ALL";
-  const scope = resetLabel.replace(/^Reset\s+/, "");
-
-  return {
-    title: isAll ? "Reset all counts?" : `${resetLabel} counts?`,
-    message: isAll
-      ? "This will reset every item count to 0 while keeping the items and their goals."
-      : `This will reset all ${scope} item counts to 0 while keeping the items and their goals.`,
-    confirmLabel: resetLabel,
-  };
 }
 
 function requestConfirmation(
@@ -439,12 +371,14 @@ function requestConfirmation(
   message.className = "tracker-confirmation-message";
   message.textContent = confirmation.message;
 
-  const actionButtons = doc.createElement("div");
-  actionButtons.className = "tracker-confirmation-actions";
+  const actions = doc.createElement("div");
+  actions.className = "tracker-confirmation-actions";
+
   const cancel = doc.createElement("button");
   cancel.type = "button";
   cancel.className = "tracker-confirmation-cancel";
   cancel.textContent = "Cancel";
+
   const confirm = doc.createElement("button");
   confirm.type = "button";
   confirm.className = "tracker-confirmation-confirm";
@@ -475,8 +409,8 @@ function requestConfirmation(
   });
   doc.addEventListener("keydown", onKeyDown);
 
-  actionButtons.append(cancel, confirm);
-  dialog.append(title, message, actionButtons);
+  actions.append(cancel, confirm);
+  dialog.append(title, message, actions);
   overlay.append(dialog);
   doc.body.append(overlay);
   cancel.focus();
@@ -665,13 +599,8 @@ function markup(): string {
       </div>
       </div>
       <div class="settings-bottom-area">
-        <div class="settings-bottom-actions">
-          <button class="clear" type="button">Clear Tab</button>
-          <button class="reset" type="button">Reset Tab</button>
-        </div>
         <div class="settings-bottom-links">
-          <span class="settings-version-label"></span>
-          <button class="settings-patch-notes" type="button" title="Show Patch Notes">Patch Notes</button>
+          <button class="settings-version-label settings-patch-notes" type="button" title="Show Patch Notes"></button>
         </div>
       </div>
     </div>

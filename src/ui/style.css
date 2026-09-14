@@ -83,7 +83,7 @@ body {
 .skill-tabs {
     display: flex;
     flex-wrap: nowrap;
-    gap: 3px;
+    gap: 2px;
     margin-top: 3px;
     min-width: 0;
     overflow-x: auto;
@@ -156,6 +156,66 @@ body {
         0 0 3px rgba(255, 180, 60, 0.45);
 }
 
+.tab-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 3px;
+    min-width: 0;
+    margin-top: 3px;
+}
+
+.tab-toolbar[hidden],
+.tab-actions[hidden] {
+    display: none;
+}
+
+.tab-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.tab-toolbar.has-sort-title .tab-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tab-reset-button,
+.tab-actions .sort-button {
+    width: 15px;
+    height: 15px;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 3px;
+}
+
+.tab-reset-button img {
+    width: 13px;
+    height: 13px;
+    display: block;
+    object-fit: contain;
+    margin: auto;
+    pointer-events: none;
+}
+
+.sort-title {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    min-width: 0;
+    height: 15px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    color: #d8c58a;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.40);
+    border-bottom: 1px solid #444;
+    border-left: 2px solid #444;
+}
 
 .invention-filters,
 .archaeology-filters {
@@ -168,7 +228,6 @@ body {
 .invention-filters.visible,
 .archaeology-filters.visible {
     display: flex;
-    margin-top: 3px;
 }
 
 .invention-filter-cycle,
@@ -265,6 +324,8 @@ body {
 }
 
 .item-row {
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 0;
     line-height: 1;
     background: #2c2c2c;
@@ -331,6 +392,22 @@ body {
     pointer-events: none;
     filter: brightness(0.85) contrast(1.1);
     opacity: 0.75;
+}
+
+.item-entry {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+}
+
+.goal-pin {
+    flex: 0 0 0.75em;
+    display: grid;
+    place-items: center;
+    margin-right: 0.167em;
+    color: #ffd700;
+    font-size: 0.833em;
+    line-height: 1;
 }
 
 .skill-tracking-notice {
@@ -517,6 +594,78 @@ select {
     user-select: none;
 }
 
+.tracker-confirmation-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.62);
+}
+
+.tracker-confirmation {
+    width: 100%;
+    max-width: 188px;
+    min-width: 0;
+    padding: 6px;
+    box-sizing: border-box;
+    color: #e2ded0;
+    background: #0e1d25;
+    border: 2px solid #5a4a2a;
+    border-radius: 6px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.72);
+}
+
+.tracker-confirmation-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 5px;
+    color: #d8c58a;
+    font-size: 12px;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(216, 197, 138, 0.3);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.tracker-confirmation-message {
+    margin: 7px 0 9px;
+    color: #ded9cb;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.tracker-confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.tab-confirmation .tracker-confirmation-actions {
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tab-confirmation .tracker-confirmation-actions button {
+    width: 100%;
+}
+
+.tracker-confirmation-actions button {
+    min-height: 22px;
+    padding: 3px 7px;
+    font-size: 12px;
+}
+
+.tracker-confirmation-clear,
+.tracker-confirmation-confirm {
+    color: #ffd0b8;
+    border-color: #9b5636;
+    background: linear-gradient(#4b2a1d, #21130e);
+}
+
 .tracker-message {
     position: absolute;
     left: 0;
@@ -554,45 +703,6 @@ select {
     border-radius: 0.231em;
 }
 
-
-.update-toast {
-    position: absolute;
-    right: 3px;
-    bottom: 2px;
-    z-index: 9999;
-    box-sizing: border-box;
-    width: min(260px, calc(100vw - 6px));
-    max-height: calc(100vh - 18px);
-    overflow-y: auto;
-    padding: 7px;
-    color: #e8e8e8;
-    background: rgba(14, 29, 37, 0.97);
-    border: 2px solid #5a4a2a;
-    border-radius: 6px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
-    font-size: 12px;
-}
-
-.update-toast-title {
-    margin-bottom: 5px;
-    color: #d8c58a;
-    font-weight: bold;
-}
-
-.update-toast-list {
-    margin: 0 0 7px 16px;
-    padding: 0;
-    color: #cfcfcf;
-}
-
-.update-toast-list li {
-    margin-bottom: 3px;
-}
-
-.update-toast-close {
-    width: 100%;
-    padding: 3px 4px;
-}
 
 .patch-notes-modal {
     position: absolute;

@@ -320,89 +320,28 @@ body.settings-window-body {
 .tracker-size-value { color: #d8c58a; font-size: 12px; }
 input.tracker-size { width: 88px; padding: 0; }
 .settings-bottom-area {
-  padding: 7px 7px 4px;
+  padding: 3px 7px 4px;
   border-top: 1px solid #5a4a2a;
   background: rgba(0, 0, 0, 0.35);
 }
-.settings-bottom-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-}
-.settings-bottom-area .clear,
-.settings-bottom-area .reset {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  justify-content: center;
-  padding-right: 3px;
-  padding-left: 3px;
-}
 .settings-bottom-links {
   display: flex;
-  justify-content: center;
-  gap: 9px;
-  margin-top: 4px;
-  color: #bbbbbb;
-  font-size: 11px;
-}
-.tracker-confirmation-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 12px;
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.62);
-}
-.tracker-confirmation {
-  width: min(248px, calc(100vw - 24px));
-  padding: 9px;
-  box-sizing: border-box;
-  color: #e2ded0;
-  background: #0e1d25;
-  border: 2px solid #5a4a2a;
-  border-radius: 6px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.72);
-}
-.tracker-confirmation-title {
-  padding-bottom: 5px;
-  color: #d8c58a;
-  font-size: 12px;
-  font-weight: bold;
-  border-bottom: 1px solid rgba(216, 197, 138, 0.3);
-}
-.tracker-confirmation-message {
-  margin: 7px 0 9px;
-  color: #ded9cb;
-  font-size: 12px;
-  line-height: 1.35;
-}
-.tracker-confirmation-actions {
-  display: flex;
   justify-content: flex-end;
-  gap: 5px;
-}
-.tracker-confirmation-actions button {
-  min-height: 22px;
-  padding: 3px 7px;
-  font-size: 12px;
-}
-.tracker-confirmation-confirm {
-  color: #ffd0b8;
-  border-color: #9b5636;
-  background: linear-gradient(#4b2a1d, #21130e);
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+  color: #858585;
+  font-size: 9px;
 }
 .settings-patch-notes {
   height: auto;
   padding: 0;
-  color: #d8c58a;
+  color: inherit;
   background: transparent;
   border: 0;
   box-shadow: none;
   font-size: inherit;
 }
 .settings-patch-notes:hover,
-.settings-patch-notes:focus-visible { color: #fff2aa; outline: none; }
+.settings-patch-notes:focus-visible { color: #b5b5b5; outline: none; }
 .import { display: none; }

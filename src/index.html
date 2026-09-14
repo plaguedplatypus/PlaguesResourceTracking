@@ -6,7 +6,6 @@
         <div class="title">
             <div class="title-controls">
                 <button class="tabs-toggle" title="Compact Mode">-</button>
-                <button class="sort-button" title="Sort">⇵</button>
                 <button class="session-quick-button" title="Session">S</button>
                 <button class="app-cog" title="Settings">⚙</button>
             </div>
@@ -49,14 +48,24 @@
             <button class="skill-scroll skill-scroll-right"></button>
         </div>
 
-        <div class="archaeology-filters">
-            <button class="archaeology-filter-cycle">Dig Site: All</button>
-        </div>
+        <div class="tab-toolbar" hidden>
+            <div class="tab-actions" hidden>
+                <button class="tab-reset-button" type="button" title="Clear or reset items" aria-label="Clear or reset items">
+                    <img src="./icons/reset-count.png" alt="">
+                </button>
+                <button class="sort-button" type="button" title="Sort">⇵</button>
+                <span class="sort-title"></span>
+            </div>
 
-        <div class="invention-filters">
-            <button class="invention-filter-cycle">Filter: All</button>
-            <button class="invention-add-button" title="Add an Invention material">+</button>
-            <div class="invention-add-menu" hidden></div>
+            <div class="archaeology-filters">
+                <button class="archaeology-filter-cycle">Dig Site: All</button>
+            </div>
+
+            <div class="invention-filters">
+                <button class="invention-filter-cycle">Filter: All</button>
+                <button class="invention-add-button" title="Add an Invention material">+</button>
+                <div class="invention-add-menu" hidden></div>
+            </div>
         </div>
 
         <div class="tracker"></div>

@@ -4,10 +4,10 @@ import { getInventionOption, type InventionOption, } from "./invention/component
 import { digsiteMaterials, type Digsite, } from "./tracking/materials";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
-import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
+import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
 import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
-import { maybeShowUpdate, showPatchNotes, } from "./updates/updateToast";
+import { showPatchNotes, } from "./updates/patchNotes";
 import ChatReader, { ChatPosition } from "./chat/ChatReader";
 import { createArtifactReader } from "./dialog/artifactCapture";
 import { processMessages } from "./chatPoll";
@@ -35,6 +35,7 @@ type TrackedItem = {
   source?: string;
   colorClass?: string;
   lastUpdated?: number;
+  price?: number | null;
 };
 
 type ItemUpdate = {
@@ -107,7 +108,13 @@ const sessionQuickButton = document.querySelector(
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
 const message = document.querySelector(".tracker-message") as HTMLElement;
+const tabToolbar = document.querySelector(".tab-toolbar") as HTMLElement;
+const tabActions = document.querySelector(".tab-actions") as HTMLElement;
+const tabResetButton = document.querySelector(
+  ".tab-reset-button",
+) as HTMLButtonElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
+const sortTitle = document.querySelector(".sort-title") as HTMLElement;
 
 const inventionFilters = document.querySelector(
   ".invention-filters",
@@ -209,10 +216,6 @@ const settingsWindow = createSettingsWindow({
     sessionStatus: getSessionStatus(),
     hasSession: hasSession(),
     canExportSession: hasSessionData(),
-    clearLabel: `Clear ${getActiveTabLabel()}`,
-    canClear: hasItemsInTab(),
-    resetLabel: `Reset ${getActiveTabLabel()}`,
-    canReset: hasCountsInTab(),
     version: trackerVersion,
   }),
   selectChat,
@@ -233,8 +236,6 @@ const settingsWindow = createSettingsWindow({
   setTrackerSize,
   exportData,
   importData,
-  clearTab,
-  resetTabCounts,
   showPatchNotes,
 });
 
@@ -559,19 +560,42 @@ function applyItemUpdate(
   const id = getUpdateId(update);
   ensureItem(data, id);
 
-  data.items[id].count += update.amount;
-  data.items[id].skill = update.skill;
-  data.items[id].lastUpdated = timestamp;
+  const trackedItem = data.items[id];
+  trackedItem.count += update.amount;
+  trackedItem.skill = update.skill;
+  trackedItem.lastUpdated = timestamp;
   if (update.storageId) {
-    data.items[id].displayName = update.item;
+    trackedItem.displayName = update.item;
   }
 
   if (update.colorClass) {
-    data.items[id].colorClass = update.colorClass;
+    trackedItem.colorClass = update.colorClass;
   }
 
   if (update.source) {
-    data.items[id].source = update.source;
+    trackedItem.source = update.source;
+  }
+
+  if (trackedItem.count > 0 && trackedItem.price === undefined) {
+    void saveItemPrice(id, update.item);
+  }
+}
+
+async function saveItemPrice(item: string, itemName: string) {
+  try {
+    const price = await getPrice(itemName);
+    const data = getSaveData();
+    const trackedItem = data.items[item];
+
+    if (!trackedItem || trackedItem.count <= 0 || trackedItem.price !== undefined) {
+      return;
+    }
+
+    trackedItem.price = price;
+    saveData(data);
+    render();
+  } catch (error) {
+    console.warn("Item price lookup failed", error);
   }
 }
 
@@ -641,6 +665,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
   });
 
   sortItems(items, data);
+  updateTabToolbar(items.length > 0);
 
   tracker.innerHTML = "";
 
@@ -689,9 +714,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
   if (activeSkillTab === "invention") {
     if (inventionFilter === "all" || !showInventionFilter) {
-      for (const item of items) {
-        renderItemRow(item, data.items[item], highlightItems);
-      }
+      renderGoalFirst(items, data, highlightItems);
 
       return;
     }
@@ -797,11 +820,15 @@ function renderGoalSortedTab(
   sortItems(unknownItems, data);
 
   if (goalItems.length > 0) {
-    renderItemGroup("Goals", goalItems, data, highlightItems);
+    for (const item of goalItems) {
+      renderItemRow(item, data.items[item], highlightItems);
+    }
   }
 
   if (sortedItems.length > 0) {
-    renderItemGroup(getSortedGroupLabel(), sortedItems, data, highlightItems);
+    for (const item of sortedItems) {
+      renderItemRow(item, data.items[item], highlightItems);
+    }
   }
 
   if (unknownItems.length > 0) {
@@ -822,7 +849,21 @@ function renderItemGroup(
   header.innerText = label;
   tracker.appendChild(header);
 
-  for (const item of items) {
+  renderGoalFirst(items, data, highlightItems);
+}
+
+function renderGoalFirst(
+  items: string[],
+  data: SaveData,
+  highlightItems?: Set<string>,
+) {
+  const goalItems = items.filter((item) => data.items[item].goal !== null);
+  const otherItems = items.filter((item) => data.items[item].goal === null);
+
+  sortItems(goalItems, data);
+  sortItems(otherItems, data);
+
+  for (const item of [...goalItems, ...otherItems]) {
     renderItemRow(item, data.items[item], highlightItems);
   }
 }
@@ -884,7 +925,9 @@ function renderItemRow(
   let statsHtml = "";
 
   if (openSettingsItem === item) {
-    const price = getCachedPrice(itemData.displayName || item);
+    const price = itemData.price === undefined
+      ? getCachedPrice(itemData.displayName || item)
+      : itemData.price;
     const unitPrice = typeof price === "number" ? formatGp(price) : "—";
     const totalValue = typeof price === "number"
       ? formatGp(itemData.count * price)
@@ -951,7 +994,21 @@ function renderItemRow(
     row.classList.add("highlight");
   }
 
-  tracker.appendChild(row);
+  const entry = document.createElement("div");
+  entry.className = "item-entry";
+
+  if (itemData.goal !== null) {
+    const pin = document.createElement("span");
+    pin.className = "goal-pin";
+    pin.title = "Goal set";
+    pin.setAttribute("role", "img");
+    pin.setAttribute("aria-label", "Goal set");
+    pin.textContent = "★";
+    entry.appendChild(pin);
+  }
+
+  entry.appendChild(row);
+  tracker.appendChild(entry);
 }
 
 function sortItems(items: string[], data: SaveData) {
@@ -1287,6 +1344,20 @@ function updateSortButtonLabel() {
   }
 }
 
+function updateTabToolbar(hasItems: boolean) {
+  const hasFilters =
+    (activeSkillTab === "invention" && showInventionFilter) ||
+    (activeSkillTab === "archaeology" && showArchFilter);
+  const hasSections = activeSkillTab === "invention" ||
+    activeSkillTab === "archaeology";
+
+  tabToolbar.hidden = !hasItems && !hasFilters;
+  tabActions.hidden = !hasItems;
+  tabToolbar.classList.toggle("has-sort-title", !hasSections);
+  sortTitle.hidden = hasSections;
+  sortTitle.textContent = getSortedGroupLabel();
+}
+
 function getActiveTabLabel() {
   if (activeSkillTab === "all") return "ALL";
   if (activeSkillTab === "seren") return "Spirits";
@@ -1522,6 +1593,79 @@ function resetTabCounts() {
   render();
 }
 
+function showTabActions() {
+  if (!hasItemsInTab() || document.querySelector(".tracker-confirmation-overlay")) {
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "tracker-confirmation-overlay";
+
+  const dialog = document.createElement("section");
+  dialog.className = "tracker-confirmation tab-confirmation";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-labelledby", "tracker-confirmation-title");
+
+  const title = document.createElement("div");
+  title.className = "tracker-confirmation-title";
+  title.id = "tracker-confirmation-title";
+  title.textContent = `Manage ${getActiveTabLabel()} items`;
+
+  const actions = document.createElement("div");
+  actions.className = "tracker-confirmation-actions";
+
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "tracker-confirmation-clear";
+  clear.textContent = "Clear";
+  clear.title = "Remove All Items";
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.textContent = "Reset";
+  reset.title = "Reset All Counts";
+  reset.disabled = !hasCountsInTab();
+
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "tracker-confirmation-cancel";
+  cancel.textContent = "Cancel";
+
+  let handled = false;
+  const close = () => {
+    document.removeEventListener("keydown", onKeyDown);
+    overlay.remove();
+    tabResetButton.focus();
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    }
+  };
+  const handle = (action: () => void) => {
+    if (handled) return;
+    handled = true;
+    close();
+    action();
+  };
+
+  clear.addEventListener("click", () => handle(clearTab));
+  reset.addEventListener("click", () => handle(resetTabCounts));
+  cancel.addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKeyDown);
+
+  actions.append(clear, reset, cancel);
+  dialog.append(title, actions);
+  overlay.append(dialog);
+  document.body.append(overlay);
+  cancel.focus();
+}
+
 function exportData() {
   const data = getSaveData();
 
@@ -1660,7 +1804,6 @@ updateSkillTabs();
 updateInventionAddMenu();
 updateSortButtonLabel();
 settingsWindow.refresh();
-maybeShowUpdate();
 updateTabsCollapsedUi();
 updateCountPositionUi();
 updateTrackerSizeUi();
@@ -1677,6 +1820,8 @@ appCog?.addEventListener("click", function () {
 });
 
 sessionQuickButton?.addEventListener("click", openSession);
+
+tabResetButton?.addEventListener("click", showTabActions);
 
 sortButton?.addEventListener("click", cycleSortMode);
 
