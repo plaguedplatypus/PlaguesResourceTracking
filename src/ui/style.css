@@ -36,7 +36,7 @@ body {
 }
 
 .controls-head {
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.65);
     padding: 3px;
     border-bottom: 1px solid rgba(155, 122, 54, 0.79);
     box-shadow: 0 0 3px 2px rgba(0, 0, 0, 0.65);
@@ -53,7 +53,7 @@ body {
     gap: 3px;
 }
 
-.tabs-collapsed .item-prefix-icon,
+.tabs-collapsed .tab-toolbar,
 .tabs-collapsed .skill-tabs {
     display: none;
 }
