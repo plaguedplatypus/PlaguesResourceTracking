@@ -82,7 +82,7 @@ export function createSettingsWindow(
     }
 
     activePage = "general";
-    settingsWindow = window.open("", "settingsWindow", "width=315,height=300");
+    settingsWindow = window.open("", "settingsWindow", "width=315,height=255");
     initializedWindow = null;
     window.setTimeout(initialize, 50);
   }

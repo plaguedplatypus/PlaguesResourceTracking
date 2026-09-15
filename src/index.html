@@ -3,68 +3,76 @@
 
 <body class="nis">
     <div class="app">
-        <div class="title">
-            <div class="title-controls">
-                <button class="tabs-toggle" title="Compact Mode">-</button>
-                <button class="session-quick-button" title="Session">S</button>
-                <button class="app-cog" title="Settings">⚙</button>
-            </div>
-            Resource Tracker
-        </div>
-
-        <div class="skill-tabs-wrap">
-            <button class="skill-scroll skill-scroll-left"></button>
-            <div class="skill-tabs">
-                <button class="skill-tab active" data-skill="all">All</button>
-                <button class="skill-tab" data-skill="mining" title="Mining">
-                    <img src="./icons/mining.png" alt="Mining">
-                </button>
-
-                <button class="skill-tab" data-skill="woodcutting" title="Woodcutting">
-                    <img src="./icons/woodcutting.png" alt="Woodcutting">
-                </button>
-
-                <button class="skill-tab" data-skill="fishing" title="Fishing">
-                    <img src="./icons/fishing.png" alt="Fishing">
-                </button>
-
-                <button class="skill-tab" data-skill="farming" title="Farming">
-                    <img src="./icons/farming.png" alt="Farming">
-                </button>
-
-                <button class="skill-tab" data-skill="archaeology" title="Archaeology">
-                    <img src="./icons/archaeology.png" alt="Archaeology">
-                </button>
-
-                <button class="skill-tab" data-skill="invention" title="Invention">
-                    <img src="./icons/invention.png" alt="Invention">
-                </button>
-
-                <button class="skill-tab" data-skill="seren" title="Spirits">
-                    <img src="./icons/seren.png" alt="Seren">
-                </button>
-
-            </div>
-            <button class="skill-scroll skill-scroll-right"></button>
-        </div>
-
-        <div class="tab-toolbar" hidden>
-            <div class="tab-actions" hidden>
-                <button class="tab-reset-button" type="button" title="Clear or reset items" aria-label="Clear or reset items">
-                    <img src="./icons/reset-count.png" alt="">
-                </button>
-                <button class="sort-button" type="button" title="Sort">⇵</button>
-                <span class="sort-title"></span>
+        <div class="controls-head">
+            <div class="title">
+                <div class="title-controls">
+                    <button class="tabs-toggle" title="Compact Mode">-</button>
+                    <button class="session-quick-button" title="Session">S</button>
+                    <button class="app-cog" title="Settings">⚙</button>
+                </div>
+                Resource Tracker
             </div>
 
-            <div class="archaeology-filters">
-                <button class="archaeology-filter-cycle">Dig Site: All</button>
+            <div class="skill-tabs-wrap">
+                <button class="skill-scroll skill-scroll-left"></button>
+                <div class="skill-tabs">
+                    <button class="skill-tab active" data-skill="all">All</button>
+                    <button class="skill-tab" data-skill="mining" title="Mining">
+                        <img src="./icons/mining.png" alt="Mining">
+                    </button>
+
+                    <button class="skill-tab" data-skill="woodcutting" title="Woodcutting">
+                        <img src="./icons/woodcutting.png" alt="Woodcutting">
+                    </button>
+
+                    <button class="skill-tab" data-skill="fishing" title="Fishing">
+                        <img src="./icons/fishing.png" alt="Fishing">
+                    </button>
+
+                    <button class="skill-tab" data-skill="farming" title="Farming">
+                        <img src="./icons/farming.png" alt="Farming">
+                    </button>
+
+                    <button class="skill-tab" data-skill="archaeology" title="Archaeology">
+                        <img src="./icons/archaeology.png" alt="Archaeology">
+                    </button>
+
+                    <button class="skill-tab" data-skill="invention" title="Invention">
+                        <img src="./icons/invention.png" alt="Invention">
+                    </button>
+
+                    <button class="skill-tab" data-skill="seren" title="Spirits">
+                        <img src="./icons/seren.png" alt="Seren">
+                    </button>
+
+                </div>
+                <button class="skill-scroll skill-scroll-right"></button>
             </div>
 
-            <div class="invention-filters">
-                <button class="invention-filter-cycle">Filter: All</button>
-                <button class="invention-add-button" title="Add an Invention material">+</button>
-                <div class="invention-add-menu" hidden></div>
+            <div class="tab-toolbar" hidden>
+                <div class="tab-actions" hidden>
+                    <button class="tab-reset-button" type="button" aria-controls="tab-actions-menu"
+                        aria-expanded="false">
+                        <img src="./icons/reset-count.png" alt="">
+                    </button>
+                    <div class="tab-actions-menu" id="tab-actions-menu" hidden>
+                        <button class="tab-reset-counts-button" type="button" title="Set all item counts to 0">Reset All
+                            Counts</button>
+                        <button class="tab-clear-button" type="button" title="Remove all items">Remove All Items</button>
+                    </div>
+                    <button class="sort-button" type="button">⇵</button>
+                    <span class="sort-title"></span>
+                </div>
+
+                <div class="archaeology-filters">
+                    <button class="archaeology-filter-cycle">Dig Site: All</button>
+                </div>
+
+                <div class="invention-filters">
+                    <button class="invention-filter-cycle">Filter: All</button>
+                    <button class="invention-add-button" title="Add an Invention material">+</button>
+                    <div class="invention-add-menu" hidden></div>
+                </div>
             </div>
         </div>
 

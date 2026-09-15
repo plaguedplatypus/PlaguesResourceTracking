@@ -266,9 +266,10 @@ function groupLines(
           pendingTimestamp = timestamp;
         }
       }
-    } else if (pendingMessage) {
+    } else if (pendingMessage && canJoinContinuation(pendingMessage)) {
       pendingMessage = joinContinuation(pendingMessage, text);
     } else {
+      flush();
       messages.push(text);
     }
   }
@@ -315,6 +316,14 @@ function isSpiritGiftHeader(text: string | null): boolean {
 
 function isMaterialMessage(text: string | null): boolean {
   return text !== null && isMaterialsGainedMessage(stripTimestamp(text));
+}
+
+function canJoinContinuation(message: string): boolean {
+  const body = stripTimestamp(message);
+  return !(
+    couldStartSkillMessage(body) &&
+    /[.!?]\s*$/.test(body)
+  );
 }
 
 function isQuantityEntry(text: string): boolean {

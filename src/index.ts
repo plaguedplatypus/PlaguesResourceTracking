@@ -38,6 +38,12 @@ type TrackedItem = {
   price?: number | null;
 };
 
+type GoalDraft = {
+  item: string;
+  value: string;
+  focused: boolean;
+};
+
 type ItemUpdate = {
   item: string;
   amount: number;
@@ -113,6 +119,15 @@ const tabActions = document.querySelector(".tab-actions") as HTMLElement;
 const tabResetButton = document.querySelector(
   ".tab-reset-button",
 ) as HTMLButtonElement;
+const tabActionsMenu = document.querySelector(
+  ".tab-actions-menu",
+) as HTMLElement;
+const tabClearButton = document.querySelector(
+  ".tab-clear-button",
+) as HTMLButtonElement;
+const tabResetCountsButton = document.querySelector(
+  ".tab-reset-counts-button",
+) as HTMLButtonElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 const sortTitle = document.querySelector(".sort-title") as HTMLElement;
 
@@ -153,6 +168,7 @@ let visibleSkills: SkillSelection;
 let hideUnknownSection = true;
 let trackerSize = trackerSizeDefault;
 let openSettingsItem: string | null = null;
+let goalDraft: GoalDraft | null = null;
 let tabsCollapsed = false;
 let reader = new ChatReader();
 let chatFontState: "waiting" | "ready" = "waiting";
@@ -658,7 +674,42 @@ function incrementItem(
   );
 }
 
+function captureGoalDraft() {
+  if (!openSettingsItem) {
+    goalDraft = null;
+    return;
+  }
+
+  const input = document.getElementById(
+    `goal-${openSettingsItem}`,
+  ) as HTMLInputElement | null;
+  if (!input) return;
+
+  goalDraft = {
+    item: openSettingsItem,
+    value: input.value,
+    focused: document.activeElement === input,
+  };
+}
+
+function restoreGoalDraft() {
+  if (!goalDraft || goalDraft.item !== openSettingsItem) return;
+
+  const input = document.getElementById(
+    `goal-${goalDraft.item}`,
+  ) as HTMLInputElement | null;
+  if (!input) {
+    goalDraft = null;
+    return;
+  }
+
+  input.value = goalDraft.value;
+  if (goalDraft.focused) input.focus();
+}
+
 function render(highlightItems?: Set<string>, data = getSaveData()) {
+  captureGoalDraft();
+
   const items = Object.keys(data.items).filter((item) => {
     if (activeSkillTab === "all") return isSkillVisible(data.items[item].skill);
     return (data.items[item].skill || "other") === activeSkillTab;
@@ -682,11 +733,13 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       "beforeend",
       `<div class="empty">No tracked items yet...</div>`,
     );
+    restoreGoalDraft();
     return;
   }
 
   if (activeSkillTab === "all") {
     renderAllTab(items, data, highlightItems);
+    restoreGoalDraft();
     return;
   }
 
@@ -709,6 +762,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       renderItemGroup("Artefacts", artefacts, data, highlightItems);
     }
 
+    restoreGoalDraft();
     return;
   }
 
@@ -716,6 +770,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
     if (inventionFilter === "all" || !showInventionFilter) {
       renderGoalFirst(items, data, highlightItems);
 
+      restoreGoalDraft();
       return;
     }
 
@@ -757,10 +812,12 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       renderItemGroup("Common Components", commonItems, data, highlightItems);
     }
 
+    restoreGoalDraft();
     return;
   }
 
   renderGoalSortedTab(items, data, highlightItems);
+  restoreGoalDraft();
 }
 
 function renderMiningNotice() {
@@ -922,6 +979,9 @@ function renderItemRow(
       shortInventionNames,
     ),
   );
+  const goalValue = goalDraft?.item === item
+    ? goalDraft.value
+    : itemData.goal?.toString() || "";
   let statsHtml = "";
 
   if (openSettingsItem === item) {
@@ -965,7 +1025,7 @@ function renderItemRow(
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
 				   placeholder="Goal"
-				   value="${itemData.goal || ""}">
+				   value="${escapeAttr(goalValue)}">
 
 			<button class="clear-goal icon-btn" title="Clear Goal">
 				<img src="./icons/clear-goal.png" alt="Clear Goal">
@@ -974,8 +1034,6 @@ function renderItemRow(
 			<button class="save-goal icon-btn" title="Set Goal">
 				<img src="./icons/save-goal.png" alt="Set Goal">
 			</button>
-
-			<span class="button-separator">•</span>
 
 			<button class="reset-item icon-btn" title="Reset Count">
 				<img src="./icons/reset-count.png" alt="Reset Count">
@@ -1296,6 +1354,23 @@ function updateInventionAddMenu() {
   inventionAddButton.title = materials.length === 0
     ? "All materials in this filter are already tracked"
     : "Add an Invention material";
+  positionInventionAddMenu();
+}
+
+function positionInventionAddMenu() {
+  inventionAddMenu.style.removeProperty("transform");
+  if (inventionAddMenu.hidden) return;
+
+  const app = document.querySelector(".app") as HTMLElement | null;
+  if (!app) return;
+
+  const menuRight = inventionAddMenu.getBoundingClientRect().right;
+  const appRight = app.getBoundingClientRect().right;
+  const shift = Math.min(0, appRight - menuRight);
+
+  if (shift < 0) {
+    inventionAddMenu.style.transform = `translateX(${Math.floor(shift)}px)`;
+  }
 }
 
 function addInventionMaterials(items: readonly string[]) {
@@ -1331,19 +1406,6 @@ function addInventionMaterials(items: readonly string[]) {
   render();
 }
 
-function updateSortButtonLabel() {
-  const sortTitle =
-    sortMode === "recent"
-      ? "Sort: Recent"
-      : sortMode === "alpha"
-        ? "Sort: A-Z"
-        : "Sort: Count";
-
-  if (sortButton) {
-    sortButton.title = sortTitle;
-  }
-}
-
 function updateTabToolbar(hasItems: boolean) {
   const hasFilters =
     (activeSkillTab === "invention" && showInventionFilter) ||
@@ -1353,6 +1415,8 @@ function updateTabToolbar(hasItems: boolean) {
 
   tabToolbar.hidden = !hasItems && !hasFilters;
   tabActions.hidden = !hasItems;
+  if (!hasItems) closeTabActionsMenu();
+  tabResetCountsButton.disabled = !hasCountsInTab();
   tabToolbar.classList.toggle("has-sort-title", !hasSections);
   sortTitle.hidden = hasSections;
   sortTitle.textContent = getSortedGroupLabel();
@@ -1409,7 +1473,8 @@ skillScrollRight.addEventListener("click", () => {
 skillTabs.addEventListener("scroll", updateSkillTabScrollButtons);
 
 new ResizeObserver(() => {
-    updateSkillTabScrollButtons();
+  updateSkillTabScrollButtons();
+  positionInventionAddMenu();
 }).observe(skillTabs);
 
 requestAnimationFrame(updateSkillTabScrollButtons);
@@ -1427,6 +1492,8 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 
     target.classList.add("active");
 
+    closeTabActionsMenu();
+    goalDraft = null;
     updateInventionFilterUi();
     updateArchFilterUi();
     settingsWindow.refresh();
@@ -1437,6 +1504,7 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 function toggleSettings(item: string) {
   const data = getSaveData();
   if (!data.items[item]) return;
+  goalDraft = null;
   openSettingsItem = openSettingsItem === item ? null : item;
 
   render();
@@ -1447,7 +1515,6 @@ function cycleSortMode() {
     sortMode === "recent" ? "alpha" : sortMode === "alpha" ? "count" : "recent";
   saveSetting("sortMode", sortMode);
 
-  updateSortButtonLabel();
   render();
 }
 
@@ -1456,6 +1523,7 @@ function clearGoal(item: string) {
   if (!data.items[item]) return;
 
   data.items[item].goal = null;
+  goalDraft = null;
 
   saveData(data);
   render();
@@ -1481,6 +1549,7 @@ function setGoal(item: string) {
     data.items[item].goal = goal;
   }
 
+  goalDraft = null;
   saveData(data);
   render();
 }
@@ -1496,6 +1565,7 @@ function resetItem(item: string) {
 
 function deleteItem(item: string) {
   const data = getSaveData();
+  if (goalDraft?.item === item) goalDraft = null;
   if (openSettingsItem === item) {
     openSettingsItem = null;
   }
@@ -1536,6 +1606,7 @@ function refreshChatboxes() {
 
 function clearTab() {
   const data = getSaveData();
+  goalDraft = null;
 
   if (activeSkillTab === "all") {
     data.items = {};
@@ -1593,77 +1664,17 @@ function resetTabCounts() {
   render();
 }
 
-function showTabActions() {
-  if (!hasItemsInTab() || document.querySelector(".tracker-confirmation-overlay")) {
-    return;
-  }
+function toggleTabActionsMenu() {
+  if (!hasItemsInTab()) return;
 
-  const overlay = document.createElement("div");
-  overlay.className = "tracker-confirmation-overlay";
+  tabActionsMenu.hidden = !tabActionsMenu.hidden;
+  tabResetButton.setAttribute("aria-expanded", String(!tabActionsMenu.hidden));
+  tabResetCountsButton.disabled = !hasCountsInTab();
+}
 
-  const dialog = document.createElement("section");
-  dialog.className = "tracker-confirmation tab-confirmation";
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-labelledby", "tracker-confirmation-title");
-
-  const title = document.createElement("div");
-  title.className = "tracker-confirmation-title";
-  title.id = "tracker-confirmation-title";
-  title.textContent = `Manage ${getActiveTabLabel()} items`;
-
-  const actions = document.createElement("div");
-  actions.className = "tracker-confirmation-actions";
-
-  const clear = document.createElement("button");
-  clear.type = "button";
-  clear.className = "tracker-confirmation-clear";
-  clear.textContent = "Clear";
-  clear.title = "Remove All Items";
-
-  const reset = document.createElement("button");
-  reset.type = "button";
-  reset.textContent = "Reset";
-  reset.title = "Reset All Counts";
-  reset.disabled = !hasCountsInTab();
-
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "tracker-confirmation-cancel";
-  cancel.textContent = "Cancel";
-
-  let handled = false;
-  const close = () => {
-    document.removeEventListener("keydown", onKeyDown);
-    overlay.remove();
-    tabResetButton.focus();
-  };
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-    }
-  };
-  const handle = (action: () => void) => {
-    if (handled) return;
-    handled = true;
-    close();
-    action();
-  };
-
-  clear.addEventListener("click", () => handle(clearTab));
-  reset.addEventListener("click", () => handle(resetTabCounts));
-  cancel.addEventListener("click", close);
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) close();
-  });
-  document.addEventListener("keydown", onKeyDown);
-
-  actions.append(clear, reset, cancel);
-  dialog.append(title, actions);
-  overlay.append(dialog);
-  document.body.append(overlay);
-  cancel.focus();
+function closeTabActionsMenu() {
+  tabActionsMenu.hidden = true;
+  tabResetButton.setAttribute("aria-expanded", "false");
 }
 
 function exportData() {
@@ -1690,6 +1701,7 @@ function importData(file: File) {
 
       saveData(data);
       openSettingsItem = null;
+      goalDraft = null;
       applySavedSettings(data);
 
       updateCountPositionUi();
@@ -1802,7 +1814,6 @@ updateArchFilterButton();
 updateArchFilterUi();
 updateSkillTabs();
 updateInventionAddMenu();
-updateSortButtonLabel();
 settingsWindow.refresh();
 updateTabsCollapsedUi();
 updateCountPositionUi();
@@ -1821,7 +1832,28 @@ appCog?.addEventListener("click", function () {
 
 sessionQuickButton?.addEventListener("click", openSession);
 
-tabResetButton?.addEventListener("click", showTabActions);
+tabResetButton?.addEventListener("click", toggleTabActionsMenu);
+tabClearButton?.addEventListener("click", () => {
+  closeTabActionsMenu();
+  clearTab();
+});
+tabResetCountsButton?.addEventListener("click", () => {
+  if (tabResetCountsButton.disabled) return;
+  closeTabActionsMenu();
+  resetTabCounts();
+});
+
+document.addEventListener("click", (event) => {
+  if (!tabActionsMenu.hidden && !tabActions.contains(event.target as Node)) {
+    closeTabActionsMenu();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || tabActionsMenu.hidden) return;
+  event.preventDefault();
+  closeTabActionsMenu();
+  tabResetButton.focus();
+});
 
 sortButton?.addEventListener("click", cycleSortMode);
 

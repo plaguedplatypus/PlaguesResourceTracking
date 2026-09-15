@@ -87,6 +87,7 @@ const knownItemOcrCorrections: Readonly<Record<string, string>> = {
 	"saiifish": "sailfish",
 	"raw saiifish": "raw sailfish",
 	"raw swor": "raw swordfish",
+	"fternal magic logs": "eternal magic logs",
 };
 
 export function parseSkillMessage(
@@ -110,7 +111,11 @@ export function parseSkillMessage(
 		const amount = transportMatch[2]
 			? Number(transportMatch[2])
 			: 1;
-		const item = normalizeTrackedItemName(transportMatch[3]);
+		const itemText = transportMatch[3];
+		// A duplicated wrapped continuation must not become part of an item name.
+		if (/\b[1-9][\d,]*\s*x\s+\S/i.test(itemText)) return null;
+
+		const item = normalizeTrackedItemName(itemText);
 		if (!item || !Number.isInteger(amount) || amount <= 0) {
 			return null;
 		}
