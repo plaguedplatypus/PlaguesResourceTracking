@@ -259,8 +259,10 @@ export function normalizeTrackedItemName(item: string): string {
 		.trim()
 		.replace(/[\s.,;:\[\]]+$/g, "")
 		.trim();
+	// Woodcutting chat names the tree, while bank messages name the logs.
+	const correctedName = normalized.replace(/\btree logs$/i, "logs");
 
-	return knownItemOcrCorrections[normalized] ?? normalized;
+	return knownItemOcrCorrections[correctedName] ?? correctedName;
 }
 
 function getTransportSkill(

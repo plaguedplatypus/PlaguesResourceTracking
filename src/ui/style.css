@@ -438,7 +438,7 @@ body {
     display: flex;
     align-items: center;
     font-size: 1em;
-    color: #eee;
+    color: var(--text);
     padding-top: 0.083em;
     margin-left: 0.083em;
     line-height: 1;
@@ -522,11 +522,12 @@ body {
 
 .goal-row {
     gap: 0.333em;
-    padding: 0.167em;
+    padding: 0.167em 0.167em 0;
+    border-top: 1px solid #444;
 }
 
 .goal-text {
-    color: #b0b0b0;
+    color: var(--muted);
     font-size: 0.917em;
 }
 
@@ -600,9 +601,8 @@ select {
     align-items: center;
     overflow: hidden;
     border-top: 2px solid #444;
-    margin: 2px 0 0;
-    padding-top: 2px;
-    margin-bottom: 0.167em;
+    margin-top: 2px;
+    padding: 2px 1px 0;
 }
 
 .item-settings-panel input {
@@ -626,9 +626,9 @@ select {
 .item-stats {
     display: flex;
     gap: 0.5em;
-    margin: 2px 0.167em 0;
-    padding-top: 2px;
-    color: #b0b0b0;
+    margin-top: 2px;
+    padding: 2px 2px 0;
+    color: var(--text);
     border-top: 2px solid #444;
     font-size: 0.93em;
 }
