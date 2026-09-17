@@ -55,7 +55,7 @@ type ItemUpdate = {
 
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type ArchFilter = "all" | Digsite;
-type TrackableSkill = Exclude<SkillType, "all">;
+type TrackableSkill = Exclude<SkillType, "all"> | "fire";
 type SkillSelection = Record<TrackableSkill, boolean>;
 type SortMode = "recent" | "alpha" | "count";
 type CountPosition = "right" | "left";
@@ -121,6 +121,9 @@ const tabResetButton = document.querySelector(
 ) as HTMLButtonElement;
 const tabActionsMenu = document.querySelector(
   ".tab-actions-menu",
+) as HTMLElement;
+const tabActionsTitle = document.querySelector(
+  ".tab-actions-title",
 ) as HTMLElement;
 const tabClearButton = document.querySelector(
   ".tab-clear-button",
@@ -711,8 +714,10 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
   captureGoalDraft();
 
   const items = Object.keys(data.items).filter((item) => {
-    if (activeSkillTab === "all") return isSkillVisible(data.items[item].skill);
-    return (data.items[item].skill || "other") === activeSkillTab;
+    const itemData = data.items[item];
+    if (activeSkillTab === "all") return isItemVisible(itemData);
+    return (itemData.skill || "other") === activeSkillTab &&
+      isItemVisible(itemData);
   });
 
   sortItems(items, data);
@@ -1120,12 +1125,25 @@ function normalizeSkillSelection(value: unknown): SkillSelection {
     archaeology: savedSelection?.archaeology ?? true,
     invention: savedSelection?.invention ?? true,
     seren: savedSelection?.seren ?? true,
+    fire: savedSelection?.fire ?? savedSelection?.seren ?? true,
   };
 }
 
-function isSkillVisible(skill: InternalSkillType | undefined) {
+function isItemVisible(itemData: TrackedItem) {
+  const skill = itemData.skill;
   if (!skill || skill === "all" || skill === "other") return true;
+  if (skill === "seren") {
+    return itemData.source === "Forge/Fire Spirit"
+      ? visibleSkills.fire
+      : visibleSkills.seren;
+  }
   return visibleSkills[skill];
+}
+
+function isTabVisible(skill: Exclude<SkillType, "all">) {
+  return skill === "seren"
+    ? visibleSkills.seren || visibleSkills.fire
+    : visibleSkills[skill];
 }
 
 function setCountPosition(position: CountPosition) {
@@ -1245,7 +1263,8 @@ function updateArchFilterUi() {
 
 function updateSkillTabs() {
   const enabledSkills = (Object.keys(visibleSkills) as TrackableSkill[]).filter(
-    (skill) => visibleSkills[skill],
+    (skill): skill is Exclude<SkillType, "all"> =>
+      skill !== "fire" && isTabVisible(skill),
   );
   const showAllTab = enabledSkills.length !== 1;
 
@@ -1255,15 +1274,15 @@ function updateSkillTabs() {
       return;
     }
 
-    const skill = tab.dataset.skill as TrackableSkill | undefined;
+    const skill = tab.dataset.skill as Exclude<SkillType, "all"> | undefined;
     if (!skill) return;
-    tab.hidden = !visibleSkills[skill];
+    tab.hidden = !isTabVisible(skill);
   });
 
   const nextActiveTab =
     activeSkillTab === "all" && enabledSkills.length === 1
       ? enabledSkills[0]
-      : activeSkillTab !== "all" && !visibleSkills[activeSkillTab]
+      : activeSkillTab !== "all" && !isTabVisible(activeSkillTab)
         ? enabledSkills.length === 1
           ? enabledSkills[0]
           : "all"
@@ -1417,14 +1436,15 @@ function updateTabToolbar(hasItems: boolean) {
   tabActions.hidden = !hasItems;
   if (!hasItems) closeTabActionsMenu();
   tabResetCountsButton.disabled = !hasCountsInTab();
+  tabActionsTitle.textContent = `${getActiveTabLabel()}:`;
   tabToolbar.classList.toggle("has-sort-title", !hasSections);
   sortTitle.hidden = hasSections;
   sortTitle.textContent = getSortedGroupLabel();
 }
 
 function getActiveTabLabel() {
-  if (activeSkillTab === "all") return "ALL";
-  if (activeSkillTab === "seren") return "Spirits";
+  if (activeSkillTab === "all") return "All Items";
+  if (activeSkillTab === "seren") return "Spirits Rewards";
 
   return titleCase(activeSkillTab);
 }

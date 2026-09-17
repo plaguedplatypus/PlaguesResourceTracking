@@ -11,7 +11,8 @@ type TrackableSkill =
   | "farming"
   | "archaeology"
   | "invention"
-  | "seren";
+  | "seren"
+  | "fire";
 
 type State = {
   chatTypes: readonly ChatboxType[];
@@ -636,7 +637,8 @@ function trackedSkillsMarkup(): string {
     { skill: "farming", label: "Farming", icon: "farming.png" },
     { skill: "archaeology", label: "Archaeology", icon: "archaeology.png" },
     { skill: "invention", label: "Invention", icon: "invention.png" },
-    { skill: "seren", label: "Seren / Phoenix", icon: "seren.png" },
+    { skill: "seren", label: "Seren Spirit", icon: "seren.png" },
+    { skill: "fire", label: "Forge Phoenix / Fire Spirit", icon: "fire.png" },
   ];
 
   return skills
