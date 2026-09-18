@@ -251,15 +251,15 @@ body.settings-window-body {
 .settings-tracked-skill {
   position: relative;
   display: flex;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
   align-items: center;
   justify-content: center;
   padding: 3px;
   box-sizing: border-box;
   border: 1px solid #34382f;
-  border-radius: 5px;
+  border-radius: 3px;
   background: rgba(88, 13, 13, 0.4);
   cursor: pointer;
 }
@@ -270,8 +270,8 @@ body.settings-window-body {
   opacity: 1;
 }
 .settings-tracked-skill img {
-  width: 20px;
-  height: 20px;
+  width: 23px;
+  height: 23px;
   object-fit: contain;
   pointer-events: none;
 }

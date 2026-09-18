@@ -3,7 +3,7 @@
   "description": "Compact RuneScape resource tracker.",
   "appUrl": "./index.html",
   "configUrl": "./appconfig.json",
-  "iconUrl": "./icons/icon.png",
+  "iconUrl": "./icons/mining.png",
   "defaultWidth": 230,
   "defaultHeight": 350,
   "requestHandlers": [],

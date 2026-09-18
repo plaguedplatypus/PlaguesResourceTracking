@@ -64,7 +64,7 @@ const trackerSizeMin = 10;
 const trackerSizeMax = 16;
 const trackerSizeDefault = 12;
 const messageDurationMs = 5000;
-const skillIconIds = new Set<InternalSkillType>([
+const skillIconIds = new Set<TrackableSkill>([
   "mining",
   "woodcutting",
   "fishing",
@@ -72,6 +72,7 @@ const skillIconIds = new Set<InternalSkillType>([
   "archaeology",
   "invention",
   "seren",
+  "fire",
 ]);
 
 type SaveData = {
@@ -468,8 +469,14 @@ function getSkillIconHtml(itemData: TrackedItem) {
   if (activeSkillTab !== "all" || !showAllTabIcons) return "";
 
   const skill = itemData.skill;
-  return skill && skillIconIds.has(skill)
-    ? `<img class="item-prefix-icon" src="./icons/${skill}.png" alt=""> `
+  const icon =
+    skill === "seren" && itemData.source === "Forge/Fire Spirit"
+      ? "fire"
+      : skill;
+  if (!icon || icon === "all" || icon === "other") return "";
+
+  return skillIconIds.has(icon)
+    ? `<img class="item-prefix-icon" src="./icons/${icon}.png" alt=""> `
     : "";
 }
 
