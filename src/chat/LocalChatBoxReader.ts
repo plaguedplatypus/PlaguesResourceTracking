@@ -6,6 +6,7 @@ import chat10pt from "./chat_10pt.json";
 import chat12pt from "./chat_12pt.json";
 import chat14pt from "./chat_14pt.json";
 import chat16pt from "./chat_16pt.json";
+import type { ChatboxType } from "./chatTypes";
 import { isKnownMaterial, MaterialSuffix } from "../invention/components";
 import { isExplicitMaterialEntry } from "../invention/InventionParser";
 import {
@@ -17,13 +18,13 @@ import {
 
 declare function require(moduleName: string): Promise<ImageData>;
 
-type FontSetting = { name: string, lineheight: number, badgey: number, dy: number, def: OCR.FontDefinition };
+type FontSetting = { name: string, lineheight: number, dy: number, def: OCR.FontDefinition };
 
 let fonts: FontSetting[] = [
-	{ name: "10pt", lineheight: 14, badgey: -9, dy: -2, def: chat10pt as OCR.FontDefinition },
-	{ name: "12pt", lineheight: 16, badgey: -9, dy: -3, def: chat12pt as OCR.FontDefinition },
-	{ name: "14pt", lineheight: 18, badgey: -10, dy: -3, def: chat14pt as OCR.FontDefinition },
-	{ name: "16pt", lineheight: 21, badgey: -10, dy: -4, def: chat16pt as OCR.FontDefinition },
+	{ name: "10pt", lineheight: 14, dy: -2, def: chat10pt as OCR.FontDefinition },
+	{ name: "12pt", lineheight: 16, dy: -3, def: chat12pt as OCR.FontDefinition },
+	{ name: "14pt", lineheight: 18, dy: -3, def: chat14pt as OCR.FontDefinition },
+	{ name: "16pt", lineheight: 21, dy: -4, def: chat16pt as OCR.FontDefinition },
 ];
 
 const imgs = webpackImages({
@@ -32,12 +33,10 @@ const imgs = webpackImages({
 	filterbutton: require("../../node_modules/alt1/src/chatbox/imgs/filterbutton.data.png"),
 	chatbubble: require("../../node_modules/alt1/src/chatbox/imgs/chatbubble.data.png"),
 	chatLegacyBorder: require("../../node_modules/alt1/src/chatbox/imgs/chatLegacyBorder.data.png"),
-	entertochat: require("../../node_modules/alt1/src/chatbox/imgs/entertochat.data.png"),
 	gameoff: require("../../node_modules/alt1/src/chatbox/imgs/gameoff.data.png"),
 	gamefilter: require("../../node_modules/alt1/src/chatbox/imgs/gamefilter.data.png"),
 	gameall: require("../../node_modules/alt1/src/chatbox/imgs/gameall.data.png"),
 	legacyreport: require("../../node_modules/alt1/src/chatbox/imgs/legacyreport.data.png"),
-	reportbutton: require("../../node_modules/alt1/src/chatbox/imgs/reportbutton.data.png"),
 });
 
 const chatimgs = webpackImages({
@@ -61,47 +60,6 @@ const chatmap: { [key in keyof typeof chatimgs.raw]: ChatboxType } = {
 	groupironman: "gimc",
 	privateRecent: "private", // needs to be last to not mess with the buf
 };
-const chatbadges = webpackImages({
-	vip: require("../../node_modules/alt1/src/chatbox/imgs/badges/vip.data.png"),
-	pmod: require("../../node_modules/alt1/src/chatbox/imgs/badges/pmod.data.png"),
-	pmodvip: require("../../node_modules/alt1/src/chatbox/imgs/badges/pmodvip.data.png"),
-	broadcast_gold: require("../../node_modules/alt1/src/chatbox/imgs/badges/broadcast_gold.data.png"),
-	broadcast_silver: require("../../node_modules/alt1/src/chatbox/imgs/badges/broadcast_silver.data.png"),
-	broadcast_bronze: require("../../node_modules/alt1/src/chatbox/imgs/badges/broadcast_bronze.data.png"),
-	broadcast_death: require("../../node_modules/alt1/src/chatbox/imgs/badges/broadcast_death.data.png"),
-	ironman: require("../../node_modules/alt1/src/chatbox/imgs/badges/ironman.data.png"),
-	hcim: require("../../node_modules/alt1/src/chatbox/imgs/badges/hcim.data.png"),
-	rgim: require("../../node_modules/alt1/src/chatbox/imgs/badges/rgim.data.png"),
-	gim: require("../../node_modules/alt1/src/chatbox/imgs/badges/gim.data.png"),
-	chatlink: require("../../node_modules/alt1/src/chatbox/imgs/badges/link.data.png"),
-
-	league_steel: require("../../node_modules/alt1/src/chatbox/imgs/badges/league_steel.data.png"),
-	league_mith: require("../../node_modules/alt1/src/chatbox/imgs/badges/league_mith.data.png"),
-	league_addy: require("../../node_modules/alt1/src/chatbox/imgs/badges/league_addy.data.png"),
-	league_rune: require("../../node_modules/alt1/src/chatbox/imgs/badges/league_rune.data.png"),
-	league_dragon: require("../../node_modules/alt1/src/chatbox/imgs/badges/league_dragon.data.png"),
-});
-
-const badgemap: { [key in keyof typeof chatbadges.raw]: string } = {
-	vip: "\u2730",//SHADOWED WHITE STAR
-	pmod: "\u2655",//WHITE CHESS QUEEN
-	pmodvip: "\u2655",//WHITE CHESS QUEEN
-	broadcast_gold: "\u2746",//HEAVY CHEVRON SNOWFLAKE
-	broadcast_silver: "\u2746",//HEAVY CHEVRON SNOWFLAKE
-	broadcast_bronze: "\u2746",//HEAVY CHEVRON SNOWFLAKE
-	broadcast_death: "\u{1F480}",//SKULL
-	ironman: "\u26AF",//UNMARRIED PARTNERSHIP SYMBOL
-	hcim: "\u{1F480}",//SKULL
-	rgim: "\u328F",//CIRCLED IDEOGRAPH EARTH
-	gim: "\u3289",//CIRCLED IDEOGRAPH TEN
-	chatlink: "\u{1F517}",//LINK SYMBOL
-	league_steel: "\u{1F3C6}",//TROPHY
-	league_mith: "\u{1F3C6}",//TROPHY
-	league_addy: "\u{1F3C6}",//TROPHY
-	league_rune: "\u{1F3C6}",//TROPHY
-	league_dragon: "\u{1F3C6}",//TROPHY
-}
-
 const trackerColors: readonly OCR.ColortTriplet[] = [
 	[255, 255, 255],
 	[127, 169, 255],
@@ -123,7 +81,6 @@ const trackerColors: readonly OCR.ColortTriplet[] = [
 	[127, 255, 255],
 ];
 
-type ChatboxType = "main" | "cc" | "fc" | "gc" | "gcc" | "private" | "gimc" | "unknown";
 type TopRight = a1lib.PointLike & { type: "hidden" | "full" | "legacy" }
 type BotLeft = a1lib.PointLike & { type: ChatboxType }
 export type Chatbox = {
@@ -156,7 +113,6 @@ export default class ChatBoxReader {
 
 	//state
 	pos: { mainbox: Chatbox, boxes: Chatbox[] } | null = null;
-	debug = null;
 	overlaplines: ChatLine[] = [];
 	lastTimestamp = -1;
 	lastTimestampUpdate = 0;
@@ -171,7 +127,6 @@ export default class ChatBoxReader {
 		var liney = box.line0y - linenr * font.lineheight + font.dy;
 
 		let ctx: ReadLineContext = {
-			badgedy: font.badgey,
 			baseliney: liney + box.rect.y - imgy,
 			colors: ocrcolors,
 			font: font.def,
@@ -246,9 +201,15 @@ export default class ChatBoxReader {
 		var leftmargin = (box.leftfound ? 0 : 300);
 		let imgx = box.rect.x - leftmargin;
 		let imgy = box.rect.y;
+		const rightEdge = img ? img.x + img.width : alt1.rsWidth;
+		const rightPadding = Math.max(0, Math.min(
+			Math.max(...fonts.map(font => font.def.width)),
+			rightEdge - box.rect.x - box.rect.width,
+		));
+		const width = box.rect.width + leftmargin + rightPadding;
 		let imgdata: ImageData;
-		if (img) { imgdata = img.toData(imgx, imgy, box.rect.width + leftmargin, box.rect.height); }
-		else { imgdata = a1lib.capture(imgx, imgy, box.rect.width + leftmargin, box.rect.height); }
+		if (img) { imgdata = img.toData(imgx, imgy, width, box.rect.height); }
+		else { imgdata = a1lib.capture(imgx, imgy, width, box.rect.height); }
 		this.lastReadBuffer = new ImgRefData(imgdata, imgx, imgy);
 
 		//add timestamp colors if needed
@@ -417,10 +378,6 @@ export default class ChatBoxReader {
 		return this.simplifyLine(line1) == this.simplifyLine(line2);
 	}
 
-	checkLegacyBG(buf: ImageData, x: number, y: number) {
-		return buf.getColorDifference(x, y, 155, 140, 107) < 20;
-	}
-
 	find(imgornull?: ImgRef) {
 		if (!imgornull) { imgornull = a1lib.captureHoldFullRs(); }
 		if (!imgornull) { return null; }
@@ -560,29 +517,6 @@ export default class ChatBoxReader {
 		return (+m[1]) * 60 * 60 + (+m[2]) * 60 + (+m[3]);
 	}
 
-	static getFontColor(buffer: ImageData, x: number, y: number, w: number, h: number) {
-		var bestscore = -Infinity;
-		var bestx = 0, besty = 0;
-		var data = buffer.data;
-
-		for (var cx = x; cx < x + w - 1; cx++) {
-			for (var cy = y; cy < y + h - 1; cy++) {
-				var i1 = 4 * cx + 4 * buffer.width * cy;
-				var i2 = 4 * (cx + 1) + 4 * buffer.width * (cy + 1);
-
-				var colorness = data[i1] + data[i1 + 1] + data[i1 + 2];
-				var blackness = data[i2] + data[i2 + 1] + data[i2 + 2];
-
-				var score = Math.min(255, 255 + 20 - blackness) * colorness;
-				if (score > bestscore) {
-					bestscore = score;
-					bestx = cx;
-					besty = cy;
-				}
-			}
-		}
-		return buffer.getPixel(bestx, besty);
-	}
 }
 
 
@@ -593,7 +527,6 @@ type ReadLineContext = {
 	baseliney: number,
 	imgdata: ImageData,
 	font: OCR.FontDefinition,
-	badgedy: number,
 	colors: [number, number, number][]
 	text: string,
 	fragments: OCR.TextFragment[],
@@ -607,21 +540,47 @@ type ReadLineNudge = {
 	fn: (ctx: ReadLineContext, match: RegExpMatchArray) => boolean | undefined
 };
 
-
-let checkchatbadge = (ctx: ReadLineContext) => {
-	let addspace = ctx.forward && ctx.text.length != 0 && ctx.text[ctx.text.length - 1] != " ";
-	for (const badge of Object.keys(chatbadges.raw) as Array<keyof typeof chatbadges.raw>) {
-		let bimg = chatbadges.raw[badge];
-		let badgeleft = (ctx.forward ? ctx.rightx + (addspace ? ctx.font.spacewidth : 0) : ctx.leftx - bimg.width);
-		let d = ctx.imgdata.pixelCompare(bimg, badgeleft, ctx.baseliney + ctx.badgedy);
-		if (d < Infinity) {
-			if (addspace) {
-				ctx.addfrag({ color: [255, 255, 255], index: -1, xstart: ctx.rightx, xend: badgeleft, text: " " });
+function findNextChar(ctx: ReadLineContext, startx: number) {
+	const endx = Math.min(
+		ctx.imgdata.width - ctx.font.width,
+		startx + ctx.font.width + ctx.font.spacewidth,
+	);
+	for (let x = startx; x < endx; x++) {
+		let best: OCR.ReadCharInfo | null = null;
+		let color: OCR.ColortTriplet | null = null;
+		for (const option of ctx.colors) {
+			const found = OCR.readChar(ctx.imgdata, ctx.font, option, x, ctx.baseliney, false, true);
+			// Weak secondary-glyph matches can appear in the gap before a colored number.
+			if (
+				found &&
+				(!found.basechar.secondary || found.sizescore < 50) &&
+				(!best || found.sizescore < best.sizescore)
+			) {
+				best = found;
+				color = option;
 			}
-			ctx.addfrag({ color: [255, 255, 255], index: -1, text: badgemap[badge], xstart: badgeleft, xend: badgeleft + bimg.width });
-			return true;
 		}
+		if (best && color) { return { color, x, char: best }; }
 	}
+	return null;
+}
+
+function readNext(ctx: ReadLineContext) {
+	const startx = ctx.rightx;
+	const next = findNextChar(ctx, startx);
+	if (!next) { return false; }
+	if (ctx.text && next.x - startx >= ctx.font.spacewidth) {
+		ctx.addfrag({ color: next.color, index: -1, text: " ", xstart: startx, xend: next.x });
+	}
+	return addTrackerRead(ctx, OCR.readLine(
+		ctx.imgdata,
+		ctx.font,
+		next.color,
+		next.x,
+		ctx.baseliney,
+		true,
+		false,
+	));
 }
 
 function addTrackerRead(ctx: ReadLineContext, data: ReturnType<typeof OCR.readLine>) {
@@ -630,25 +589,7 @@ function addTrackerRead(ctx: ReadLineContext, data: ReturnType<typeof OCR.readLi
 
 	for (let attempts = 0; attempts < 16; attempts++) {
 		const startx = ctx.rightx;
-		let next: { color: OCR.ColortTriplet, x: number, sizescore: number } | null = null;
-		for (const color of ctx.colors) {
-			const found = OCR.findChar(
-				ctx.imgdata,
-				ctx.font,
-				color,
-				startx,
-				ctx.baseliney,
-				ctx.font.width + ctx.font.spacewidth,
-				1,
-			);
-			if (
-				found &&
-				found.x >= startx &&
-				(!next || found.x < next.x || (found.x === next.x && found.sizescore < next.sizescore))
-			) {
-				next = { color, x: found.x, sizescore: found.sizescore };
-			}
-		}
+		const next = findNextChar(ctx, startx);
 		if (!next) { break; }
 		if (next.x - startx >= ctx.font.spacewidth) {
 			ctx.addfrag({ color: next.color, index: -1, text: " ", xstart: startx, xend: next.x });
@@ -662,6 +603,16 @@ function addTrackerRead(ctx: ReadLineContext, data: ReturnType<typeof OCR.readLi
 			true,
 			false,
 		);
+		if (!continuation.text && next.char.basechar.secondary && /[,.;:!?)]/.test(next.char.chr)) {
+			ctx.addfrag({
+				color: next.color,
+				index: -1,
+				text: next.char.chr,
+				xstart: next.x,
+				xend: next.x + next.char.basechar.width,
+			});
+			continue;
+		}
 		if (!continuation.text || continuation.fragments.every(fragment => fragment.xend <= startx)) {
 			break;
 		}
@@ -684,17 +635,9 @@ let defaultforwardnudges: ReadLineNudge[] = [
 		}
 	},
 	{
-		match: /(\]( [^\x00-\x7F]?)*|news: ?|^)$/i,
-		name: "badge",
-		fn: checkchatbadge
-	},
-	{
 		match: /.*/,
 		name: "body",
-		fn: ctx => {
-			var data = OCR.readLine(ctx.imgdata, ctx.font, ctx.colors, ctx.rightx, ctx.baseliney, true, false);
-			return addTrackerRead(ctx, data);
-		}
+		fn: readNext
 	},
 	{
 		match: /\[[\w: ]+$/,
@@ -746,11 +689,6 @@ let defaultforwardnudges: ReadLineNudge[] = [
 ];
 
 let defaultbackwardnudges: ReadLineNudge[] = [
-	{
-		match: /^(news: |[\w\-_]{1,12}(): )/i,
-		name: "badge",
-		fn: checkchatbadge
-	},
 	{
 		match: /.*/,
 		name: "body",
@@ -851,7 +789,7 @@ function normalizeWhitespace(text: string) {
 function isUnfinishedMaterialMessage(text: string | null) {
 	if (!text) { return false; }
 	const body = stripTimestamp(text);
-	return isMaterialsGainedMessage(body) && (/\s*,\s*$/.test(body) || /\b[1-9]\d*\s*x\s*$/i.test(body));
+	return isMaterialsGainedMessage(body) && (/\s*,\s*(?:[1-9]\d*)?\s*$/.test(body) || /\b[1-9]\d*\s*x\s*$/i.test(body));
 }
 
 function isMaterialMessage(text: string | null) {
