@@ -25,19 +25,6 @@ module.exports = {
   },
   resolve: {
     extensions: [".wasm", ".tsx", ".ts", ".mjs", ".jsx", ".js"],
-    alias: {
-      // Compile the active chatbox infrastructure from source so webpack
-      // can retain only the assets used by the custom decoder.
-      "alt1/chatbox$": path.resolve(__dirname, "node_modules/alt1/src/chatbox/index.ts"),
-      // Alt1's source declares this legacy font but never reads it.
-      [path.resolve(__dirname, "node_modules/alt1/src/fonts/aa_8px.fontmeta.json")]: false,
-      // Resource Tracker intentionally supports only 10pt through 16pt.
-      // ChatBoxReader is retained for discovery, but its unused larger
-      // font assets must not remain in the production bundle.
-      [path.resolve(__dirname, "node_modules/alt1/src/fonts/chatbox/18pt.fontmeta.json")]: false,
-      [path.resolve(__dirname, "node_modules/alt1/src/fonts/chatbox/20pt.fontmeta.json")]: false,
-      [path.resolve(__dirname, "node_modules/alt1/src/fonts/chatbox/22pt.fontmeta.json")]: false,
-    },
   },
   module: {
     // The rules section tells webpack what to do with different file types when you import them from js/ts
