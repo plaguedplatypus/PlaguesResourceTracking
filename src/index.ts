@@ -2,6 +2,7 @@ import * as a1lib from "alt1/base";
 import { processInventionMaterials } from "./invention/InventionParser";
 import { getInventionOption, type InventionOption, } from "./invention/components";
 import { digsiteMaterials, type Digsite, } from "./tracking/materials";
+import { digsiteArtifacts } from "./tracking/artifacts";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
 import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
@@ -287,6 +288,10 @@ window.setTimeout(function () {
         read();
       } catch (error) {
         console.warn(`${readerName} reader failed`, error);
+        if (readerName === "dialog") {
+          artifactReader.reset();
+          return;
+        }
         showMessage("Tracking read failed. Click Find Chat if tracking stopped.");
       }
     };
@@ -762,7 +767,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
     const artefacts = showArchArtefacts
       ? items.filter(function (item) {
-          return isDamagedArtefact(item);
+          return isDamagedArtefact(item) && matchesArchFilter(item);
         })
       : [];
 
@@ -1319,16 +1324,25 @@ function updateArchFilterButton() {
   archFilterButton.innerText = `Dig Site: ${activeFilter!.label}`;
 }
 
-function normalizeMaterialName(value: string) {
+function normalizeArchItemName(value: string) {
   return value.trim().toLowerCase();
 }
 
 function matchesArchFilter(item: string) {
   if (archFilter === "all" || !showArchFilter) return true;
 
-  const normalizedItem = normalizeMaterialName(item);
+  const normalizedItem = normalizeArchItemName(item);
+  if (isDamagedArtefact(item)) {
+    const artifact = normalizedItem.replace(/\s*\(damaged\)\s*$/, "");
+    return digsiteArtifacts[archFilter].some((prefix) => {
+      const normalizedPrefix = normalizeArchItemName(prefix);
+      return artifact === normalizedPrefix ||
+        artifact.startsWith(`${normalizedPrefix} `);
+    });
+  }
+
   return digsiteMaterials[archFilter].some(
-    (material) => normalizeMaterialName(material) === normalizedItem,
+    (material) => normalizeArchItemName(material) === normalizedItem,
   );
 }
 

@@ -6,6 +6,13 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
+		version: "v1.11",
+		title: "Runescape UI Update",
+		items: [
+			"Fixed dialog reader not capturing after latest Runescape UI update.",
+		],
+	},
+	{
 		version: "v1.10",
 		title: "The Tracker Update",
 		items: [
