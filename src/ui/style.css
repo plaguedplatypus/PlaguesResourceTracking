@@ -447,8 +447,7 @@ body {
     align-items: center;
     font-size: 1em;
     color: var(--text);
-    padding-top: 0.083em;
-    margin-left: 0.083em;
+    margin-left: 0.167em;
     line-height: 1;
 }
 
@@ -462,9 +461,8 @@ body {
     width: 1em;
     height: 1em;
     object-fit: contain;
-    margin-left: -0.083em;
+    margin: 0 0.083em 0 -0.083em;
     pointer-events: none;
-    filter: brightness(0.85) contrast(1.1);
     opacity: 0.75;
 }
 
@@ -506,26 +504,20 @@ body {
     order: -1;
     border-left: 0;
     border-right: 2px solid #444;
-    margin-left: 0;
-    margin-right: 0.083em;
 }
 
 .item-count {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    justify-content: center;
     align-self: stretch;
     border-left: 2px solid #444;
-    border-radius: 2px;
     color: #fff;
     background: rgba(0, 0, 0, 0.40);
-    padding: 0.083em 0.167em 0 0.167em;
-    margin-left: 0.167em;
+    padding: 0 0.25em 0 0.25em;
     text-align: center;
     font-weight: bold;
     font-size: 1em;
-    line-height: 1;
 }
 
 .goal-row {
@@ -726,7 +718,6 @@ select {
     font-size: 12px;
 }
 
-.tracker-confirmation-clear,
 .tracker-confirmation-confirm {
     color: #ffd0b8;
     border-color: #9b5636;

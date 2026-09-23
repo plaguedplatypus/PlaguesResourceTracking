@@ -7,7 +7,6 @@ type SpiritRewardHeader = {
 };
 
 const materialsGainedPattern = /^Materials gained:\s*/i;
-export const materialsPattern = /^Materials gained:\s*$/i;
 
 export const spiritRewardHeaders: readonly SpiritRewardHeader[] = [
   {

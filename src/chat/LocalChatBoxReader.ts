@@ -33,6 +33,8 @@ const imgs = webpackImages({
 	filterbutton: require("../../node_modules/alt1/src/chatbox/imgs/filterbutton.data.png"),
 	chatbubble: require("../../node_modules/alt1/src/chatbox/imgs/chatbubble.data.png"),
 	chatLegacyBorder: require("../../node_modules/alt1/src/chatbox/imgs/chatLegacyBorder.data.png"),
+	classicButton: require("./imgs/classicButton.data.png"),
+	classicButtonSelected: require("./imgs/classicButtonSelected.data.png"),
 	gameoff: require("../../node_modules/alt1/src/chatbox/imgs/gameoff.data.png"),
 	gamefilter: require("../../node_modules/alt1/src/chatbox/imgs/gamefilter.data.png"),
 	gameall: require("../../node_modules/alt1/src/chatbox/imgs/gameall.data.png"),
@@ -85,7 +87,6 @@ type TopRight = a1lib.PointLike & { type: "hidden" | "full" | "legacy" }
 type BotLeft = a1lib.PointLike & { type: ChatboxType }
 export type Chatbox = {
 	rect: a1lib.Rect,
-	timestamp: boolean,
 	type: ChatboxType,
 	leftfound: boolean,
 	topright: TopRight,
@@ -176,16 +177,12 @@ export default class ChatBoxReader {
 			}
 		}
 
+		const timestampX = fixTimestamp(ctx);
 		ctx.fragments.forEach(f => { f.xstart += imgx; f.xend += imgx });
 		if (!box.leftfound) {
-			let found = false;
-			let extraoffset = 0;
-			//ignore lines with news in them since the preceeding news icon often doesn't match in backward reads
-			if (ctx.text.match(/^(\[\w)/i) && ctx.text.indexOf("News") == -1) {
-				found = true;
-			}
-			if (found) {
-				let dx = ctx.fragments[0].xstart - box.rect.x - extraoffset;
+			// The news icon can be mistaken for the left edge of a timestamp.
+			if (hasTimestamp(ctx.text) && !ctx.text.includes("News")) {
+				let dx = (timestampX === null ? ctx.fragments[0].xstart : timestampX + imgx) - box.rect.x;
 				box.rect.x += dx;
 				box.rect.width -= dx;
 				box.leftfound = true;
@@ -212,13 +209,9 @@ export default class ChatBoxReader {
 		else { imgdata = a1lib.capture(imgx, imgy, width, box.rect.height); }
 		this.lastReadBuffer = new ImgRefData(imgdata, imgx, imgy);
 
-		//add timestamp colors if needed
-		//TODO
-		if (true || box.timestamp) {
-			var cols = [a1lib.mixColor(127, 169, 255), a1lib.mixColor(255, 255, 255)];
-			for (var a in cols) {
-				if (this.readargs.colors.indexOf(cols[a]) == -1) { this.readargs.colors.push(cols[a]); }
-			}
+		var cols = [a1lib.mixColor(127, 169, 255), a1lib.mixColor(255, 255, 255)];
+		for (var a in cols) {
+			if (this.readargs.colors.indexOf(cols[a]) == -1) { this.readargs.colors.push(cols[a]); }
 		}
 
 		var ocrcolors = this.readargs.colors.map(c => a1lib.unmixColor(c));
@@ -435,6 +428,21 @@ export default class ChatBoxReader {
 			botlefts.push({ x: loc.x, y: loc.y - 1, type: "private" });
 		});
 
+		let legacyLeft: BotLeft | null = null;
+		if (toprights.length == 0) {
+			const all = [
+				...img.findSubimage(imgs.classicButton),
+				...img.findSubimage(imgs.classicButtonSelected),
+			];
+			const report = img.findSubimage(imgs.legacyreport);
+			if (all.length == 1 && report.length == 1 && Math.abs(report[0].y - all[0].y - 9) <= 2) {
+				// The bordered All button fixes the classic chat's left edge and text inset.
+				legacyLeft = { x: all[0].x, y: all[0].y - 23, type: "main" };
+				botlefts = [legacyLeft];
+				toprights.push({ x: report[0].x + 45, y: report[0].y - 170, type: "legacy" });
+			}
+		}
+
 		//check if we're in full-on legacy
 		if (botlefts.length == 1 && toprights.length == 0) {
 			//cheat in a topright without knowing it's actual height
@@ -451,9 +459,8 @@ export default class ChatBoxReader {
 				for (var b in botlefts) {
 					if (groups.find(q => q.botleft == botlefts[b])) { continue; }
 					var group: Chatbox = {
-						timestamp: false,
 						type: "main",
-						leftfound: false,
+						leftfound: botlefts[b] == legacyLeft,
 						topright: toprights[a],
 						botleft: botlefts[b],
 						rect: new a1lib.Rect(botlefts[b].x, toprights[a].y, toprights[a].x - botlefts[b].x, botlefts[b].y - toprights[a].y),
@@ -489,10 +496,9 @@ export default class ChatBoxReader {
 			//alt1.overLayRect(a1lib.mixcolor(255, 255, 255), group.rect.x, group.rect.y, group.rect.width, group.rect.height, 10000, 2);
 			//alt1.overLayTextEx(group.type, a1lib.mixcolor(255, 255, 255), 20, group.rect.x + group.rect.width / 2 | 0, group.rect.y + group.rect.height / 2 | 0, 10000, "", true, true);
 
-			group.line0x = 0;
+			group.line0x = group.botleft == legacyLeft ? 4 : 0;
 			group.line0y = group.rect.height - 12;// 16;//15;//12;//- 15;//-11//- 9;//-10 before mobile interface update
 
-			if (group.leftfound) { group.timestamp = this.checkTimestamp(img, group); }
 			if (mainbox == null || group.type == "main") { mainbox = group; }
 		});
 
@@ -504,11 +510,6 @@ export default class ChatBoxReader {
 		};
 		this.pos = res;
 		return res;
-	}
-
-	checkTimestamp(img: ImgRef, pos: Chatbox) {
-		//TODO replace this
-		return false;
 	}
 
 	static getMessageTime(str: string) {
@@ -539,6 +540,30 @@ type ReadLineNudge = {
 	match: RegExp,
 	fn: (ctx: ReadLineContext, match: RegExpMatchArray) => boolean | undefined
 };
+
+function fixTimestamp(ctx: ReadLineContext): number | null {
+	if (hasTimestamp(ctx.text) || !/^\s*\[?\s*\d{2}:\d{2}:/.test(ctx.text)) { return null; }
+	const close = ctx.text.indexOf("]");
+	const fragment = ctx.fragments.find(f => /\d{2}:\d{2}:/.test(f.text));
+	if (close < 0 || !fragment) { return null; }
+
+	// Backward OCR can switch from blue to white inside the final timestamp digit.
+	for (let x = fragment.xstart; x < fragment.xstart + ctx.font.width; x++) {
+		for (const color of [[127, 169, 255], [126, 166, 251]] as OCR.ColortTriplet[]) {
+			const read = OCR.readLine(ctx.imgdata, ctx.font, color, x, ctx.baseliney, true, false);
+			const time = read.text.match(/^(\d{2}):(\d{2}):(\d{2})/);
+			if (!time || +time[1] > 23 || +time[2] > 59 || +time[3] > 59) { continue; }
+			ctx.text = `[${time[1]}:${time[2]}:${time[3]}] ${ctx.text.slice(close + 1).trimStart()}`;
+			for (let left = x - 1; left >= Math.max(0, x - ctx.font.width); left--) {
+				if (OCR.readChar(ctx.imgdata, ctx.font, [255, 255, 255], left, ctx.baseliney, false, false)?.chr === "[") {
+					return left;
+				}
+			}
+			return x;
+		}
+	}
+	return null;
+}
 
 function findNextChar(ctx: ReadLineContext, startx: number) {
 	const endx = Math.min(

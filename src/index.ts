@@ -13,31 +13,9 @@ import ChatReader, { ChatPosition } from "./chat/ChatReader";
 import { createArtifactReader } from "./dialog/artifactCapture";
 import { processMessages } from "./chatPoll";
 import { createSettingsWindow } from "./ui/Settings";
+import { getSaveData, normalizeSaveData, normalizeSkillSelection, normalizeTrackerSize, saveData, saveSetting, trackerSizeDefault, type CountPosition, type InternalSkillType, type ItemUpdate, type SaveData, type SkillSelection, type SkillType, type SortMode, type TrackableSkill, type TrackedItem, } from "./trackerData";
 
 import "./ui/style.css";
-
-type SkillType =
-  | "all"
-  | "mining"
-  | "woodcutting"
-  | "fishing"
-  | "farming"
-  | "archaeology"
-  | "seren"
-  | "invention";
-
-type InternalSkillType = SkillType | "other";
-
-type TrackedItem = {
-  count: number;
-  goal: number | null;
-  displayName?: string;
-  skill?: InternalSkillType;
-  source?: string;
-  colorClass?: string;
-  lastUpdated?: number;
-  price?: number | null;
-};
 
 type GoalDraft = {
   item: string;
@@ -45,25 +23,8 @@ type GoalDraft = {
   focused: boolean;
 };
 
-type ItemUpdate = {
-  item: string;
-  amount: number;
-  skill: InternalSkillType;
-  colorClass?: string;
-  source?: string;
-  storageId?: string;
-};
-
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type ArchFilter = "all" | Digsite;
-type TrackableSkill = Exclude<SkillType, "all"> | "fire";
-type SkillSelection = Record<TrackableSkill, boolean>;
-type SortMode = "recent" | "alpha" | "count";
-type CountPosition = "right" | "left";
-
-const trackerSizeMin = 10;
-const trackerSizeMax = 16;
-const trackerSizeDefault = 12;
 const messageDurationMs = 5000;
 const skillIconIds = new Set<TrackableSkill>([
   "mining",
@@ -76,84 +37,36 @@ const skillIconIds = new Set<TrackableSkill>([
   "fire",
 ]);
 
-type SaveData = {
-  chat?: string;
-  activeTab?: InternalSkillType;
-  fishingUsePorters?: boolean;
-  shortInventionNames?: boolean;
-  countPosition?: CountPosition;
-  showAllTabIcons?: boolean;
-  showInventionFilter?: boolean;
-  showArchFilter?: boolean;
-  showArchArtefacts?: boolean;
-  visibleSkills?: Partial<SkillSelection>;
-  hideUnknownSection?: boolean;
-  trackerSize?: number;
-  sortMode?: SortMode;
-  items: Record<string, TrackedItem>;
-};
-
-const appName = "ResourceTracker";
 const appColor = a1lib.mixColor(67, 188, 188);
-const tabsToggleButton = document.querySelector(
-  ".tabs-toggle",
-) as HTMLElement | null;
+const tabsToggleButton = document.querySelector( ".tabs-toggle",) as HTMLElement | null;
 
 const skillTabs = document.querySelector(".skill-tabs") as HTMLElement;
-const skillScrollLeft = document.querySelector(
-  ".skill-scroll-left",
-) as HTMLButtonElement;
-const skillScrollRight = document.querySelector(
-  ".skill-scroll-right",
-) as HTMLButtonElement;
+const skillScrollLeft = document.querySelector(".skill-scroll-left",) as HTMLButtonElement;
+const skillScrollRight = document.querySelector(".skill-scroll-right",) as HTMLButtonElement;
 
 const timestampRegex = /\[\d{2}:\d{2}:\d{2}\]/g;
 
 const appCog = document.querySelector(".app-cog") as HTMLElement;
-const sessionQuickButton = document.querySelector(
-  ".session-quick-button",
-) as HTMLElement | null;
+const sessionQuickButton = document.querySelector(".session-quick-button",) as HTMLElement | null;
 
 const tracker = document.querySelector(".tracker") as HTMLElement;
 const message = document.querySelector(".tracker-message") as HTMLElement;
 const tabToolbar = document.querySelector(".tab-toolbar") as HTMLElement;
 const tabActions = document.querySelector(".tab-actions") as HTMLElement;
-const tabResetButton = document.querySelector(
-  ".tab-reset-button",
-) as HTMLButtonElement;
-const tabActionsMenu = document.querySelector(
-  ".tab-actions-menu",
-) as HTMLElement;
-const tabActionsTitle = document.querySelector(
-  ".tab-actions-title",
-) as HTMLElement;
-const tabClearButton = document.querySelector(
-  ".tab-clear-button",
-) as HTMLButtonElement;
-const tabResetCountsButton = document.querySelector(
-  ".tab-reset-counts-button",
-) as HTMLButtonElement;
+const tabResetButton = document.querySelector(".tab-reset-button", ) as HTMLButtonElement;
+const tabActionsMenu = document.querySelector(".tab-actions-menu",) as HTMLElement;
+const tabActionsTitle = document.querySelector(".tab-actions-title",) as HTMLElement;
+const tabClearButton = document.querySelector( ".tab-clear-button",) as HTMLButtonElement;
+const tabResetCountsButton = document.querySelector(".tab-reset-counts-button",) as HTMLButtonElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 const sortTitle = document.querySelector(".sort-title") as HTMLElement;
 
-const inventionFilters = document.querySelector(
-  ".invention-filters",
-) as HTMLElement;
-const inventionFilterButton = document.querySelector(
-  ".invention-filter-cycle",
-) as HTMLElement;
-const inventionAddButton = document.querySelector(
-  ".invention-add-button",
-) as HTMLButtonElement;
-const inventionAddMenu = document.querySelector(
-  ".invention-add-menu",
-) as HTMLElement;
-const archFilters = document.querySelector(
-  ".archaeology-filters",
-) as HTMLElement;
-const archFilterButton = document.querySelector(
-  ".archaeology-filter-cycle",
-) as HTMLElement;
+const inventionFilters = document.querySelector(".invention-filters",) as HTMLElement;
+const inventionFilterButton = document.querySelector(".invention-filter-cycle",) as HTMLElement;
+const inventionAddButton = document.querySelector(".invention-add-button",) as HTMLButtonElement;
+const inventionAddMenu = document.querySelector(".invention-add-menu",) as HTMLElement;
+const archFilters = document.querySelector(".archaeology-filters",) as HTMLElement;
+const archFilterButton = document.querySelector(".archaeology-filter-cycle",) as HTMLElement;
 
 const savedData = getSaveData();
 
@@ -176,6 +89,7 @@ let openSettingsItem: string | null = null;
 let goalDraft: GoalDraft | null = null;
 let tabsCollapsed = false;
 let reader = new ChatReader();
+let pendingChatOutline: ChatPosition["mainbox"] | null = null;
 let chatFontState: "waiting" | "ready" = "waiting";
 let activeChatFontName: string | null = null;
 let messageTimer: number | undefined;
@@ -356,6 +270,12 @@ function selectSavedChat() {
 
 function showSelectedChat(pos: ChatPosition) {
   if (!pos || !pos.mainbox) return;
+  if (!pos.mainbox.leftfound) {
+    pendingChatOutline = pos.mainbox;
+    return;
+  }
+
+  pendingChatOutline = null;
   if (!alt1.permissionOverlay) return;
 
   alt1.overLayRect(
@@ -406,6 +326,14 @@ function createPollTransaction() {
 
 function readChatbox() {
   const messages = reader.read();
+  const pos = reader.pos;
+  if (
+    pendingChatOutline &&
+    pos?.mainbox === pendingChatOutline &&
+    pos.mainbox.leftfound
+  ) {
+    showSelectedChat(pos);
+  }
   const selectedFontName = reader.selectedFontName;
 
   if (!selectedFontName) {
@@ -446,26 +374,13 @@ function processChatLine(
   const cleanLine = chatLine.replace(timestampRegex, "").trim();
   if (isIgnoredMessage(cleanLine)) return false;
 
-  // Invention materials
-  const inventionResult = processInventionMaterials(cleanLine);
-
-  if (inventionResult) {
-    increment(
-      inventionResult.updates,
-      inventionResult.updates[inventionResult.updates.length - 1].item,
-    );
-
-    return true;
-  }
-
-  const trackingResult = parseSkillMessage(cleanLine, {
-    fishingUsePorters,
-  });
-  if (!trackingResult) return false;
+  const result = processInventionMaterials(cleanLine) ??
+    parseSkillMessage(cleanLine, { fishingUsePorters });
+  if (!result) return false;
 
   increment(
-    trackingResult.updates,
-    trackingResult.updates[trackingResult.updates.length - 1].item,
+    result.updates,
+    result.updates[result.updates.length - 1].item,
   );
   return true;
 }
@@ -505,35 +420,6 @@ function showMessage(text: string, markup = false) {
   }, messageDurationMs);
 }
 
-function normalizeSaveData(value: unknown): SaveData {
-  if (value === undefined) {
-    return {
-      sortMode: "recent",
-      trackerSize: trackerSizeDefault,
-      items: {},
-    };
-  }
-
-  const data = value as Partial<SaveData>;
-
-  return {
-    chat: data.chat,
-    activeTab: data.activeTab || "all",
-    fishingUsePorters: data.fishingUsePorters ?? true,
-    shortInventionNames: data.shortInventionNames ?? false,
-    countPosition: data.countPosition === "left" ? "left" : "right",
-    showAllTabIcons: data.showAllTabIcons ?? true,
-    showInventionFilter: data.showInventionFilter ?? true,
-    showArchFilter: data.showArchFilter ?? true,
-    showArchArtefacts: data.showArchArtefacts ?? true,
-    visibleSkills: normalizeSkillSelection(data.visibleSkills),
-    hideUnknownSection: data.hideUnknownSection ?? true,
-    trackerSize: normalizeTrackerSize(data.trackerSize),
-    sortMode: data.sortMode || "recent",
-    items: data.items || {},
-  };
-}
-
 function applySavedSettings(data: SaveData) {
   fishingUsePorters = data.fishingUsePorters ?? true;
   shortInventionNames = data.shortInventionNames ?? false;
@@ -545,33 +431,6 @@ function applySavedSettings(data: SaveData) {
   visibleSkills = normalizeSkillSelection(data.visibleSkills);
   hideUnknownSection = data.hideUnknownSection ?? true;
   trackerSize = data.trackerSize ?? trackerSizeDefault;
-}
-
-function getSaveData(): SaveData {
-  const raw = localStorage.getItem(appName);
-
-  if (!raw) {
-    return normalizeSaveData(undefined);
-  }
-
-  try {
-    return normalizeSaveData(JSON.parse(raw));
-  } catch {
-    return normalizeSaveData(undefined);
-  }
-}
-
-function saveData(data: SaveData) {
-  localStorage.setItem(appName, JSON.stringify(data));
-}
-
-function saveSetting<Field extends keyof SaveData>(
-  field: Field,
-  value: SaveData[Field],
-) {
-  const data = getSaveData();
-  data[field] = value;
-  saveData(data);
 }
 
 function ensureItem(data: SaveData, item: string) {
@@ -727,12 +586,9 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
   const items = Object.keys(data.items).filter((item) => {
     const itemData = data.items[item];
-    if (activeSkillTab === "all") return isItemVisible(itemData);
-    return (itemData.skill || "other") === activeSkillTab &&
-      isItemVisible(itemData);
+    return isItemInActiveTab(itemData) && isItemVisible(itemData);
   });
 
-  sortItems(items, data);
   updateTabToolbar(items.length > 0);
 
   tracker.innerHTML = "";
@@ -791,43 +647,19 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       return;
     }
 
-    const ancientItems = items.filter(
-      (item) => data.items[item].source === "ancient-components",
+    const filtered = items.filter((item) => {
+      const source = data.items[item].source;
+      return inventionFilter === "common"
+        ? source === "invention" || !source
+        : source === `${inventionFilter}-components`;
+    });
+
+    renderItemGroup(
+      `${titleCase(inventionFilter)} Components`,
+      filtered,
+      data,
+      highlightItems,
     );
-
-    const rareItems = items.filter(
-      (item) => data.items[item].source === "rare-components",
-    );
-
-    const uncommonItems = items.filter(
-      (item) => data.items[item].source === "uncommon-components",
-    );
-
-    const commonItems = items.filter(
-      (item) =>
-        data.items[item].source === "invention" || !data.items[item].source,
-    );
-
-    if (inventionFilter === "ancient") {
-      renderItemGroup("Ancient Components", ancientItems, data, highlightItems);
-    }
-
-    if (inventionFilter === "rare") {
-      renderItemGroup("Rare Components", rareItems, data, highlightItems);
-    }
-
-    if (inventionFilter === "uncommon") {
-      renderItemGroup(
-        "Uncommon Components",
-        uncommonItems,
-        data,
-        highlightItems,
-      );
-    }
-
-    if (inventionFilter === "common") {
-      renderItemGroup("Common Components", commonItems, data, highlightItems);
-    }
 
     restoreGoalDraft();
     return;
@@ -873,39 +705,19 @@ function renderGoalSortedTab(
   highlightItems?: Set<string>,
   includeUnknown = false,
 ) {
-  const goalItems = items.filter((item) => data.items[item].goal !== null);
+  const mainItems = includeUnknown
+    ? items.filter((item) =>
+        data.items[item].goal !== null ||
+        (data.items[item].skill || "other") !== "other",
+      )
+    : items;
+  renderGoalFirst(mainItems, data, highlightItems);
 
-  const unknownItems = includeUnknown && !hideUnknownSection
-    ? items.filter(
-      (item) =>
-        data.items[item].goal === null &&
-        (data.items[item].skill || "other") === "other",
-    )
-    : [];
-
-  const sortedItems = items.filter(
-    (item) =>
+  if (includeUnknown && !hideUnknownSection) {
+    const unknownItems = items.filter((item) =>
       data.items[item].goal === null &&
-      (!includeUnknown || (data.items[item].skill || "other") !== "other"),
-  );
-
-  sortItems(goalItems, data);
-  sortItems(sortedItems, data);
-  sortItems(unknownItems, data);
-
-  if (goalItems.length > 0) {
-    for (const item of goalItems) {
-      renderItemRow(item, data.items[item], highlightItems);
-    }
-  }
-
-  if (sortedItems.length > 0) {
-    for (const item of sortedItems) {
-      renderItemRow(item, data.items[item], highlightItems);
-    }
-  }
-
-  if (unknownItems.length > 0) {
+      (data.items[item].skill || "other") === "other",
+    );
     renderItemGroup("Unknown", unknownItems, data, highlightItems);
   }
 }
@@ -1127,20 +939,6 @@ function updateCountPositionUi() {
   document.body.classList.toggle("counts-left", countPosition === "left");
 }
 
-function normalizeSkillSelection(value: unknown): SkillSelection {
-  const savedSelection = value as Partial<SkillSelection> | undefined;
-  return {
-    mining: savedSelection?.mining ?? true,
-    woodcutting: savedSelection?.woodcutting ?? true,
-    fishing: savedSelection?.fishing ?? false,
-    farming: savedSelection?.farming ?? false,
-    archaeology: savedSelection?.archaeology ?? true,
-    invention: savedSelection?.invention ?? true,
-    seren: savedSelection?.seren ?? true,
-    fire: savedSelection?.fire ?? savedSelection?.seren ?? true,
-  };
-}
-
 function isItemVisible(itemData: TrackedItem) {
   const skill = itemData.skill;
   if (!skill || skill === "all" || skill === "other") return true;
@@ -1150,6 +948,11 @@ function isItemVisible(itemData: TrackedItem) {
       : visibleSkills.seren;
   }
   return visibleSkills[skill];
+}
+
+function isItemInActiveTab(itemData: TrackedItem) {
+  return activeSkillTab === "all" ||
+    (itemData.skill || "other") === activeSkillTab;
 }
 
 function isTabVisible(skill: Exclude<SkillType, "all">) {
@@ -1165,19 +968,6 @@ function setCountPosition(position: CountPosition) {
 
     updateCountPositionUi();
     settingsWindow.refresh();
-}
-
-function normalizeTrackerSize(value: unknown): number {
-  if (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= trackerSizeMin &&
-    value <= trackerSizeMax
-  ) {
-    return value;
-  }
-
-  return trackerSizeDefault;
 }
 
 function toggleAllIcons() {
@@ -1631,15 +1421,7 @@ function refreshChatboxes() {
 
   reader.pos = found;
   settingsWindow.refresh();
-
-  const data = getSaveData();
-  const selected = resolveSavedChat(found, data.chat);
-
-  found.mainbox = selected.box;
-
-  data.chat = String(selected.index);
-  saveData(data);
-  settingsWindow.refresh();
+  selectSavedChat();
 
   showSelectedChat(found);
   showMessage(getChatFontWaitMessage());
@@ -1659,7 +1441,7 @@ function clearTab() {
   }
 
   for (const item of Object.keys(data.items)) {
-    if ((data.items[item].skill || "other") === activeSkillTab) {
+    if (isItemInActiveTab(data.items[item])) {
       delete data.items[item];
 
       if (openSettingsItem === item) {
@@ -1675,17 +1457,12 @@ function clearTab() {
 function hasItemsInTab() {
   const items = Object.values(getSaveData().items);
 
-  return activeSkillTab === "all"
-    ? items.length > 0
-    : items.some((item) => (item.skill || "other") === activeSkillTab);
+  return items.some(isItemInActiveTab);
 }
 
 function hasCountsInTab() {
   return Object.values(getSaveData().items).some(
-    (item) =>
-      item.count !== 0 &&
-      (activeSkillTab === "all" ||
-        (item.skill || "other") === activeSkillTab),
+    (item) => item.count !== 0 && isItemInActiveTab(item),
   );
 }
 
@@ -1693,10 +1470,7 @@ function resetTabCounts() {
   const data = getSaveData();
 
   for (const item of Object.values(data.items)) {
-    if (
-      activeSkillTab === "all" ||
-      (item.skill || "other") === activeSkillTab
-    ) {
+    if (isItemInActiveTab(item)) {
       item.count = 0;
     }
   }

@@ -1,18 +1,9 @@
 import type { SessionStatus } from "./session";
 import type { ChatboxType } from "../chat/chatTypes";
+import type { CountPosition, TrackableSkill } from "../trackerData";
 import "./settings.css";
 
-type CountPosition = "right" | "left";
 type SettingsPage = "general" | "skills" | "data";
-type TrackableSkill =
-  | "mining"
-  | "woodcutting"
-  | "fishing"
-  | "farming"
-  | "archaeology"
-  | "invention"
-  | "seren"
-  | "fire";
 
 type State = {
   chatTypes: readonly ChatboxType[];
@@ -582,17 +573,17 @@ function markup(): string {
           </section>
           <section class="settings-page" data-settings-page="data" hidden>
             <div class="settings-section">
-              <div class="settings-section-title">DATA</div>
+              <div class="settings-section-title">BACKUP</div>
               <div class="settings-data-row">
                 <button class="export" type="button">Export</button>
                 <label class="import-label">Import<input class="import" type="file" accept=".json"></label>
               </div>
             </div>
             <div class="settings-section">
-              <div class="settings-section-title">MISC.</div>
+              <div class="settings-section-title">DATA</div>
               <div class="settings-data-actions">
                 <button class="history-button" type="button">History</button>
-                <button class="export-session-csv" type="button">Export CSV</button>
+                <button class="export-session-csv" type="button">Export Session CSV</button>
                 <button class="clear-session" type="button">Clear Session</button>
               </div>
             </div>
