@@ -808,6 +808,7 @@ function renderItemRow(
       shortInventionNames,
     ),
   );
+  const fullName = titleCase(itemData.displayName || item);
   const goalValue = goalDraft?.item === item
     ? goalDraft.value
     : itemData.goal?.toString() || "";
@@ -835,7 +836,8 @@ function renderItemRow(
 			 role="button"
 			 tabindex="0"
 			 aria-expanded="${openSettingsItem === item}"
-			 aria-label="Edit ${escapeAttr(displayName)}">
+			 aria-label="Edit ${escapeAttr(displayName)}"
+			 title="${escapeAttr(fullName)}">
 			<div class="item-text">
 				<strong class="${escapeAttr(itemData.colorClass || "")}">
 					${displayPrefixHtml}${escapeHtml(displayName)}
