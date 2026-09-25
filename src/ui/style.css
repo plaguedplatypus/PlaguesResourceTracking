@@ -4,12 +4,12 @@
   --gold: #d9a441;
   --gold2: #9b7a36;
   --gold3: #5a4a2a;
-  --cyan: #54b8d4;
-  --green: #7CFC7C;
-  --red: #eb6b6b;
+  --cyan: #50fafa;
+  --green: #49ee49;
+  --red: #f32222;
   --title: #d8c58a;
-  --text: #f1f1f1;
-  --muted: #cfcfcf;
+  --text: #e6e6e6;
+  --muted: #a1a1a1;
 }
 
 html,
@@ -22,7 +22,7 @@ body {
     box-sizing: border-box;
     background:
         linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
-        url("./icons/bg.png") center / cover no-repeat;
+        url("./icons/bg.png") repeat;
     color: white;
     font: 13px Arial, sans-serif;
 }
@@ -286,7 +286,9 @@ body {
 }
 
 .invention-filters,
-.archaeology-filters {
+.archaeology-filters,
+.divination-add,
+.hunter-add {
     flex: 0 0 auto;
     display: none;
     position: relative;
@@ -294,7 +296,9 @@ body {
 }
 
 .invention-filters.visible,
-.archaeology-filters.visible {
+.archaeology-filters.visible,
+.divination-add.visible,
+.hunter-add.visible {
     display: flex;
 }
 
@@ -308,7 +312,9 @@ body {
     padding: 3px;
 }
 
-.invention-add-button {
+.invention-add-button,
+.divination-add-button,
+.hunter-add-button {
     align-self: flex-start;
     width: 15px;
     height: 15px;
@@ -318,7 +324,9 @@ body {
     border-radius: 3px;
 }
 
-.invention-add-menu {
+.invention-add-menu,
+.divination-add-menu,
+.hunter-add-menu {
     position: absolute;
     top: calc(100% + 3px);
     left: 0;
@@ -338,11 +346,15 @@ body {
     box-shadow: 0 0 3px 2px rgba(0, 0, 0, 0.65);
 }
 
-.invention-add-menu[hidden] {
+.invention-add-menu[hidden],
+.divination-add-menu[hidden],
+.hunter-add-menu[hidden] {
     display: none;
 }
 
-.invention-add-option {
+.invention-add-option,
+.divination-add-option,
+.hunter-add-option {
     min-height: 20px;
     min-width: 0;
     padding: 2px 2px;
@@ -358,7 +370,9 @@ body {
     color: #ddd;
 }
 
-.invention-add-all-option {
+.invention-add-all-option,
+.divination-add-all-option,
+.hunter-add-all-option {
     min-height: 20px;
     margin-top: 2px;
     padding: 2px 5px;
@@ -366,6 +380,15 @@ body {
     justify-content: center;
     border-top-color: var(--gold2);
     border-radius: 3px;
+}
+
+.divination-add-group,
+.hunter-add-group {
+    padding: 2px 3px 1px;
+    color: var(--title);
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
 }
 
 .group-header {
@@ -399,7 +422,6 @@ body {
     flex: 1 1 auto;
     min-width: 0;
     padding: 1px 0;
-    line-height: 1;
     background: #2c2c2c;
     border: 1px solid #625634;
     border-radius: 3px;
@@ -479,6 +501,8 @@ body {
     margin-right: 0.167em;
     color: #ffd700;
     font-size: 0.833em;
+    background:
+        linear-gradient(90deg, rgba(5, 15, 20, 0.15), rgba(0, 0, 0, .81));
 }
 
 .skill-tracking-notice {
@@ -517,6 +541,29 @@ body {
     text-align: center;
     font-weight: bold;
     font-size: 1em;
+}
+
+.item-count-input {
+    width: 4.5em;
+    min-width: 0;
+    height: 1.25em;
+    box-sizing: border-box;
+    padding: 0 0.167em;
+    color: #fff;
+    font: inherit;
+    font-weight: bold;
+    background: #171717;
+    border: 1px solid var(--gold2);
+}
+
+.item-count .count-edit-button {
+    flex: 0 0 1.1em;
+    width: 1.1em;
+    height: 1.1em;
+    margin-left: 0.167em;
+    color: var(--title);
+    font-size: 0.917em;
+    line-height: 1;
 }
 
 .goal-row {
@@ -747,7 +794,8 @@ select {
 }
 
 .rare-component {
-    color: #ff3333;
+    color: var(--red);
+    outline: 3px rgba(0, 0, 0, 0.65);
 }
 
 .ancient-component {
@@ -755,7 +803,7 @@ select {
 }
 
 .seren-item {
-    color: #66ffff;
+    color: var(--cyan);
 }
 
 .seren-item-rare {
@@ -763,7 +811,7 @@ select {
 }
 
 .spirit-item-green {
-    color: rgb(0, 235, 0);
+    color: var(--green);
 }
 
 .empty {

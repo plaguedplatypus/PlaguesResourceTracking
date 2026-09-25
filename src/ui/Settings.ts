@@ -204,7 +204,7 @@ export function createSettingsWindow(
     }
 
     const version = doc.querySelector(".settings-version-label");
-    if (version) version.textContent = state.version;
+    if (version) version.textContent = `${state.version} Patch Notes`;
   }
 
   function initializeDocument(doc: Document): void {
@@ -628,17 +628,24 @@ function trackedSkillsMarkup(): string {
     { skill: "farming", label: "Farming", icon: "farming.png" },
     { skill: "archaeology", label: "Archaeology", icon: "archaeology.png" },
     { skill: "invention", label: "Invention", icon: "invention.png" },
+    { skill: "divination", label: "Divination", icon: "divination.png" },
+    { skill: "hunter", label: "Hunter", icon: "hunter.png" },
     { skill: "seren", label: "Seren Spirit", icon: "seren.png" },
     { skill: "fire", label: "Forge Phoenix / Fire Spirit", icon: "fire.png" },
   ];
 
   return skills
-    .map(({ skill, label, icon }) => {
-      const iconUrl = new URL(`./icons/${icon}`, window.location.href).href;
-      return `<label class="settings-tracked-skill" title="${label}">
-        <input type="checkbox" data-skill="${skill}" aria-label="Show ${label}">
-        <img src="${iconUrl}" alt="">
-      </label>`;
-    })
-    .join("");
+  .map(({ skill, label, icon }) => {
+    const iconUrl = new URL(`./icons/${icon}`, window.location.href).href;
+
+    return `<label class="settings-tracked-skill" title="${label}">
+      <input
+        type="checkbox"
+        data-skill="${skill}"
+        aria-label="Show ${label}"
+      >
+      <img src="${iconUrl}" alt="">
+    </label>`;
+  })
+  .join("");
 }

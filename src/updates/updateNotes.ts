@@ -6,6 +6,15 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
+		version: "v1.12",
+		title: "Divination/Hunter",
+		items: [
+			"Can now edit counts by selecting an item and clicking the edit icon next to the counts.",
+			"Added Divination category. Fully manual tracking.",
+			"Added Hunter category. Fully manual tracking.",
+		],
+	},
+	{
 		version: "v1.11",
 		title: "Runescape UI Update",
 		items: [

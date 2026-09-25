@@ -5,6 +5,8 @@ export type SkillType =
   | "fishing"
   | "farming"
   | "archaeology"
+  | "divination"
+  | "hunter"
   | "seren"
   | "invention";
 
@@ -66,6 +68,8 @@ export function normalizeSkillSelection(value: unknown): SkillSelection {
     farming: savedSelection?.farming ?? false,
     archaeology: savedSelection?.archaeology ?? true,
     invention: savedSelection?.invention ?? true,
+    divination: savedSelection?.divination ?? false,
+    hunter: savedSelection?.hunter ?? false,
     seren: savedSelection?.seren ?? true,
     fire: savedSelection?.fire ?? savedSelection?.seren ?? true,
   };

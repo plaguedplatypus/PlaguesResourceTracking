@@ -3,6 +3,8 @@ import { processInventionMaterials } from "./invention/InventionParser";
 import { getInventionOption, type InventionOption, } from "./invention/components";
 import { digsiteMaterials, type Digsite, } from "./tracking/materials";
 import { digsiteArtifacts } from "./tracking/artifacts";
+import { getOptions as getDivinationOptions, } from "./tracking/divination";
+import { getOptions as getHunterOptions, groups as hunterGroups, } from "./tracking/hunter";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
 import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
@@ -23,6 +25,12 @@ type GoalDraft = {
   focused: boolean;
 };
 
+type CountDraft = {
+  item: string;
+  value: string;
+  focused: boolean;
+};
+
 type InventionFilter = "all" | "ancient" | "rare" | "uncommon" | "common";
 type ArchFilter = "all" | Digsite;
 const messageDurationMs = 5000;
@@ -33,12 +41,17 @@ const skillIconIds = new Set<TrackableSkill>([
   "farming",
   "archaeology",
   "invention",
+  "divination",
+  "hunter",
   "seren",
   "fire",
 ]);
+const hunterGroupByItem = new Map(
+  getHunterOptions().map((option) => [option.item, option.group]),
+);
 
 const appColor = a1lib.mixColor(67, 188, 188);
-const tabsToggleButton = document.querySelector( ".tabs-toggle",) as HTMLElement | null;
+const tabsToggleButton = document.querySelector(".tabs-toggle",) as HTMLElement | null;
 
 const skillTabs = document.querySelector(".skill-tabs") as HTMLElement;
 const skillScrollLeft = document.querySelector(".skill-scroll-left",) as HTMLButtonElement;
@@ -53,10 +66,10 @@ const tracker = document.querySelector(".tracker") as HTMLElement;
 const message = document.querySelector(".tracker-message") as HTMLElement;
 const tabToolbar = document.querySelector(".tab-toolbar") as HTMLElement;
 const tabActions = document.querySelector(".tab-actions") as HTMLElement;
-const tabResetButton = document.querySelector(".tab-reset-button", ) as HTMLButtonElement;
+const tabResetButton = document.querySelector(".tab-reset-button",) as HTMLButtonElement;
 const tabActionsMenu = document.querySelector(".tab-actions-menu",) as HTMLElement;
 const tabActionsTitle = document.querySelector(".tab-actions-title",) as HTMLElement;
-const tabClearButton = document.querySelector( ".tab-clear-button",) as HTMLButtonElement;
+const tabClearButton = document.querySelector(".tab-clear-button",) as HTMLButtonElement;
 const tabResetCountsButton = document.querySelector(".tab-reset-counts-button",) as HTMLButtonElement;
 const sortButton = document.querySelector(".sort-button") as HTMLElement;
 const sortTitle = document.querySelector(".sort-title") as HTMLElement;
@@ -65,6 +78,12 @@ const inventionFilters = document.querySelector(".invention-filters",) as HTMLEl
 const inventionFilterButton = document.querySelector(".invention-filter-cycle",) as HTMLElement;
 const inventionAddButton = document.querySelector(".invention-add-button",) as HTMLButtonElement;
 const inventionAddMenu = document.querySelector(".invention-add-menu",) as HTMLElement;
+const divinationAdd = document.querySelector(".divination-add",) as HTMLElement;
+const divinationAddButton = document.querySelector(".divination-add-button",) as HTMLButtonElement;
+const divinationAddMenu = document.querySelector(".divination-add-menu",) as HTMLElement;
+const hunterAdd = document.querySelector(".hunter-add",) as HTMLElement;
+const hunterAddButton = document.querySelector(".hunter-add-button",) as HTMLButtonElement;
+const hunterAddMenu = document.querySelector(".hunter-add-menu",) as HTMLElement;
 const archFilters = document.querySelector(".archaeology-filters",) as HTMLElement;
 const archFilterButton = document.querySelector(".archaeology-filter-cycle",) as HTMLElement;
 
@@ -73,6 +92,8 @@ const savedData = getSaveData();
 let inventionFilter: InventionFilter = "all";
 let archFilter: ArchFilter = "all";
 let inventionAddMenuOpen = false;
+let divinationAddMenuOpen = false;
+let hunterAddMenuOpen = false;
 let activeSkillTab: SkillType = "all";
 let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
@@ -87,6 +108,8 @@ let hideUnknownSection = true;
 let trackerSize = trackerSizeDefault;
 let openSettingsItem: string | null = null;
 let goalDraft: GoalDraft | null = null;
+let countEditItem: string | null = null;
+let countDraft: CountDraft | null = null;
 let tabsCollapsed = false;
 let reader = new ChatReader();
 let pendingChatOutline: ChatPosition["mainbox"] | null = null;
@@ -98,27 +121,27 @@ const archFilterCycle: ReadonlyArray<{
   filter: ArchFilter;
   label: string;
 }> = [
-  { filter: "all", label: "All" },
-  { filter: "Kharid-et", label: "Kharid-et" },
-  { filter: "Infernal Source", label: "Infernal Source" },
-  { filter: "Everlight", label: "Everlight" },
-  { filter: "Senntisten", label: "Senntisten" },
-  { filter: "Stormguard", label: "Stormguard" },
-  { filter: "Daemonheim", label: "Daemonheim" },
-  { filter: "Warforge", label: "Warforge" },
-  { filter: "Orthen", label: "Orthen" },
-  { filter: "Moonrise", label: "Moonrise" },
-];
+    { filter: "all", label: "All" },
+    { filter: "Kharid-et", label: "Kharid-et" },
+    { filter: "Infernal Source", label: "Infernal Source" },
+    { filter: "Everlight", label: "Everlight" },
+    { filter: "Senntisten", label: "Senntisten" },
+    { filter: "Stormguard", label: "Stormguard" },
+    { filter: "Daemonheim", label: "Daemonheim" },
+    { filter: "Warforge", label: "Warforge" },
+    { filter: "Orthen", label: "Orthen" },
+    { filter: "Moonrise", label: "Moonrise" },
+  ];
 const inventionFilterCycle: ReadonlyArray<{
   filter: InventionFilter;
   label: string;
 }> = [
-  { filter: "all", label: "All" },
-  { filter: "ancient", label: "Ancient" },
-  { filter: "rare", label: "Rare" },
-  { filter: "uncommon", label: "Uncommon" },
-  { filter: "common", label: "Common" },
-];
+    { filter: "all", label: "All" },
+    { filter: "ancient", label: "Ancient" },
+    { filter: "rare", label: "Rare" },
+    { filter: "uncommon", label: "Uncommon" },
+    { filter: "common", label: "Common" },
+  ];
 
 const savedActiveTab = savedData.activeTab as string | undefined;
 activeSkillTab =
@@ -581,8 +604,53 @@ function restoreGoalDraft() {
   if (goalDraft.focused) input.focus();
 }
 
+function captureCountDraft() {
+  if (!countEditItem) {
+    countDraft = null;
+    return;
+  }
+
+  const input = tracker.querySelector<HTMLInputElement>(".item-count-input");
+  if (!input) return;
+
+  countDraft = {
+    item: countEditItem,
+    value: input.value,
+    focused: document.activeElement === input,
+  };
+}
+
+function restoreCountDraft() {
+  if (!countDraft || countDraft.item !== countEditItem) return;
+
+  const input = tracker.querySelector<HTMLInputElement>(".item-count-input");
+  if (!input) {
+    countEditItem = null;
+    countDraft = null;
+    return;
+  }
+
+  input.value = countDraft.value;
+  if (countDraft.focused) {
+    input.focus();
+    input.select();
+  }
+}
+
+function restoreDrafts() {
+  restoreGoalDraft();
+  restoreCountDraft();
+}
+
+function getHunterGroup(item: string, data: SaveData) {
+  const source = data.items[item].source;
+  return hunterGroups.find(({ group }) => group === source)?.group ??
+    hunterGroupByItem.get(item.toLowerCase());
+}
+
 function render(highlightItems?: Set<string>, data = getSaveData()) {
   captureGoalDraft();
+  captureCountDraft();
 
   const items = Object.keys(data.items).filter((item) => {
     const itemData = data.items[item];
@@ -601,18 +669,22 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
     renderFarmingNotice();
   }
 
+  if (activeSkillTab === "divination" || activeSkillTab === "hunter") {
+    renderManualTrackingNotice();
+  }
+
   if (items.length === 0) {
     tracker.insertAdjacentHTML(
       "beforeend",
       `<div class="empty">No tracked items yet...</div>`,
     );
-    restoreGoalDraft();
+    restoreDrafts();
     return;
   }
 
   if (activeSkillTab === "all") {
     renderAllTab(items, data, highlightItems);
-    restoreGoalDraft();
+    restoreDrafts();
     return;
   }
 
@@ -623,8 +695,8 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
 
     const artefacts = showArchArtefacts
       ? items.filter(function (item) {
-          return isDamagedArtefact(item) && matchesArchFilter(item);
-        })
+        return isDamagedArtefact(item) && matchesArchFilter(item);
+      })
       : [];
 
     if (materials.length > 0) {
@@ -635,7 +707,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       renderItemGroup("Artefacts", artefacts, data, highlightItems);
     }
 
-    restoreGoalDraft();
+    restoreDrafts();
     return;
   }
 
@@ -643,7 +715,7 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
     if (inventionFilter === "all" || !showInventionFilter) {
       renderGoalFirst(items, data, highlightItems);
 
-      restoreGoalDraft();
+      restoreDrafts();
       return;
     }
 
@@ -661,12 +733,46 @@ function render(highlightItems?: Set<string>, data = getSaveData()) {
       highlightItems,
     );
 
-    restoreGoalDraft();
+    restoreDrafts();
+    return;
+  }
+
+  if (activeSkillTab === "divination") {
+    const chronicles = items.filter(
+      (item) =>
+        data.items[item].source === "chronicles" ||
+        item.toLowerCase().includes("chronicle"),
+    );
+    const chronicleItems = new Set(chronicles);
+    const energy = items.filter((item) => !chronicleItems.has(item));
+
+    renderItemGroup("Energy", energy, data, highlightItems);
+    renderItemGroup("Chronicles", chronicles, data, highlightItems);
+
+    restoreDrafts();
+    return;
+  }
+
+  if (activeSkillTab === "hunter") {
+    for (const { group, label } of hunterGroups) {
+      const groupItems = items.filter(
+        (item) => getHunterGroup(item, data) === group,
+      );
+
+      renderItemGroup(label, groupItems, data, highlightItems);
+    }
+
+    const uncategorized = items.filter(
+      (item) => !getHunterGroup(item, data),
+    );
+    renderItemGroup("Other", uncategorized, data, highlightItems);
+
+    restoreDrafts();
     return;
   }
 
   renderGoalSortedTab(items, data, highlightItems);
-  restoreGoalDraft();
+  restoreDrafts();
 }
 
 function renderMiningNotice() {
@@ -680,6 +786,13 @@ function renderFarmingNotice() {
   tracker.insertAdjacentHTML(
     "beforeend",
     `<div class="skill-tracking-notice" title="Porters, Farming cape procs, and similar chat messages can be tracked.">Tracking requires bank-teleport chat messages.</div>`,
+  );
+}
+
+function renderManualTrackingNotice() {
+  tracker.insertAdjacentHTML(
+    "beforeend",
+    `<div class="skill-tracking-notice" title="Counts must be updated manually.">Manual Tracking Only.</div>`,
   );
 }
 
@@ -707,9 +820,9 @@ function renderGoalSortedTab(
 ) {
   const mainItems = includeUnknown
     ? items.filter((item) =>
-        data.items[item].goal !== null ||
-        (data.items[item].skill || "other") !== "other",
-      )
+      data.items[item].goal !== null ||
+      (data.items[item].skill || "other") !== "other",
+    )
     : items;
   renderGoalFirst(mainItems, data, highlightItems);
 
@@ -760,7 +873,9 @@ function renderItemRow(
   highlightItems?: Set<string>,
 ) {
   const row = document.createElement("div");
-  row.className = `item-row ${openSettingsItem === item ? "settings-open" : ""}`;
+  const settingsOpen = openSettingsItem === item;
+  const countEditing = settingsOpen && countEditItem === item;
+  row.className = `item-row ${settingsOpen ? "settings-open" : ""}`;
   row.dataset.item = item;
 
   let goalHtml = "";
@@ -812,9 +927,21 @@ function renderItemRow(
   const goalValue = goalDraft?.item === item
     ? goalDraft.value
     : itemData.goal?.toString() || "";
+  const countHtml = countEditing
+    ? `<input class="item-count-input"
+              type="number"
+              min="0"
+              step="1"
+              value="${itemData.count}"
+              aria-label="Count for ${escapeAttr(displayName)}">
+       <button class="save-count count-edit-button icon-btn" type="button" title="Save Count" aria-label="Save Count">✓</button>`
+    : `<span>${itemData.count.toLocaleString()}</span>
+       ${settingsOpen
+        ? `<button class="edit-count count-edit-button icon-btn" type="button" title="Edit Count" aria-label="Edit Count">✎</button>`
+        : ""}`;
   let statsHtml = "";
 
-  if (openSettingsItem === item) {
+  if (settingsOpen) {
     const price = itemData.price === undefined
       ? getCachedPrice(itemData.displayName || item)
       : itemData.price;
@@ -835,7 +962,7 @@ function renderItemRow(
 		<div class="item-main-row"
 			 role="button"
 			 tabindex="0"
-			 aria-expanded="${openSettingsItem === item}"
+			 aria-expanded="${settingsOpen}"
 			 aria-label="Edit ${escapeAttr(displayName)}"
 			 title="${escapeAttr(fullName)}">
 			<div class="item-text">
@@ -845,13 +972,13 @@ function renderItemRow(
 			</div>
 
 			<div class="item-count">
-    			${itemData.count.toLocaleString()}
+				${countHtml}
 			</div>
 		</div>
 
 		${goalHtml}
 
-		${openSettingsItem === item ? `
+		${settingsOpen ? `
 		<div class="item-settings-panel">
 			<input type="number"
 				   id="goal-${escapeAttr(item)}"
@@ -964,12 +1091,12 @@ function isTabVisible(skill: Exclude<SkillType, "all">) {
 }
 
 function setCountPosition(position: CountPosition) {
-    if (countPosition === position) return;
-    countPosition = position;
-    saveSetting("countPosition", countPosition);
+  if (countPosition === position) return;
+  countPosition = position;
+  saveSetting("countPosition", countPosition);
 
-    updateCountPositionUi();
-    settingsWindow.refresh();
+  updateCountPositionUi();
+  settingsWindow.refresh();
 }
 
 function toggleAllIcons() {
@@ -1056,6 +1183,26 @@ function updateInventionFilterUi() {
   }
 }
 
+function updateDivinationAddUi() {
+  const visible = activeSkillTab === "divination";
+  divinationAdd.classList.toggle("visible", visible);
+
+  if (!visible) {
+    divinationAddMenuOpen = false;
+    updateDivinationAddMenu();
+  }
+}
+
+function updateHunterAddUi() {
+  const visible = activeSkillTab === "hunter";
+  hunterAdd.classList.toggle("visible", visible);
+
+  if (!visible) {
+    hunterAddMenuOpen = false;
+    updateHunterAddMenu();
+  }
+}
+
 function updateArchFilterUi() {
   if (!archFilters) return;
 
@@ -1100,6 +1247,8 @@ function updateSkillTabs() {
       tab.classList.toggle("active", tab.dataset.skill === activeSkillTab);
     });
     updateInventionFilterUi();
+    updateDivinationAddUi();
+    updateHunterAddUi();
     updateArchFilterUi();
     settingsWindow.refresh();
   }
@@ -1186,22 +1335,22 @@ function updateInventionAddMenu() {
   inventionAddButton.title = materials.length === 0
     ? "All materials in this filter are already tracked"
     : "Add an Invention material";
-  positionInventionAddMenu();
+  positionAddMenu(inventionAddMenu);
 }
 
-function positionInventionAddMenu() {
-  inventionAddMenu.style.removeProperty("transform");
-  if (inventionAddMenu.hidden) return;
+function positionAddMenu(menu: HTMLElement) {
+  menu.style.removeProperty("transform");
+  if (menu.hidden) return;
 
   const app = document.querySelector(".app") as HTMLElement | null;
   if (!app) return;
 
-  const menuRight = inventionAddMenu.getBoundingClientRect().right;
+  const menuRight = menu.getBoundingClientRect().right;
   const appRight = app.getBoundingClientRect().right;
   const shift = Math.min(0, appRight - menuRight);
 
   if (shift < 0) {
-    inventionAddMenu.style.transform = `translateX(${Math.floor(shift)}px)`;
+    menu.style.transform = `translateX(${Math.floor(shift)}px)`;
   }
 }
 
@@ -1238,14 +1387,170 @@ function addInventionMaterials(items: readonly string[]) {
   render();
 }
 
-function updateTabToolbar(hasItems: boolean) {
-  const hasFilters =
-    (activeSkillTab === "invention" && showInventionFilter) ||
-    (activeSkillTab === "archaeology" && showArchFilter);
-  const hasSections = activeSkillTab === "invention" ||
-    activeSkillTab === "archaeology";
+function getAvailableDivinationItems(data: SaveData) {
+  const tracked = new Set(
+    Object.keys(data.items).map((item) => item.toLowerCase()),
+  );
+  return getDivinationOptions().filter((option) => !tracked.has(option.item));
+}
 
-  tabToolbar.hidden = !hasItems && !hasFilters;
+function updateDivinationAddMenu() {
+  const options = getAvailableDivinationItems(getSaveData());
+  divinationAddMenu.replaceChildren();
+
+  for (const group of ["energy", "chronicles"] as const) {
+    const groupOptions = options.filter((option) => option.group === group);
+    if (groupOptions.length === 0) continue;
+
+    const heading = document.createElement("div");
+    heading.className = "divination-add-group";
+    heading.textContent = titleCase(group);
+    divinationAddMenu.append(heading);
+
+    for (const option of groupOptions) {
+      const button = document.createElement("button");
+      button.className = "divination-add-option";
+      button.type = "button";
+      button.dataset.item = option.item;
+      button.textContent = titleCase(option.item);
+      divinationAddMenu.append(button);
+    }
+  }
+
+  const addAllButton = document.createElement("button");
+  addAllButton.className = "divination-add-all-option";
+  addAllButton.type = "button";
+  addAllButton.dataset.action = "add-all";
+  addAllButton.textContent = "Add All";
+  divinationAddMenu.append(addAllButton);
+
+  divinationAddMenu.hidden = !divinationAddMenuOpen;
+  divinationAddButton.disabled = options.length === 0;
+  divinationAddButton.title = options.length === 0
+    ? "All Divination items are already tracked"
+    : "Add a Divination item";
+  positionAddMenu(divinationAddMenu);
+}
+
+function addDivinationItems(items: readonly string[]) {
+  const data = getSaveData();
+  const optionsByItem = new Map(
+    getDivinationOptions().map((option) => [option.item, option]),
+  );
+  let added = false;
+
+  for (const item of items) {
+    const option = optionsByItem.get(item);
+    if (!option || data.items[item]) continue;
+
+    data.items[item] = {
+      count: 0,
+      goal: null,
+      skill: "divination",
+      source: option.group,
+    };
+    added = true;
+  }
+
+  if (!added) {
+    updateDivinationAddMenu();
+    return;
+  }
+
+  saveData(data);
+  divinationAddMenuOpen = false;
+  updateDivinationAddMenu();
+  render();
+}
+
+function getAvailableHunterItems(data: SaveData) {
+  const tracked = new Set(
+    Object.keys(data.items).map((item) => item.toLowerCase()),
+  );
+  return getHunterOptions().filter((option) => !tracked.has(option.item));
+}
+
+function updateHunterAddMenu() {
+  const options = getAvailableHunterItems(getSaveData());
+  hunterAddMenu.replaceChildren();
+
+  for (const { group, label } of hunterGroups) {
+    const groupOptions = options.filter((option) => option.group === group);
+    if (groupOptions.length === 0) continue;
+
+    const heading = document.createElement("div");
+    heading.className = "hunter-add-group";
+    heading.textContent = label;
+    hunterAddMenu.append(heading);
+
+    for (const option of groupOptions) {
+      const button = document.createElement("button");
+      button.className = "hunter-add-option";
+      button.type = "button";
+      button.dataset.item = option.item;
+      button.textContent = titleCase(option.item);
+      hunterAddMenu.append(button);
+    }
+  }
+
+  const addAllButton = document.createElement("button");
+  addAllButton.className = "hunter-add-all-option";
+  addAllButton.type = "button";
+  addAllButton.dataset.action = "add-all";
+  addAllButton.textContent = "Add All";
+  hunterAddMenu.append(addAllButton);
+
+  hunterAddMenu.hidden = !hunterAddMenuOpen;
+  hunterAddButton.disabled = options.length === 0;
+  hunterAddButton.title = options.length === 0
+    ? "All Hunter items are already tracked"
+    : "Add a Hunter item";
+  positionAddMenu(hunterAddMenu);
+}
+
+function addHunterItems(items: readonly string[]) {
+  const data = getSaveData();
+  const optionsByItem = new Map(
+    getHunterOptions().map((option) => [option.item, option]),
+  );
+  let added = false;
+
+  for (const item of items) {
+    const option = optionsByItem.get(item);
+    if (!option || data.items[item]) continue;
+
+    data.items[item] = {
+      count: 0,
+      goal: null,
+      skill: "hunter",
+      source: option.group,
+    };
+    added = true;
+  }
+
+  if (!added) {
+    updateHunterAddMenu();
+    return;
+  }
+
+  saveData(data);
+  hunterAddMenuOpen = false;
+  updateHunterAddMenu();
+  render();
+}
+
+function updateTabToolbar(hasItems: boolean) {
+  const hasControls =
+    (activeSkillTab === "invention" && showInventionFilter) ||
+    (activeSkillTab === "archaeology" && showArchFilter) ||
+    activeSkillTab === "divination" ||
+    activeSkillTab === "hunter";
+  const hasSections = activeSkillTab === "invention" ||
+    activeSkillTab === "archaeology" ||
+    activeSkillTab === "divination" ||
+    activeSkillTab === "hunter";
+
+  tabToolbar.hidden = !hasItems && !hasControls;
   tabActions.hidden = !hasItems;
   if (!hasItems) closeTabActionsMenu();
   tabResetCountsButton.disabled = !hasCountsInTab();
@@ -1307,7 +1612,9 @@ skillTabs.addEventListener("scroll", updateSkillTabScrollButtons);
 
 new ResizeObserver(() => {
   updateSkillTabScrollButtons();
-  positionInventionAddMenu();
+  positionAddMenu(inventionAddMenu);
+  positionAddMenu(divinationAddMenu);
+  positionAddMenu(hunterAddMenu);
 }).observe(skillTabs);
 
 requestAnimationFrame(updateSkillTabScrollButtons);
@@ -1327,7 +1634,11 @@ document.querySelectorAll(".skill-tab").forEach((tab) => {
 
     closeTabActionsMenu();
     goalDraft = null;
+    countEditItem = null;
+    countDraft = null;
     updateInventionFilterUi();
+    updateDivinationAddUi();
+    updateHunterAddUi();
     updateArchFilterUi();
     settingsWindow.refresh();
     render();
@@ -1338,6 +1649,8 @@ function toggleSettings(item: string) {
   const data = getSaveData();
   if (!data.items[item]) return;
   goalDraft = null;
+  countEditItem = null;
+  countDraft = null;
   openSettingsItem = openSettingsItem === item ? null : item;
 
   render();
@@ -1392,18 +1705,71 @@ function resetItem(item: string) {
   if (!data.items[item]) return;
 
   data.items[item].count = 0;
+  if (countEditItem === item) {
+    countEditItem = null;
+    countDraft = null;
+  }
   saveData(data);
   render();
+}
+
+function editCount(item: string) {
+  const data = getSaveData();
+  if (!data.items[item] || openSettingsItem !== item) return;
+
+  countEditItem = item;
+  countDraft = {
+    item,
+    value: String(data.items[item].count),
+    focused: true,
+  };
+  render();
+}
+
+function saveCount(item: string) {
+  const data = getSaveData();
+  const trackedItem = data.items[item];
+  if (!trackedItem || countEditItem !== item) return;
+
+  const input = tracker.querySelector<HTMLInputElement>(".item-count-input");
+  if (!input) return;
+
+  const value = input.value.trim();
+  const count = Number(value);
+  if (value === "" || !Number.isSafeInteger(count) || count < 0) {
+    showMessage("Count must be a whole number of 0 or more.");
+    input.focus();
+    input.select();
+    return;
+  }
+
+  trackedItem.count = count;
+  countEditItem = null;
+  countDraft = null;
+  saveData(data);
+  render();
+
+  if (count > 0 && trackedItem.price === undefined) {
+    void saveItemPrice(item, trackedItem.displayName || item);
+  }
 }
 
 function deleteItem(item: string) {
   const data = getSaveData();
   if (goalDraft?.item === item) goalDraft = null;
+  if (countEditItem === item) {
+    countEditItem = null;
+    countDraft = null;
+  }
   if (openSettingsItem === item) {
     openSettingsItem = null;
   }
+  const skill = data.items[item]?.skill;
   delete data.items[item];
   saveData(data);
+  if (skill === "invention") updateInventionAddMenu();
+  if (skill === "divination") updateDivinationAddMenu();
+  if (skill === "hunter") updateHunterAddMenu();
   render();
 }
 
@@ -1432,12 +1798,17 @@ function refreshChatboxes() {
 function clearTab() {
   const data = getSaveData();
   goalDraft = null;
+  countEditItem = null;
+  countDraft = null;
 
   if (activeSkillTab === "all") {
     data.items = {};
     openSettingsItem = null;
 
     saveData(data);
+    updateInventionAddMenu();
+    updateDivinationAddMenu();
+    updateHunterAddMenu();
     render();
     return;
   }
@@ -1453,6 +1824,9 @@ function clearTab() {
   }
 
   saveData(data);
+  updateInventionAddMenu();
+  updateDivinationAddMenu();
+  updateHunterAddMenu();
   render();
 }
 
@@ -1470,6 +1844,8 @@ function hasCountsInTab() {
 
 function resetTabCounts() {
   const data = getSaveData();
+  countEditItem = null;
+  countDraft = null;
 
   for (const item of Object.values(data.items)) {
     if (isItemInActiveTab(item)) {
@@ -1519,12 +1895,19 @@ function importData(file: File) {
       saveData(data);
       openSettingsItem = null;
       goalDraft = null;
+      countEditItem = null;
+      countDraft = null;
       applySavedSettings(data);
 
       updateCountPositionUi();
       updateInventionFilterUi();
+      updateDivinationAddUi();
+      updateHunterAddUi();
       updateArchFilterUi();
       updateSkillTabs();
+      updateInventionAddMenu();
+      updateDivinationAddMenu();
+      updateHunterAddMenu();
       updateTrackerSizeUi();
       settingsWindow.refresh();
       render();
@@ -1582,6 +1965,10 @@ function bindRowEvents() {
         clearGoal(item);
       } else if (target.classList.contains("save-goal")) {
         setGoal(item);
+      } else if (target.classList.contains("edit-count")) {
+        editCount(item);
+      } else if (target.classList.contains("save-count")) {
+        saveCount(item);
       } else if (target.classList.contains("reset-item")) {
         resetItem(item);
       } else if (target.classList.contains("delete-item")) {
@@ -1590,12 +1977,26 @@ function bindRowEvents() {
       return;
     }
 
+    if (clicked.closest(".item-count-input")) return;
     if (clicked.closest(".item-settings-panel")) return;
 
     if (itemRow) toggleSettings(itemRow.dataset.item || "");
   });
 
   tracker.addEventListener("keydown", (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement).classList.contains("item-count-input")) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveCount(countEditItem || "");
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        countEditItem = null;
+        countDraft = null;
+        render();
+      }
+      return;
+    }
+
     if (e.key !== "Enter" && e.key !== " ") return;
 
     const mainRow = e.target as HTMLElement;
@@ -1631,6 +2032,10 @@ updateArchFilterButton();
 updateArchFilterUi();
 updateSkillTabs();
 updateInventionAddMenu();
+updateDivinationAddUi();
+updateDivinationAddMenu();
+updateHunterAddUi();
+updateHunterAddMenu();
 settingsWindow.refresh();
 updateTabsCollapsedUi();
 updateCountPositionUi();
@@ -1717,4 +2122,48 @@ inventionAddMenu?.addEventListener("click", (event) => {
   }
 
   addInventionMaterials([button.dataset.material || ""]);
+});
+
+divinationAddButton?.addEventListener("click", () => {
+  if (divinationAddButton.disabled) return;
+  divinationAddMenuOpen = !divinationAddMenuOpen;
+  updateDivinationAddMenu();
+});
+
+divinationAddMenu?.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest(
+    "button[data-item], button[data-action]",
+  ) as HTMLButtonElement | null;
+  if (!button) return;
+
+  if (button.dataset.action === "add-all") {
+    addDivinationItems(
+      getAvailableDivinationItems(getSaveData()).map((option) => option.item),
+    );
+    return;
+  }
+
+  addDivinationItems([button.dataset.item || ""]);
+});
+
+hunterAddButton?.addEventListener("click", () => {
+  if (hunterAddButton.disabled) return;
+  hunterAddMenuOpen = !hunterAddMenuOpen;
+  updateHunterAddMenu();
+});
+
+hunterAddMenu?.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest(
+    "button[data-item], button[data-action]",
+  ) as HTMLButtonElement | null;
+  if (!button) return;
+
+  if (button.dataset.action === "add-all") {
+    addHunterItems(
+      getAvailableHunterItems(getSaveData()).map((option) => option.item),
+    );
+    return;
+  }
+
+  addHunterItems([button.dataset.item || ""]);
 });

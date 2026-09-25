@@ -33,7 +33,7 @@ body.session-window-body {
   overflow-y: auto;
   background:
     linear-gradient(rgba(5, 15, 20, 0.18), rgba(5, 15, 20, 0.50)),
-    url("./icons/bg.png") center / cover no-repeat;
+    url("./icons/bg.png") repeat;
   border: 2px solid #5a4a2a;
   border-radius: 6px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
