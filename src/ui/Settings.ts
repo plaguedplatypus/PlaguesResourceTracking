@@ -541,7 +541,7 @@ function markup(): string {
                   <button class="settings-segment-option" type="button" data-position="right">Right</button>
                 </div>
               </div>
-                ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show skill icons beside items on the main tab.")}
+                ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show icons beside items.")}
             </div>
           </section>
           <section class="settings-page" data-settings-page="skills" hidden>

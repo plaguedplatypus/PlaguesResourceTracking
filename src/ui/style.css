@@ -1,15 +1,18 @@
 :root {
-  --line: #4a4030;
-  --line2: #302c25;
-  --gold: #d9a441;
-  --gold2: #9b7a36;
-  --gold3: #5a4a2a;
-  --cyan: #50fafa;
-  --green: #49ee49;
-  --red: #f32222;
-  --title: #d8c58a;
-  --text: #e6e6e6;
-  --muted: #a1a1a1;
+    --line: #4a4030;
+    --line2: #302c25;
+
+    --gold: #d9a441;
+    --gold2: #9b7a36;
+    --gold3: #5a4a2a;
+
+    --cyan: #79e5f8;
+    --green: #78d86b;
+    --red: #e25555;
+
+    --title: #d8c58a;
+    --text: #e9e9e9;
+    --muted: #bbb8b3;
 }
 
 html,
@@ -443,7 +446,8 @@ body {
     }
 }
 
-.item-row.settings-open, .item-row.settings-open:hover{
+.item-row.settings-open,
+.item-row.settings-open:hover {
     border-color: var(--gold);
     box-shadow:
         inset 0 0 4px rgba(255, 200, 80, 0.35),
@@ -471,6 +475,11 @@ body {
     color: var(--text);
     margin-left: 0.167em;
     line-height: 1;
+    text-shadow:
+        0 1px 0 #000,
+        1px 0 0 #000,
+        -1px 0 0 #000,
+        0 -1px 0 #000;
 }
 
 .item-text strong {
@@ -478,6 +487,23 @@ body {
     align-items: center;
     line-height: 1;
 }
+
+.item-text .divination-pale { color: #c9aceb;}
+.item-text .divination-flickering { color: #96df70;}
+.item-text .divination-bright { color: #f4775f;}
+.item-text .divination-glowing { color: #49dacb;}
+.item-text .divination-sparkling { color: #dfd65c;}
+.item-text .divination-gleaming { color: #63a9e6;}
+.item-text .divination-vibrant { color: #4cda79;}
+.item-text .divination-lustrous { color: #a8e5eb;}
+.item-text .divination-elder { color: #dc75cf;}
+.item-text .divination-brilliant { color: #d658b5;}
+.item-text .divination-radiant { color: #789fec;}
+.item-text .divination-luminous { color: #e79a47;}
+.item-text .divination-incandescent { color: #ad72e2;}
+.item-text .divination-positive { color: #d7d4cf;}
+.item-text .divination-negative { color: #a2a6ad;}
+.item-text .divination-ancestral { color: #b8c5d3;}
 
 .item-prefix-icon {
     width: 1em;
@@ -785,43 +811,22 @@ select {
     white-space: nowrap;
 }
 
-.tracker-message[hidden] {
-    display: none;
-}
+.tracker-message[hidden] { display: none;}
 
-.uncommon-component {
-    color: #ff9900;
-}
-
-.rare-component {
-    color: var(--red);
-    outline: 3px rgba(0, 0, 0, 0.65);
-}
-
-.ancient-component {
-    color: #43bcbc;
-}
-
-.seren-item {
-    color: var(--cyan);
-}
-
-.seren-item-rare {
-    color: #ffd700;
-}
-
-.spirit-item-green {
-    color: var(--green);
-}
+.uncommon-component { color: #e6a13a;}
+.rare-component { color: var(--red);}
+.ancient-component { color: #57c7c3;}
+.seren-item { color: var(--cyan);}
+.seren-item-rare { color: #f0cf57;}
+.spirit-item-green { color: var(--green);}
 
 .empty {
     color: #d0ff00;
-    font-size: 1.083em;
-    margin: 0.538em 0 0;
-    padding: 0.615em 0.154em 0.385em 0.769em;
-    line-height: 1.15;
-    background: #2c2c2c;
-    border: 2px solid #3a3a3a;
+    font-size: 12px;
+    margin: 8px 0;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid #625634;
     border-radius: 0.231em;
 }
 
@@ -844,9 +849,7 @@ select {
     font-size: 12px;
 }
 
-.patch-notes-modal[hidden] {
-    display: none;
-}
+.patch-notes-modal[hidden] { display: none;}
 
 .patch-notes-header {
     display: flex;

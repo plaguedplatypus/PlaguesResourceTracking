@@ -3,6 +3,7 @@ export type Group = "energy" | "chronicles";
 export type Option = {
 	item: string;
 	group: Group;
+	colorClass?: string;
 };
 
 const standardTiers = [
@@ -34,10 +35,12 @@ const options: readonly Option[] = [
 	...standardTiers.map((tier) => ({
 		item: `${tier} energy`,
 		group: "energy" as const,
+		colorClass: `divination-${tier}`,
 	})),
 	...arcTiers.map((tier) => ({
 		item: `${tier} energy`,
 		group: "energy" as const,
+		colorClass: `divination-${tier}`,
 	})),
 	...chronicles.map((item) => ({
 		item,

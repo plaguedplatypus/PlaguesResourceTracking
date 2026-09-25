@@ -49,6 +49,9 @@ const skillIconIds = new Set<TrackableSkill>([
 const hunterGroupByItem = new Map(
   getHunterOptions().map((option) => [option.item, option.group]),
 );
+const divinationColorClasses = new Map(
+  getDivinationOptions().map((option) => [option.item, option.colorClass]),
+);
 
 const appColor = a1lib.mixColor(67, 188, 188);
 const tabsToggleButton = document.querySelector(".tabs-toggle",) as HTMLElement | null;
@@ -409,7 +412,7 @@ function processChatLine(
 }
 
 function getSkillIconHtml(itemData: TrackedItem) {
-  if (activeSkillTab !== "all" || !showAllTabIcons) return "";
+  if (!showAllTabIcons) return "";
 
   const skill = itemData.skill;
   const icon =
@@ -916,6 +919,10 @@ function renderItemRow(
   }
 
   const displayPrefixHtml = getSkillIconHtml(itemData);
+  const colorClass = itemData.colorClass ||
+    (itemData.skill === "divination"
+      ? divinationColorClasses.get(item.toLowerCase())
+      : "");
   const displayName = titleCase(
     getItemName(
       itemData.displayName || item,
@@ -966,7 +973,7 @@ function renderItemRow(
 			 aria-label="Edit ${escapeAttr(displayName)}"
 			 title="${escapeAttr(fullName)}">
 			<div class="item-text">
-				<strong class="${escapeAttr(itemData.colorClass || "")}">
+				<strong class="${escapeAttr(colorClass || "")}">
 					${displayPrefixHtml}${escapeHtml(displayName)}
 				</strong>
 			</div>
