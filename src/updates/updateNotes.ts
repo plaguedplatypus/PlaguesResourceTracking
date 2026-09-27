@@ -6,6 +6,13 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
+		version: "v1.13",
+		title: "Item Display",
+		items: [
+			"Item view can be switched from 'Card' to 'List' modes."
+		],
+	},
+	{
 		version: "v1.12",
 		title: "Divination/Hunter",
 		items: [

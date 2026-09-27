@@ -63,4 +63,5 @@ export function couldStartSkillMessage(text: string): boolean {
 
 const ignoredMessages: readonly RegExp[] = [
   /^You find some valuables and stuff them into your bag\.?$/i,
+  /^You find some treasure hidden in the rock\.?$/i,
 ];

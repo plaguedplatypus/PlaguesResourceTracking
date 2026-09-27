@@ -36,6 +36,7 @@ export type TrackableSkill = Exclude<SkillType, "all"> | "fire";
 export type SkillSelection = Record<TrackableSkill, boolean>;
 export type SortMode = "recent" | "alpha" | "count";
 export type CountPosition = "right" | "left";
+export type ItemDisplay = "list" | "card";
 
 export type SaveData = {
   chat?: string;
@@ -43,6 +44,7 @@ export type SaveData = {
   fishingUsePorters?: boolean;
   shortInventionNames?: boolean;
   countPosition?: CountPosition;
+  itemDisplay?: ItemDisplay;
   showAllTabIcons?: boolean;
   showInventionFilter?: boolean;
   showArchFilter?: boolean;
@@ -91,6 +93,7 @@ export function normalizeTrackerSize(value: unknown): number {
 export function normalizeSaveData(value: unknown): SaveData {
   if (value === undefined) {
     return {
+      itemDisplay: "card",
       sortMode: "recent",
       trackerSize: trackerSizeDefault,
       items: {},
@@ -105,6 +108,7 @@ export function normalizeSaveData(value: unknown): SaveData {
     fishingUsePorters: data.fishingUsePorters ?? true,
     shortInventionNames: data.shortInventionNames ?? false,
     countPosition: data.countPosition === "left" ? "left" : "right",
+    itemDisplay: data.itemDisplay === "list" ? "list" : "card",
     showAllTabIcons: data.showAllTabIcons ?? true,
     showInventionFilter: data.showInventionFilter ?? true,
     showArchFilter: data.showArchFilter ?? true,

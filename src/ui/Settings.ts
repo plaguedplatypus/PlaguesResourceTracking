@@ -1,6 +1,6 @@
 import type { SessionStatus } from "./session";
 import type { ChatboxType } from "../chat/chatTypes";
-import type { CountPosition, TrackableSkill } from "../trackerData";
+import type { CountPosition, ItemDisplay, TrackableSkill } from "../trackerData";
 import "./settings.css";
 
 type SettingsPage = "general" | "skills" | "data";
@@ -11,6 +11,7 @@ type State = {
   fishingUsePorters: boolean;
   shortInventionNames: boolean;
   countPosition: CountPosition;
+  itemDisplay: ItemDisplay;
   showAllTabIcons: boolean;
   showInventionFilter: boolean;
   showArchFilter: boolean;
@@ -35,6 +36,7 @@ type Actions = {
   togglePorters(): void;
   toggleShortNames(): void;
   setCountPosition(position: CountPosition): void;
+  setItemDisplay(display: ItemDisplay): void;
   toggleAllIcons(): void;
   toggleInventionFilter(): void;
   toggleArchFilter(): void;
@@ -171,6 +173,7 @@ export function createSettingsWindow(
         : "Uncategorized items are shown.",
     );
     updateCountPosition(doc, state.countPosition);
+    updateItemDisplay(doc, state.itemDisplay);
 
     const trackerSize = doc.querySelector(
       ".tracker-size",
@@ -283,10 +286,17 @@ export function createSettingsWindow(
     doc
       .querySelector(".hide-unknown-section-toggle input")
       ?.addEventListener("change", actions.toggleUnknownSection);
-    doc.querySelectorAll<HTMLButtonElement>(".settings-segment-option").forEach(
+    doc.querySelectorAll<HTMLButtonElement>(".settings-count-position-option").forEach(
       (button) => {
         button.addEventListener("click", () => {
           actions.setCountPosition(button.dataset.position as CountPosition);
+        });
+      },
+    );
+    doc.querySelectorAll<HTMLButtonElement>(".settings-item-display-option").forEach(
+      (button) => {
+        button.addEventListener("click", () => {
+          actions.setItemDisplay(button.dataset.display as ItemDisplay);
         });
       },
     );
@@ -469,9 +479,19 @@ function updateSwitch(
 
 function updateCountPosition(doc: Document, position: CountPosition): void {
   doc
-    .querySelectorAll<HTMLButtonElement>(".settings-segment-option")
+    .querySelectorAll<HTMLButtonElement>(".settings-count-position-option")
     .forEach((button) => {
       const selected = button.dataset.position === position;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+}
+
+function updateItemDisplay(doc: Document, display: ItemDisplay): void {
+  doc
+    .querySelectorAll<HTMLButtonElement>(".settings-item-display-option")
+    .forEach((button) => {
+      const selected = button.dataset.display === display;
       button.classList.toggle("is-active", selected);
       button.setAttribute("aria-pressed", String(selected));
     });
@@ -527,18 +547,25 @@ function markup(): string {
             </div>
             <div class="settings-section">
               <div class="settings-section-title">INTERFACE</div>
-              <div class="settings-field">
+              <div class="settings-field settings-inline-field">
                 <span class="settings-field-label">UI Scale:</span>
                 <div class="settings-tracker-size-row">
                   <input class="tracker-size" type="range" min="10" max="16" step="1" value="12" aria-label="Tracker Size">
                   <span class="tracker-size-value">12px</span>
                 </div>
               </div>
-              <div class="settings-field">
+              <div class="settings-field settings-inline-field">
                 <span class="settings-field-label">Count Position:</span>
                 <div class="settings-segmented-control" role="group" aria-label="Count Position">
-                  <button class="settings-segment-option" type="button" data-position="left">Left</button>
-                  <button class="settings-segment-option" type="button" data-position="right">Right</button>
+                  <button class="settings-segment-option settings-count-position-option" type="button" data-position="left">Left</button>
+                  <button class="settings-segment-option settings-count-position-option" type="button" data-position="right">Right</button>
+                </div>
+              </div>
+              <div class="settings-field settings-inline-field">
+                <span class="settings-field-label">Item Display:</span>
+                <div class="settings-segmented-control" role="group" aria-label="Item Display">
+                  <button class="settings-segment-option settings-item-display-option" type="button" data-display="list">List</button>
+                  <button class="settings-segment-option settings-item-display-option" type="button" data-display="card">Card</button>
                 </div>
               </div>
                 ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show icons beside items.")}

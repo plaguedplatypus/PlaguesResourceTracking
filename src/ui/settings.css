@@ -118,6 +118,7 @@ body.settings-window-body {
 }
 .settings-field-description {
   display: block;
+  min-width: 140px;
   margin-top: 2px;
   color: #bbbbbb;
   font-size: 11px;
@@ -304,6 +305,15 @@ body.settings-window-body {
   gap: 2px;
   margin-top: 4px;
 }
+.settings-inline-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.settings-inline-field .settings-field-label { white-space: nowrap; }
+.settings-inline-field .settings-segmented-control,
+.settings-inline-field .settings-tracker-size-row { margin-top: 0; }
 .settings-segment-option {
   min-height: 20px;
   padding: 3px;

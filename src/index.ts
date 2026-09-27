@@ -15,7 +15,7 @@ import ChatReader, { ChatPosition } from "./chat/ChatReader";
 import { createArtifactReader } from "./dialog/artifactCapture";
 import { processMessages } from "./chatPoll";
 import { createSettingsWindow } from "./ui/Settings";
-import { getSaveData, normalizeSaveData, normalizeSkillSelection, normalizeTrackerSize, saveData, saveSetting, trackerSizeDefault, type CountPosition, type InternalSkillType, type ItemUpdate, type SaveData, type SkillSelection, type SkillType, type SortMode, type TrackableSkill, type TrackedItem, } from "./trackerData";
+import { getSaveData, normalizeSaveData, normalizeSkillSelection, normalizeTrackerSize, saveData, saveSetting, trackerSizeDefault, type CountPosition, type InternalSkillType, type ItemDisplay, type ItemUpdate, type SaveData, type SkillSelection, type SkillType, type SortMode, type TrackableSkill, type TrackedItem, } from "./trackerData";
 
 import "./ui/style.css";
 
@@ -102,6 +102,7 @@ let sortMode: SortMode = "recent";
 let fishingUsePorters = true;
 let shortInventionNames = false;
 let countPosition: CountPosition = "right";
+let itemDisplay: ItemDisplay = "card";
 let showAllTabIcons = true;
 let showInventionFilter = true;
 let showArchFilter = true;
@@ -167,6 +168,7 @@ const settingsWindow = createSettingsWindow({
     fishingUsePorters,
     shortInventionNames,
     countPosition,
+    itemDisplay,
     showAllTabIcons,
     showInventionFilter,
     showArchFilter,
@@ -188,6 +190,7 @@ const settingsWindow = createSettingsWindow({
   togglePorters,
   toggleShortNames,
   setCountPosition,
+  setItemDisplay,
   toggleAllIcons,
   toggleInventionFilter,
   toggleArchFilter,
@@ -450,6 +453,7 @@ function applySavedSettings(data: SaveData) {
   fishingUsePorters = data.fishingUsePorters ?? true;
   shortInventionNames = data.shortInventionNames ?? false;
   countPosition = data.countPosition === "left" ? "left" : "right";
+  itemDisplay = data.itemDisplay === "list" ? "list" : "card";
   showAllTabIcons = data.showAllTabIcons ?? true;
   showInventionFilter = data.showInventionFilter ?? true;
   showArchFilter = data.showArchFilter ?? true;
@@ -877,8 +881,13 @@ function renderItemRow(
 ) {
   const row = document.createElement("div");
   const settingsOpen = openSettingsItem === item;
+  const hasGoal = itemData.goal !== null;
   const countEditing = settingsOpen && countEditItem === item;
-  row.className = `item-row ${settingsOpen ? "settings-open" : ""}`;
+  row.className = [
+    "item-row",
+    settingsOpen ? "settings-open" : "",
+    hasGoal ? "has-goal" : "",
+  ].filter(Boolean).join(" ");
   row.dataset.item = item;
 
   let goalHtml = "";
@@ -1075,6 +1084,10 @@ function updateCountPositionUi() {
   document.body.classList.toggle("counts-left", countPosition === "left");
 }
 
+function updateItemDisplayUi() {
+  document.body.classList.toggle("item-display-list", itemDisplay === "list");
+}
+
 function isItemVisible(itemData: TrackedItem) {
   const skill = itemData.skill;
   if (!skill || skill === "all" || skill === "other") return true;
@@ -1103,6 +1116,15 @@ function setCountPosition(position: CountPosition) {
   saveSetting("countPosition", countPosition);
 
   updateCountPositionUi();
+  settingsWindow.refresh();
+}
+
+function setItemDisplay(display: ItemDisplay) {
+  if (itemDisplay === display) return;
+  itemDisplay = display;
+  saveSetting("itemDisplay", itemDisplay);
+
+  updateItemDisplayUi();
   settingsWindow.refresh();
 }
 
@@ -1907,6 +1929,7 @@ function importData(file: File) {
       applySavedSettings(data);
 
       updateCountPositionUi();
+      updateItemDisplayUi();
       updateInventionFilterUi();
       updateDivinationAddUi();
       updateHunterAddUi();
@@ -2046,6 +2069,7 @@ updateHunterAddMenu();
 settingsWindow.refresh();
 updateTabsCollapsedUi();
 updateCountPositionUi();
+updateItemDisplayUi();
 updateTrackerSizeUi();
 updateSkillTabScrollButtons();
 render();
