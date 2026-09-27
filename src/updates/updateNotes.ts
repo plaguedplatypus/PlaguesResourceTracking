@@ -6,15 +6,15 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
-		version: "v1.13",
-		title: "Item Display",
+		version: "v1.14",
+		title: "Item Display - 9/26/26",
 		items: [
 			"Item view can be switched from 'Card' to 'List' modes."
 		],
 	},
 	{
-		version: "v1.12",
-		title: "Divination/Hunter",
+		version: "v1.13",
+		title: "Divination/Hunter - 9/24/26",
 		items: [
 			"Can now edit counts by selecting an item and clicking the edit icon next to the counts.",
 			"Added Divination category. Fully manual tracking.",
@@ -22,26 +22,25 @@ const releaseHistory: ReleaseNote[] = [
 		],
 	},
 	{
-		version: "v1.11",
-		title: "Runescape UI Update",
+		version: "v1.12",
+		title: "Runescape UI Update - 9/21/26",
 		items: [
 			"Fixed dialog reader not capturing after latest Runescape UI update.",
 		],
 	},
 	{
-		version: "v1.10",
+		version: "v1.11",
 		title: "The Tracker Update",
 		items: [
 			"Farming Tracking is here, toggle it in the settings.",
-			"Can now Toggle Tracked Skills and Events ON/OFF in the settings.",
+			"Can now Toggle Tracked Resources and Events ON/OFF in the settings.",
 			"Can now reset counts per tab without clearing the tracker.",
-			"There is now a confirmation when clearing the Tracker. (no more misclicks)",
 			"Added a Dig Site filter to Archaeology.",
 			"Added a [+] button to Invention Tracker to add components.",
 		],
 	},
 	{
-		version: "v1.9.1",
+		version: "v1.10",
 		title: "Minor Update",
 		items: [
 			"Minor update: Added Leagues relics to the tracker.",

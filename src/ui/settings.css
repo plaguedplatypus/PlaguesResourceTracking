@@ -86,8 +86,6 @@ body.settings-window-body {
 .settings-page[hidden] { display: none; }
 .settings-section + .settings-section {
   margin-top: 7px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(216, 197, 138, 0.22);
 }
 .settings-section-title {
   margin-bottom: 4px;
@@ -343,10 +341,8 @@ input.tracker-size { width: 88px; padding: 0; }
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  gap: 6px;
-  margin-top: 4px;
-  color: #858585;
-  font-size: 9px;
+  color: var(--title);
+  font-size: 10px;
 }
 .settings-patch-notes {
   height: auto;
@@ -358,5 +354,5 @@ input.tracker-size { width: 88px; padding: 0; }
   font-size: inherit;
 }
 .settings-patch-notes:hover,
-.settings-patch-notes:focus-visible { color: #b5b5b5; outline: none; }
+.settings-patch-notes:focus-visible { color: var(--gold); outline: none; }
 .import { display: none; }
