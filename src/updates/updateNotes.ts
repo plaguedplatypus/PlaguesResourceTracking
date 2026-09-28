@@ -6,6 +6,13 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
+		version: "v1.15",
+		title: "Havenhythe II - 9/28/26",
+		items: [
+			"Added new items from Havenhythe part II zones."
+		],
+	},
+	{
 		version: "v1.14",
 		title: "Item Display - 9/26/26",
 		items: [
