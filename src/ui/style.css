@@ -423,7 +423,7 @@ body {
 }
 
 .item-row {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     position: relative;
     min-width: 0;
     padding: 1px 0;
