@@ -79,6 +79,10 @@ const woodcuttingItems = [
 	"bamboo",
 	"timber",
 	"eternal magic tree branch",
+	"petrified roots",
+	"petrified bark",
+	"petrified knot",
+	"chima moss",
 ];
 
 const fishingItems = ["raw ", "leaping ", "algae"];

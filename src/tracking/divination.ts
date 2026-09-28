@@ -42,6 +42,10 @@ const options: readonly Option[] = [
 		group: "energy" as const,
 		colorClass: `divination-${tier}`,
 	})),
+	{
+		item: "remnant energy",
+		group: "energy",
+	},
 	...chronicles.map((item) => ({
 		item,
 		group: "chronicles" as const,

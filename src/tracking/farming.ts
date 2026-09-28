@@ -97,11 +97,13 @@ const produceByPatch = {
     "Carambola",
   ],
   cactus: ["Cactus spine", "Potato cactus", "Dragonfruit", "Golden dragonfruit"],
+  nightshade: ["Mourning lily"],
   mushrooms: [
     "Bittercap mushroom",
     "Morchella mushroom",
     "Stinkflies",
     "Tombshroom",
+    "Bogwart",
   ],
 } as const;
 
