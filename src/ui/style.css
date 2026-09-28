@@ -554,23 +554,6 @@ body {
     opacity: 0.75;
 }
 
-.item-entry {
-    display: flex;
-    align-items: stretch;
-    min-width: 0;
-}
-
-.goal-pin {
-    flex: 0 0 0.75em;
-    display: grid;
-    place-items: center;
-    margin-right: 0.167em;
-    color: #ffd700;
-    font-size: 0.833em;
-    background:
-        linear-gradient(90deg, rgba(5, 15, 20, 0.15), rgba(0, 0, 0, .81));
-}
-
 .skill-tracking-notice {
     padding: 3px 4px;
     color: var(--title);

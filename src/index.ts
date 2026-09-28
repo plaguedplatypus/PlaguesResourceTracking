@@ -1026,21 +1026,7 @@ function renderItemRow(
     row.classList.add("highlight");
   }
 
-  const entry = document.createElement("div");
-  entry.className = "item-entry";
-
-  if (itemData.goal !== null) {
-    const pin = document.createElement("span");
-    pin.className = "goal-pin";
-    pin.title = "Goal set";
-    pin.setAttribute("role", "img");
-    pin.setAttribute("aria-label", "Goal set");
-    pin.textContent = "★";
-    entry.appendChild(pin);
-  }
-
-  entry.appendChild(row);
-  tracker.appendChild(entry);
+  tracker.appendChild(row);
 }
 
 function sortItems(items: string[], data: SaveData) {
