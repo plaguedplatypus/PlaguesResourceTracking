@@ -157,7 +157,7 @@ function parseFarmingMessage(
 			/^You transport to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
 		) ??
 		normalizedLine.match(
-			/^Your Farming skillcape perk harvested and noted\s+([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
+			/^Your Farming skillcape perk (?:harvested and noted|instantly harvests and notes)\s+([1-9][\d,]*)\s*x\s*(.+?)[.!]?$/i,
 		) ??
 		normalizedLine.match(
 			/^Your Boon of Crondis has doubled the following item and sent it to your bank:\s*([1-9][\d,]*)\s*x\s*(.+?)\.?$/i,
