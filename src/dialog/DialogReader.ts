@@ -53,7 +53,7 @@ export default class DialogReader {
 		).length > 0;
 	}
 
-	read(image: ReturnType<typeof a1lib.captureHold>) {
+	read(image: ReturnType<typeof a1lib.captureHold>, offset = 0) {
 		if (!this.pos || !this.checkDialog(image)) return null;
 
 		const data = image.toData(
@@ -67,7 +67,7 @@ export default class DialogReader {
 		for (let y = 0; y < data.height; y++) {
 			let hasText = false;
 
-			for (let x = 200; x < 300; x++) {
+			for (let x = 200 + offset; x < 300 + offset; x++) {
 				const index = x * 4 + y * 4 * data.width;
 				if (data.data[index] + data.data[index + 1] + data.data[index + 2] < 50) {
 					hasText = true;
@@ -80,7 +80,7 @@ export default class DialogReader {
 			let best: ReturnType<typeof OCR.readLine> | null = null;
 			let baseline = y;
 
-			for (const x of [192, 246, 310]) {
+			for (const x of [192 + offset, 246 + offset, 310 + offset]) {
 				const char = OCR.findChar(data, font, [0, 0, 0], x, y + 5, 12, 3);
 				if (!char) continue;
 

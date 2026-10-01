@@ -5,1128 +5,836 @@ import "./session.css";
 export type SessionStatus = "idle" | "running" | "paused" | "ended";
 
 type ItemUpdate = {
-	item: string;
-	amount: number;
-	skill?: string;
-	source?: string;
-	storageId?: string;
+  item: string;
+  amount: number;
+  skill?: string;
+  source?: string;
+  storageId?: string;
 };
-
-export function getSessionStatus(): SessionStatus {
-	return sessionStatus;
-}
-
-export function hasSession(): boolean {
-	return sessionStatus !== "idle";
-}
-
-export function hasSessionData(): boolean {
-	return Object.keys(sessionItems).length > 0;
-}
-
-export function clearSession(): void {
-	sessionStatus = "idle";
-	sessionStartedAt = null;
-	sessionEndedAt = null;
-	activeStartedAt = null;
-	activeMs = 0;
-	sessionItems = {};
-	sessionEvents = [];
-	localStorage.removeItem(sessionId);
-	updateWindow("full");
-	refreshApp?.();
-}
 
 type Item = {
-	count: number;
-	lastUpdated: number;
-	displayName: string;
+  count: number;
+  lastUpdated: number;
+  displayName: string;
+  skill?: string;
+  source?: string;
 };
 
-type ItemEvent = {
-	timestamp: number;
-	activeMs: number;
-	item: string;
-	amount: number;
-	skill?: string;
-	source?: string;
-	storageId?: string;
-	unitPrice?: number;
+type Summary = {
+  activeMs: number;
+  items: Record<string, Item>;
 };
 
-type StoredSession = {
-	status: Exclude<SessionStatus, "idle">;
-	startedAt: number;
-	endedAt?: number;
-	activeMs: number;
-	items: Record<string, Item>;
-	events: ItemEvent[];
+type Run = {
+  startedAt: number;
+  lastGainAt: number;
+  seenAt?: number;
+  activeMs: number;
+  items: Record<string, Item>;
+  endedAt?: number;
+};
+
+type Activity = {
+  version: 2;
+  days: Record<string, Summary>;
+  run?: Run;
+  lastRun?: Run;
 };
 
 type CacheItem = {
-	price: number | null;
-	checkedAt: number;
+  price: number | null;
+  checkedAt: number;
 };
 
-type Cache = Record<string, CacheItem>;
-
-type LatestEntry = {
-	price?: number;
-};
-
-type LatestResponse = Record<string, LatestEntry>;
-
-type UpdateMode = "full" | "clock" | "items" | "prices";
-
-type RowElements = {
-	row: HTMLTableRowElement;
-	name: HTMLTableCellElement;
-	count: HTMLTableCellElement;
-	perHour: HTMLTableCellElement;
-	value: HTMLTableCellElement;
-	gpPerHour: HTMLTableCellElement;
-};
+type LatestResponse = Record<string, { price?: number }>;
+type View = "run" | "daily";
 
 const appName = "ResourceTracker";
-const sessionId = `${appName}_Session`;
-const priceCacheId = `${appName}_PriceCache`;
+const sessionId = appName + "_Session";
+const priceCacheId = appName + "_PriceCache";
 const priceCacheDurationMs = 24 * 60 * 60 * 1000;
-const checkpointIntervalMs = 5000;
+const activeGapMs = 30 * 1000;
+const runGapMs = 30 * 60 * 1000;
+const heartbeatMs = 5 * 1000;
+const daysKept = 7;
 
-const savedSession = loadSession();
-let sessionStatus: SessionStatus = savedSession?.status ?? "idle";
-let sessionStartedAt: number | null = savedSession?.startedAt ?? null;
-let sessionEndedAt: number | null = savedSession?.endedAt ?? null;
-let activeStartedAt: number | null = null;
-let activeMs = savedSession?.activeMs ?? 0;
-
-let sessionItems: Record<string, Item> = savedSession?.items ?? {};
-let sessionEvents = savedSession?.events ?? [];
+let activity = loadActivity();
 let sessionWindow: Window | null = null;
-let sessionRefreshTimer: number | null = null;
 let sessionUiOwner: Window | null = null;
 let refreshApp: (() => void) | null = null;
+let view: View = "run";
+let selectedDay = dayKey(Date.now());
+let followToday = true;
 let saveWarningShown = false;
 
 const pendingPrices = new Map<string, Promise<void>>();
-const sessionRows = new Map<string, RowElements>();
 
-localStorage.removeItem(`${appName}_SessionSettings`);
+if (activity.run) {
+  const lastSeen = activity.run.seenAt ?? activity.run.lastGainAt;
+  finishRun(Math.min(Date.now(), lastSeen + heartbeatMs));
+}
+settle(Date.now());
+saveActivity();
+window.setInterval(() => {
+  const now = Date.now();
+  settle(now);
+  if (activity.run && now - (activity.run.seenAt ?? activity.run.lastGainAt) >= heartbeatMs) {
+    activity.run.seenAt = now;
+    saveActivity();
+  }
+  if (sessionWindow && !sessionWindow.closed) updateWindow();
+}, 1000);
+window.addEventListener("pagehide", () => {
+  if (activity.run) finishRun(Date.now());
+});
 
-if (sessionStatus === "running") {
-	sessionStatus = "paused";
-	saveSession();
+export function getSessionStatus(): SessionStatus {
+  const run = activity.run;
+  if (run) {
+    return Date.now() - run.lastGainAt < activeGapMs ? "running" : "paused";
+  }
+  return hasSession() ? "ended" : "idle";
 }
 
-window.setInterval(checkpointSession, checkpointIntervalMs);
-window.addEventListener("pagehide", pauseForClose);
+export function hasSession(): boolean {
+  return Boolean(activity.run || activity.lastRun || Object.keys(activity.days).length);
+}
 
-export function recordSession(updates: ItemUpdate[]) {
-	if (sessionStatus !== "running") return;
-	if (updates.length === 0) return;
+export function hasSessionData(): boolean {
+  return Object.values(activity.days).some((day) => Object.keys(day.items).length > 0)
+    || Boolean(activity.run && Object.keys(activity.run.items).length > 0);
+}
 
-	const timestamp = Date.now();
-	const eventActiveMs = getElapsedMs();
+export function clearSession(): void {
+  activity = { version: 2, days: {} };
+  saveActivity();
+  updateWindow();
+  refreshApp?.();
+}
 
-	for (const update of updates) {
-		const id = getUpdateId(update);
-		if (!sessionItems[id]) {
-			sessionItems[id] = {
-				count: 0,
-				lastUpdated: timestamp,
-				displayName: update.item,
-			};
-		}
+export function getActivityExport(): Activity {
+  settle(Date.now());
+  return JSON.parse(JSON.stringify(activity)) as Activity;
+}
 
-		sessionItems[id].count += update.amount;
-		sessionItems[id].lastUpdated = timestamp;
+export function importActivity(value: unknown): void {
+  const imported = parseActivity(value);
+  if (!imported) throw new Error("Invalid activity data");
+  activity = imported;
+  if (activity.run) {
+    const lastSeen = activity.run.seenAt ?? activity.run.lastGainAt;
+    finishRun(Math.min(Date.now(), lastSeen + heartbeatMs));
+  }
+  trimDays();
+  saveActivity();
+  updateWindow();
+  refreshApp?.();
+}
 
-		const price = getCachedPrice(update.item);
-		sessionEvents.push({
-			timestamp,
-			activeMs: eventActiveMs,
-			item: update.item,
-			amount: update.amount,
-			skill: update.skill,
-			source: update.source,
-			storageId:
-				update.storageId && update.storageId !== update.item
-					? update.storageId
-					: undefined,
-			unitPrice: typeof price === "number" ? price : undefined,
-		});
+export function recordSession(updates: ItemUpdate[]): void {
+  if (updates.length === 0) return;
 
-		void ensurePriceForItem(update.item);
-	}
+  const now = Date.now();
+  settle(now);
+  let run = activity.run;
+  if (!run) {
+    run = { startedAt: now, lastGainAt: now, seenAt: now, activeMs: 0, items: {} };
+    activity.run = run;
+  } else {
+    run.activeMs = getActiveMs(run, now);
+    run.lastGainAt = now;
+    run.seenAt = now;
+  }
 
-	checkpointSession();
-	updateWindow("items");
+  for (const update of updates) {
+    addItem(run.items, update, now);
+    void ensurePriceForItem(update.item);
+  }
+
+  saveActivity();
+  updateWindow();
+  refreshApp?.();
+}
+
+export function showSession(onChange?: () => void): void {
+  if (onChange) refreshApp = onChange;
+  if (!sessionWindow || sessionWindow.closed) {
+    sessionWindow = window.open("", "sessionWindow", "width=400,height=330");
+    sessionUiOwner = null;
+  }
+  void ensurePrices();
+  window.setTimeout(updateWindow, 50);
 }
 
 export function exportSessionCsv(): void {
-	if (!hasSessionData() || sessionStartedAt === null) return;
+  settle(Date.now());
+  if (!hasSessionData()) return;
 
-	const blob = new Blob([buildCsv(sessionStartedAt)], {
-		type: "text/csv;charset=utf-8",
-	});
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = getCsvFilename(sessionStartedAt);
-	link.click();
-	URL.revokeObjectURL(url);
+  const rows: Array<Array<string | number>> = [[
+    "date", "item", "skill", "source", "count", "active_seconds",
+    "per_hour", "unit_price",
+    "value", "gp_per_hour",
+  ]];
+
+  const today = dayKey(Date.now());
+  const dates = new Set(Object.keys(activity.days));
+  if (activity.run) dates.add(today);
+
+  for (const date of Array.from(dates).sort().reverse()) {
+    const summary = getDay(date);
+    const hours = getRateHours(summary);
+    for (const item of Object.values(summary.items)) {
+      const price = getCachedPrice(item.displayName);
+      const value = typeof price === "number" ? item.count * price : null;
+      rows.push([
+        date,
+        titleCase(item.displayName),
+        item.skill ?? "",
+        item.source ?? "",
+        item.count,
+        Math.round(summary.activeMs / 1000),
+        hours > 0 ? roundCsv(item.count / hours) : "",
+        typeof price === "number" ? price : "",
+        value ?? "",
+        value !== null && hours > 0 ? roundCsv(value / hours) : "",
+      ]);
+    }
+  }
+
+  const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n") + "\r\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "Resource-Tracker-daily-" + today + ".csv";
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
-export function showSession(onChange?: () => void) {
-	if (onChange) refreshApp = onChange;
-
-	if (!sessionWindow || sessionWindow.closed) {
-		sessionWindow = window.open(
-			"",
-			"sessionWindow",
-			"width=400,height=275"
-		);
-		sessionUiOwner = null;
-		sessionRows.clear();
-	}
-
-	if (sessionStatus !== "idle") {
-		void ensurePrices();
-	}
-
-	startRefreshTimer();
-	setTimeout(() => updateWindow("full"), 50);
+function addItem(items: Record<string, Item>, update: ItemUpdate, now: number): void {
+  const id = getUpdateId(update);
+  const item = items[id] ?? {
+    count: 0,
+    lastUpdated: now,
+    displayName: update.item,
+  };
+  item.count += update.amount;
+  item.lastUpdated = now;
+  item.displayName = update.item;
+  if (update.skill) item.skill = update.skill;
+  if (update.source) item.source = update.source;
+  items[id] = item;
 }
 
-function toggleSession(doc: Document) {
-	if (sessionStatus === "idle") {
-		startSession();
-	} else if (sessionStatus === "running") {
-		pauseSession();
-	} else if (sessionStatus === "paused") {
-		resumeSession();
-	} else {
-		requestNewSession(doc);
-	}
+function dayKey(time: number): string {
+  const date = new Date(time);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
-function startSession() {
-	const now = Date.now();
-	sessionStatus = "running";
-	sessionStartedAt = now;
-	sessionEndedAt = null;
-	activeStartedAt = now;
-	activeMs = 0;
-	sessionItems = {};
-	sessionEvents = [];
-	saveSession();
-	updateWindow("full");
-	refreshApp?.();
+function nextDay(time: number): number {
+  const date = new Date(time);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
 }
 
-function pauseSession() {
-	commitActiveTime();
-	activeStartedAt = null;
-	sessionStatus = "paused";
-	saveSession();
-	updateWindow("full");
-	refreshApp?.();
+function trimDays(): boolean {
+  let changed = false;
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - daysKept + 1);
+  const first = dayKey(cutoff.getTime());
+  for (const date of Object.keys(activity.days)) {
+    if (date < first || date > dayKey(Date.now())) {
+      delete activity.days[date];
+      changed = true;
+    }
+  }
+  if (activity.lastRun && dayKey(activity.lastRun.startedAt) < first) {
+    activity.lastRun = undefined;
+    changed = true;
+  }
+  return changed;
 }
 
-function resumeSession() {
-	activeStartedAt = Date.now();
-	sessionStatus = "running";
-	saveSession();
-	updateWindow("full");
-	refreshApp?.();
+function settle(now: number): void {
+  const run = activity.run;
+  if (run) {
+    const end = Math.min(run.lastGainAt + runGapMs, nextDay(run.startedAt));
+    if (now >= end) finishRun(end);
+  }
+  if (trimDays()) saveActivity();
 }
 
-function endSession() {
-	const now = Date.now();
-	commitActiveTime(now);
-	activeStartedAt = null;
-	sessionStatus = "ended";
-	sessionEndedAt = now;
-	saveSession();
-	updateWindow("full");
-	refreshApp?.();
+function getActiveMs(run: Run, now: number): number {
+  if (run.endedAt !== undefined) return run.activeMs;
+  return run.activeMs + Math.max(0, Math.min(now - run.lastGainAt, activeGapMs));
 }
 
-function requestNewSession(doc: Document): void {
-	if (doc.querySelector(".tracker-confirmation-overlay")) return;
-
-	const overlay = doc.createElement("div");
-	overlay.className = "tracker-confirmation-overlay";
-
-	const dialog = doc.createElement("section");
-	dialog.className = "tracker-confirmation";
-	dialog.setAttribute("role", "dialog");
-	dialog.setAttribute("aria-modal", "true");
-	dialog.setAttribute("aria-labelledby", "session-new-confirmation-title");
-
-	const title = doc.createElement("div");
-	title.className = "tracker-confirmation-title";
-	title.id = "session-new-confirmation-title";
-	title.textContent = "Start a new session?";
-
-	const message = doc.createElement("div");
-	message.className = "tracker-confirmation-message";
-	message.textContent = "The current session data will be cleared.";
-
-	const actions = doc.createElement("div");
-	actions.className = "tracker-confirmation-actions";
-
-	const cancel = doc.createElement("button");
-	cancel.type = "button";
-	cancel.className = "tracker-confirmation-cancel";
-	cancel.textContent = "Cancel";
-
-	const confirm = doc.createElement("button");
-	confirm.type = "button";
-	confirm.className = "tracker-confirmation-confirm";
-	confirm.textContent = "Start New";
-
-	const close = () => {
-		doc.removeEventListener("keydown", onKeyDown);
-		overlay.remove();
-	};
-	const onKeyDown = (event: KeyboardEvent) => {
-		if (event.key === "Escape") {
-			event.preventDefault();
-			close();
-		}
-	};
-
-	cancel.addEventListener("click", close);
-	overlay.addEventListener("click", (event) => {
-		if (event.target === overlay) close();
-	});
-	confirm.addEventListener("click", () => {
-		close();
-		startSession();
-	});
-	doc.addEventListener("keydown", onKeyDown);
-
-	actions.append(cancel, confirm);
-	dialog.append(title, message, actions);
-	overlay.append(dialog);
-	doc.body.append(overlay);
-	cancel.focus();
+function getRun(run: Run, now = Date.now()): Summary {
+  const end = run.endedAt ?? Math.min(now, run.lastGainAt + runGapMs, nextDay(run.startedAt));
+  return {
+    activeMs: getActiveMs(run, end),
+    items: run.items,
+  };
 }
 
-function updateWindow(mode: UpdateMode = "full") {
-	if (!sessionWindow || sessionWindow.closed) return;
-
-	const doc = sessionWindow.document;
-
-	if (!doc.body) {
-		setTimeout(() => updateWindow(mode), 50);
-		return;
-	}
-
-	const initializedNow = ensureUi(doc);
-	const effectiveMode = initializedNow ? "full" : mode;
-
-	updateChrome(doc);
-	updateTotals(doc);
-	syncRows(doc, effectiveMode);
+function finishRun(now: number): void {
+  const run = activity.run;
+  if (!run) return;
+  const end = Math.max(run.startedAt, Math.min(now, run.lastGainAt + runGapMs, nextDay(run.startedAt)));
+  run.activeMs = getActiveMs(run, end);
+  run.endedAt = end;
+  const date = dayKey(run.startedAt);
+  const day = activity.days[date] ?? { activeMs: 0, items: {} };
+  const summary = getRun(run);
+  day.activeMs += summary.activeMs;
+  for (const [id, item] of Object.entries(run.items)) {
+    const previous = day.items[id];
+    if (previous) {
+      previous.count += item.count;
+      if (item.lastUpdated >= previous.lastUpdated) {
+        previous.lastUpdated = item.lastUpdated;
+        previous.displayName = item.displayName;
+        previous.skill = item.skill;
+        previous.source = item.source;
+      }
+    } else {
+      day.items[id] = { ...item };
+    }
+  }
+  activity.days[date] = day;
+  activity.lastRun = run;
+  activity.run = undefined;
+  trimDays();
+  saveActivity();
+  updateWindow();
+  refreshApp?.();
 }
 
-function ensureUi(doc: Document) {
-	const alreadyInitialized =
-		sessionUiOwner === sessionWindow &&
-		Boolean(doc.getElementById("session-root"));
-
-	if (alreadyInitialized) return false;
-
-	doc.title = "Session Stats";
-	doc.head.replaceChildren(...cloneStyles(doc));
-	doc.body.className = "nis session-window-body";
-	doc.body.innerHTML = renderShellHtml();
-
-	doc
-		.getElementById("session-toggle")
-		?.addEventListener("click", () => toggleSession(doc));
-
-	doc
-		.getElementById("session-end")
-		?.addEventListener("click", endSession);
-
-	sessionUiOwner = sessionWindow;
-	sessionRows.clear();
-	return true;
+function getDay(date: string): Summary {
+  const saved = activity.days[date];
+  const result: Summary = {
+    activeMs: saved?.activeMs ?? 0,
+    items: {},
+  };
+  for (const [id, item] of Object.entries(saved?.items ?? {})) result.items[id] = { ...item };
+  const run = activity.run;
+  if (run && dayKey(run.startedAt) === date) {
+    const current = getRun(run);
+    result.activeMs += current.activeMs;
+    for (const [id, item] of Object.entries(current.items)) {
+      const previous = result.items[id];
+      if (previous) {
+        previous.count += item.count;
+        if (item.lastUpdated >= previous.lastUpdated) {
+          previous.lastUpdated = item.lastUpdated;
+          previous.displayName = item.displayName;
+          previous.skill = item.skill;
+          previous.source = item.source;
+        }
+      } else {
+        result.items[id] = { ...item };
+      }
+    }
+  }
+  return result;
 }
 
-function updateChrome(doc: Document) {
-	const toggleText =
-		sessionStatus === "idle"
-			? "Start Session"
-			: sessionStatus === "running"
-				? "Pause Session"
-				: sessionStatus === "paused"
-					? "Resume Session"
-					: "Start New Session";
-
-	const startedText = sessionStartedAt
-		? new Date(sessionStartedAt).toLocaleTimeString("en-US", {
-			hour12: false,
-		})
-		: "—";
-
-	const statusText =
-		sessionStatus === "idle"
-			? "Not running"
-			: sessionStatus === "running"
-				? "Running"
-				: sessionStatus === "paused"
-					? "Paused"
-					: "Ended";
-
-	setText(doc, "session-toggle", toggleText);
-	setText(doc, "session-started", startedText);
-	setText(doc, "session-status", statusText);
-	setText(doc, "session-elapsed", formatElapsed(getElapsedMs()));
-
-	const status = doc.getElementById("session-status");
-	if (status) status.className = sessionStatus;
-
-	const end = doc.getElementById("session-end") as HTMLButtonElement | null;
-	if (end) end.hidden = sessionStatus === "idle" || sessionStatus === "ended";
-
-	const controls = doc.querySelector(".session-controls");
-	controls?.classList.toggle("single", end ? end.hidden === true : true);
-
+function getShown(): Summary {
+  if (view === "daily") {
+    if (followToday) selectedDay = dayKey(Date.now());
+    if (selectedDay !== dayKey(Date.now()) && !activity.days[selectedDay]) {
+      selectedDay = dayKey(Date.now());
+      followToday = true;
+    }
+    return getDay(selectedDay);
+  }
+  const run = getSessionRun();
+  return run ? getRun(run) : { activeMs: 0, items: {} };
 }
 
-function updateTotals(doc: Document) {
-	const totals = getValueTotals();
-	const totalValueText = totals.hasLoadingPrices
-		? "..."
-		: formatGp(totals.totalValue);
-	const totalGpPerHourText = totals.hasLoadingPrices
-		? "..."
-		: formatGp(totals.totalGpPerHour);
-
-	setText(doc, "session-total-value", totalValueText);
-	setText(doc, "session-total-gp-hour", totalGpPerHourText);
+function getSessionRun(): Run | undefined {
+  const run = activity.run;
+  return run && dayKey(run.startedAt) === dayKey(Date.now()) ? run : undefined;
 }
 
-function syncRows(doc: Document, mode: UpdateMode) {
-	const orderedIds = Object.keys(sessionItems).sort((a, b) =>
-		sessionItems[b].lastUpdated - sessionItems[a].lastUpdated
-	);
-	const shouldReconcileStructure = mode === "full" || mode === "items";
-	const activeIds = new Set(orderedIds);
-	const tbody = doc.getElementById("session-items-body") as HTMLTableSectionElement | null;
-	const table = doc.getElementById("session-items-table") as HTMLTableElement | null;
-	const empty = doc.getElementById("session-empty");
-
-	if (!tbody || !table || !empty) return;
-
-	if (shouldReconcileStructure) {
-		const removedIds: string[] = [];
-		sessionRows.forEach((elements, id) => {
-			if (activeIds.has(id)) return;
-			elements.row.remove();
-			removedIds.push(id);
-		});
-		for (const id of removedIds) {
-			sessionRows.delete(id);
-		}
-
-		for (const id of orderedIds) {
-			const itemData = sessionItems[id];
-			let elements = sessionRows.get(id);
-
-			if (!elements) {
-				elements = createRow(doc);
-				sessionRows.set(id, elements);
-			}
-
-			const renderedName = titleCase(itemData.displayName);
-			elements.name.textContent = renderedName;
-			elements.name.title = renderedName;
-			elements.count.textContent = itemData.count.toLocaleString();
-
-			tbody.appendChild(elements.row);
-		}
-	}
-
-	const elapsedHours = getElapsedHours();
-
-	for (const id of orderedIds) {
-		const elements = sessionRows.get(id);
-		const itemData = sessionItems[id];
-		if (!elements) continue;
-
-		const values = getItemValues(itemData, elapsedHours);
-		elements.perHour.textContent = formatPerHour(values.perHour);
-		elements.value.textContent = formatPriceValue(values.price, values.totalValue);
-		elements.gpPerHour.textContent = formatGpPerHour(values.gpPerHour);
-	}
-
-	const hasItems = orderedIds.length > 0;
-	table.hidden = !hasItems;
-	empty.hidden = hasItems;
+function getRateHours(summary: Summary): number {
+  return summary.activeMs > 0 ? summary.activeMs / 3600000 : 0;
 }
 
-function createRow(doc: Document): RowElements {
-	const row = doc.createElement("tr");
-	const name = doc.createElement("td");
-	const count = doc.createElement("td");
-	const perHour = doc.createElement("td");
-	const value = doc.createElement("td");
-	const gpPerHour = doc.createElement("td");
-
-	name.className = "item-name";
-	count.className = "number";
-	perHour.className = "number";
-	value.className = "number";
-	gpPerHour.className = "number";
-
-	row.append(name, count, perHour, value, gpPerHour);
-
-	return {
-		row,
-		name,
-		count,
-		perHour,
-		value,
-		gpPerHour,
-	};
+function updateWindow(): void {
+  if (!sessionWindow || sessionWindow.closed) return;
+  const doc = sessionWindow.document;
+  if (!doc.body) {
+    window.setTimeout(updateWindow, 50);
+    return;
+  }
+  ensureUi(doc);
+  const summary = getShown();
+  const hours = getRateHours(summary);
+  updateChrome(doc, summary);
+  updateTotals(doc, summary, hours);
+  updateRows(doc, summary, hours);
+  if (view === "run") {
+    const today = getDay(dayKey(Date.now()));
+    const total = getTotal(today);
+    setText(doc, "session-today-total-value", total.loading ? "..." : formatGp(total.value));
+    setText(doc, "session-today-active-time", formatElapsed(today.activeMs));
+    updateRows(doc, today, getRateHours(today), "session-today-items");
+  }
 }
 
-function setText(doc: Document, id: string, value: string) {
-	const element = doc.getElementById(id);
-	if (element && element.textContent !== value) {
-		element.textContent = value;
-	}
+function ensureUi(doc: Document): void {
+  if (sessionUiOwner === sessionWindow && doc.getElementById("session-root")) return;
+  doc.title = "Session Stats";
+  doc.head.replaceChildren(...cloneStyles(doc));
+  doc.body.className = "nis session-window-body";
+  doc.body.innerHTML = renderShellHtml();
+  doc.querySelectorAll<HTMLButtonElement>(".session-view").forEach((button) => {
+    button.addEventListener("click", () => {
+      view = button.dataset.view === "daily" ? "daily" : "run";
+      void ensurePrices();
+      updateWindow();
+    });
+  });
+  doc.getElementById("session-day")?.addEventListener("change", (event) => {
+    selectedDay = (event.target as HTMLSelectElement).value;
+    followToday = selectedDay === dayKey(Date.now());
+    void ensurePrices();
+    updateWindow();
+  });
+  sessionUiOwner = sessionWindow;
 }
 
-function startRefreshTimer() {
-	if (sessionRefreshTimer !== null) return;
+function updateChrome(doc: Document, summary: Summary): void {
+  const today = dayKey(Date.now());
+  const dates = new Set([today, ...Object.keys(activity.days)]);
+  const selector = doc.getElementById("session-day") as HTMLSelectElement;
+  const options = Array.from(dates).sort().reverse();
+  if (!options.includes(selectedDay)) followToday = true;
+  if (followToday) selectedDay = today;
+  if (selector.options.length !== options.length
+    || options.some((date, index) => selector.options[index]?.value !== date)) {
+    selector.replaceChildren(...options.map((date) => {
+      const label = date === today ? "Today · " + formatDate(date) : formatDate(date);
+      return new Option(label, date);
+    }));
+  }
+  selector.value = selectedDay;
+  (doc.getElementById("session-day-row") as HTMLElement).hidden = view !== "daily";
+  (doc.getElementById("session-today-section") as HTMLElement).hidden = view !== "run";
+  doc.querySelectorAll<HTMLButtonElement>(".session-view").forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 
-	sessionRefreshTimer = window.setInterval(() => {
-		if (!sessionWindow || sessionWindow.closed) {
-			if (sessionRefreshTimer !== null) {
-				window.clearInterval(sessionRefreshTimer);
-				sessionRefreshTimer = null;
-			}
+  const run = getSessionRun();
+  const started = view === "run" && run
+    ? new Date(run.startedAt).toLocaleTimeString("en-US", { hour12: false })
+    : "—";
+  const status = view === "daily"
+    ? selectedDay === today ? "Today" : "Complete"
+    : getSessionStatus() === "running" ? "Active"
+    : run ? "Idle" : "Waiting for a gain";
+  setText(doc, "session-started", started);
+  setText(doc, "session-status", status);
+  (doc.getElementById("session-started-row") as HTMLElement).hidden = view === "daily";
+  (doc.getElementById("session-status-row") as HTMLElement).hidden = view === "daily";
+  setText(doc, "session-active-time", formatElapsed(summary.activeMs));
+  setText(doc, "session-items-title", view === "daily" ? "Daily Summary:" : "Active Session");
+  setText(doc, "session-items-empty", view === "daily"
+    ? "Nothing tracked on this day."
+    : "Nothing tracked in this session.");
+  setText(doc, "session-today-items-empty", "Nothing tracked today.");
+  (doc.getElementById("session-run-note") as HTMLElement).hidden = view !== "run";
+}
 
-			sessionUiOwner = null;
-			sessionRows.clear();
-			return;
-		}
+function formatDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
-		if (sessionStatus === "running") {
-			updateWindow("clock");
-		}
-	}, 1000);
+function getTotal(summary: Summary) {
+  let value = 0;
+  let loading = false;
+  for (const item of Object.values(summary.items)) {
+    const price = getCachedPrice(item.displayName);
+    if (price === undefined) loading = true;
+    if (typeof price === "number") value += item.count * price;
+  }
+  return { value, loading };
+}
+
+function updateTotals(doc: Document, summary: Summary, hours: number): void {
+  const total = getTotal(summary);
+  setText(doc, "session-total-value", total.loading ? "..." : formatGp(total.value));
+  setText(doc, "session-total-gp-hour", total.loading ? "..." : hours > 0 ? formatGp(total.value / hours) : "—");
+}
+
+function updateRows(doc: Document, summary: Summary, hours: number, id = "session-items"): void {
+  const body = doc.getElementById(`${id}-body`) as HTMLTableSectionElement;
+  const items = Object.values(summary.items).sort((a, b) => b.lastUpdated - a.lastUpdated);
+  const rows = items.map((item) => {
+    const row = doc.createElement("tr");
+    const price = getCachedPrice(item.displayName);
+    const value = typeof price === "number" ? price * item.count : null;
+    const cells = [
+      titleCase(item.displayName),
+      item.count.toLocaleString(),
+      hours > 0 ? formatPerHour(item.count / hours) : "—",
+      formatPriceValue(price, value),
+      formatGpPerHour(value !== null && hours > 0 ? value / hours : null),
+    ];
+    cells.forEach((text, index) => {
+      const cell = doc.createElement("td");
+      cell.textContent = text;
+      if (index === 0) cell.title = text;
+      else cell.className = "number";
+      row.append(cell);
+    });
+    return row;
+  });
+  body.replaceChildren(...rows);
+  (doc.getElementById(`${id}-table`) as HTMLTableElement).hidden = items.length === 0;
+  (doc.getElementById(`${id}-empty`) as HTMLElement).hidden = items.length > 0;
+}
+
+function renderItemTable(id: string, empty: string): string {
+  return `
+    <div id="${id}-empty" class="session-empty">${empty}</div>
+    <table id="${id}-table" hidden>
+      <thead><tr>
+        <th class="session-item-name">Item</th>
+        <th class="session-number">Count</th>
+        <th class="session-number">Per/hr</th>
+        <th class="session-number">Value</th>
+        <th class="session-number">GP/hr</th>
+      </tr></thead>
+      <tbody id="${id}-body"></tbody>
+    </table>
+  `;
 }
 
 function cloneStyles(doc: Document): Node[] {
-	const base = doc.createElement("base");
-	base.href = document.baseURI;
-
-	return [
-		base,
-		...Array.from(
-			document.head.querySelectorAll('style, link[rel="stylesheet"]'),
-		).map((node) => doc.importNode(node, true)),
-	];
+  const base = doc.createElement("base");
+  base.href = document.baseURI;
+  return [
+    base,
+    ...Array.from(document.head.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => doc.importNode(node, true)),
+  ];
 }
 
-function renderShellHtml() {
-	return `
-
-		<div id="session-root" class="session-window-panel">
-			<div class="session-controls">
-				<button id="session-toggle">Start</button>
-				<button id="session-end" hidden>End Session</button>
-			</div>
-
-			<div class="session-meta">
-				<div class="session-note">Continues while Resource Tracker is open.</div>
-				<div class="session-separator"></div>
-
-				<div><strong>Session Started:</strong> <span id="session-started">—</span></div>
-				<div><strong>Status:</strong> <span id="session-status" class="idle">Not running</span></div>
-				<div><strong>Elapsed:</strong> <span id="session-elapsed">00:00:00</span></div>
-
-			</div>
-
-			<div id="session-totals" class="session-totals">
-				<div>
-					Total value:
-					<span id="session-total-value" class="session-total-value">0</span>
-				</div>
-
-				<div class="session-total-gp">
-					Total GP/hr: <span id="session-total-gp-hour">0</span>
-				</div>
-			</div>
-
-			<div class="session-section-title">Recent Items</div>
-			<div id="session-empty" class="session-empty">No items yet.</div>
-
-			<table id="session-items-table" hidden>
-				<thead>
-					<tr>
-						<th class="session-item-name">Item</th>
-						<th class="session-number">Count</th>
-						<th class="session-number">Per/hr</th>
-						<th class="session-number">Value</th>
-						<th class="session-number">GP/hr</th>
-					</tr>
-				</thead>
-				<tbody id="session-items-body"></tbody>
-			</table>
-		</div>
-	`;
+function renderShellHtml(): string {
+  return `
+    <div id="session-root" class="session-window-panel">
+      <div class="session-views" role="group" aria-label="Activity view">
+        <button class="session-view is-active" type="button" data-view="run" aria-pressed="true">This Session</button>
+        <button class="session-view" type="button" data-view="daily" aria-pressed="false">Daily History</button>
+      </div>
+      <div id="session-day-row" class="session-day-row" hidden>
+        <label for="session-day">Day</label>
+        <select id="session-day"></select>
+      </div>
+      <div class="session-meta">
+        <div id="session-started-row"><strong>Started:</strong> <span id="session-started">—</span></div>
+        <div id="session-status-row"><strong>Status:</strong> <span id="session-status">Waiting for a gain</span></div>
+        <div><strong>Active time:</strong> <span id="session-active-time">00:00:00</span></div>
+        <div class="session-active-note">Pauses after 30 seconds without an item gain.</div>
+      </div>
+      <div id="session-items-title" class="session-section-title">Active Session</div>
+      <div class="session-totals">
+        <div>Total value: <span id="session-total-value" class="session-total-value">0</span></div>
+        <div class="session-total-gp">Total GP/hr: <span id="session-total-gp-hour">0</span></div>
+      </div>
+      <div id="session-run-note" class="session-section-note">Starts a new session after 30 minutes without an item gain.</div>
+      ${renderItemTable("session-items", "Nothing tracked in this session.")}
+      <div id="session-today-section" class="session-today-section">
+        <div class="session-section-title">Daily Summary:</div>
+        <div class="session-totals">
+          <div>Total value: <span id="session-today-total-value" class="session-total-value">0</span></div>
+          <div class="session-total-time"><strong>Total active time:</strong> <span id="session-today-active-time">00:00:00</span></div>
+        </div>
+        ${renderItemTable("session-today-items", "Nothing tracked today.")}
+      </div>
+    </div>
+  `;
 }
 
-function getValueTotals(elapsedHours = getElapsedHours()) {
-	const items = Object.keys(sessionItems);
-
-	let totalValue = 0;
-	let hasLoadingPrices = false;
-
-	for (const item of items) {
-		const values = getItemValues(sessionItems[item], elapsedHours);
-
-		if (values.price === undefined) {
-			hasLoadingPrices = true;
-			continue;
-		}
-
-		if (values.totalValue === null) {
-			continue;
-		}
-
-		totalValue += values.totalValue;
-	}
-
-	const totalGpPerHour =
-		elapsedHours > 0
-			? totalValue / elapsedHours
-			: 0;
-
-	return {
-		totalValue,
-		totalGpPerHour,
-		hasLoadingPrices,
-	};
+async function ensurePrices(): Promise<void> {
+  const summary = view === "run" ? getDay(dayKey(Date.now())) : getShown();
+  const items = Object.values(summary.items);
+  for (const item of items) await ensurePriceForItem(item.displayName);
 }
 
-function getElapsedHours(elapsedMs = getElapsedMs()) {
-	return elapsedMs > 0 ? elapsedMs / 3600000 : 0;
+async function ensurePriceForItem(item: string): Promise<void> {
+  if (isCoinsItem(item) || getCachedPrice(item) !== undefined) return;
+  const priceId = getPriceId(item);
+  const pending = pendingPrices.get(priceId);
+  if (pending) return pending;
+  const request = fetchAndSavePrice(item, priceId);
+  pendingPrices.set(priceId, request);
+  return request;
 }
 
-function getItemValues(item: Item, elapsedHours: number) {
-	const perHour = elapsedHours > 0 ? item.count / elapsedHours : 0;
-	const price = getCachedPrice(item.displayName);
-	const totalValue = typeof price === "number" ? item.count * price : null;
-	const gpPerHour = totalValue !== null && elapsedHours > 0
-		? totalValue / elapsedHours
-		: null;
-
-	return {
-		perHour,
-		price,
-		totalValue,
-		gpPerHour,
-	};
-}
-
-function getElapsedMs() {
-	if (!sessionStartedAt) return 0;
-
-	if (sessionStatus === "running" && activeStartedAt) {
-		return activeMs + (Date.now() - activeStartedAt);
-	}
-
-	return activeMs;
-}
-
-function commitActiveTime(now = Date.now()) {
-	if (sessionStatus !== "running" || activeStartedAt === null) return;
-
-	activeMs += Math.max(0, now - activeStartedAt);
-	activeStartedAt = now;
-}
-
-function checkpointSession() {
-	if (sessionStatus !== "running") return;
-
-	commitActiveTime();
-	saveSession();
-}
-
-function pauseForClose() {
-	if (sessionStatus !== "running") return;
-
-	commitActiveTime();
-	activeStartedAt = null;
-	sessionStatus = "paused";
-	saveSession();
-}
-
-async function ensurePrices() {
-	const items = Object.keys(sessionItems);
-
-	for (const item of items) {
-		await ensurePriceForItem(sessionItems[item].displayName);
-	}
-}
-
-async function ensurePriceForItem(item: string) {
-	const priceId = getPriceId(item);
-
-	if (isCoinsItem(item)) return;
-
-	const cachedPrice = getCachedPrice(item);
-
-	if (cachedPrice !== undefined) return;
-
-	const pending = pendingPrices.get(priceId);
-	if (pending) return pending;
-
-	const request = fetchAndSavePrice(item, priceId);
-	pendingPrices.set(priceId, request);
-
-	return request;
-}
-
-async function fetchAndSavePrice(item: string, priceId: string) {
-
-	try {
-		const price = await fetchItemPrice(item);
-		const cache = loadPriceCache();
-
-		cache[priceId] = {
-			price,
-			checkedAt: Date.now(),
-		};
-
-		savePriceCache(cache);
-		if (typeof price === "number") setEventPrice(item, price);
-	} catch {
-		const cache = loadPriceCache();
-
-		cache[priceId] = {
-			price: null,
-			checkedAt: Date.now(),
-		};
-
-		savePriceCache(cache);
-	} finally {
-		pendingPrices.delete(priceId);
-		updateWindow("prices");
-	}
+async function fetchAndSavePrice(item: string, priceId: string): Promise<void> {
+  try {
+    const price = await fetchItemPrice(item);
+    const cache = loadPriceCache();
+    cache[priceId] = { price, checkedAt: Date.now() };
+    savePriceCache(cache);
+  } catch {
+    const cache = loadPriceCache();
+    cache[priceId] = { price: null, checkedAt: Date.now() };
+    savePriceCache(cache);
+  } finally {
+    pendingPrices.delete(priceId);
+    updateWindow();
+  }
 }
 
 export async function getPrice(item: string): Promise<number | null> {
-	const cachedPrice = getCachedPrice(item);
-	if (cachedPrice !== undefined) return cachedPrice;
-
-	await ensurePriceForItem(item);
-	return getCachedPrice(item) ?? null;
-}
-
-function setEventPrice(item: string, price: number) {
-	const priceId = getPriceId(item);
-	let changed = false;
-
-	for (const event of sessionEvents) {
-		if (event.unitPrice === undefined && getPriceId(event.item) === priceId) {
-			event.unitPrice = price;
-			changed = true;
-		}
-	}
-
-	if (changed) saveSession();
+  const cached = getCachedPrice(item);
+  if (cached !== undefined) return cached;
+  await ensurePriceForItem(item);
+  return getCachedPrice(item) ?? null;
 }
 
 async function fetchItemPrice(item: string): Promise<number | null> {
-	if (isCoinsItem(item)) return 1;
-
-	const wikiName = toWikiPriceName(item);
-	const params = new URLSearchParams({
-		name: wikiName,
-	});
-
-	const response = await fetch(
-		`https://api.weirdgloop.org/exchange/history/rs/latest?${params.toString()}`
-	);
-
-	if (!response.ok) return null;
-
-	const json = await response.json() as LatestResponse;
-	const firstResult = Object.values(json)[0];
-
-	if (!firstResult || typeof firstResult.price !== "number") {
-		return null;
-	}
-
-	return firstResult.price;
+  if (isCoinsItem(item)) return 1;
+  const params = new URLSearchParams({ name: toWikiPriceName(item) });
+  const response = await fetch(
+    "https://api.weirdgloop.org/exchange/history/rs/latest?" + params.toString(),
+  );
+  if (!response.ok) return null;
+  const json = await response.json() as LatestResponse;
+  const first = Object.values(json)[0];
+  return typeof first?.price === "number" ? first.price : null;
 }
 
 export function getCachedPrice(item: string): number | null | undefined {
-	if (isCoinsItem(item)) return 1;
-
-	const cache = loadPriceCache();
-	const entry = cache[getPriceId(item)];
-
-	if (!entry) return undefined;
-
-	const isFresh = Date.now() - entry.checkedAt < priceCacheDurationMs;
-
-	if (!isFresh) return undefined;
-
-	return entry.price;
+  if (isCoinsItem(item)) return 1;
+  const entry = loadPriceCache()[getPriceId(item)];
+  if (!entry || Date.now() - entry.checkedAt >= priceCacheDurationMs) return undefined;
+  return entry.price;
 }
 
-function buildCsv(startedAt: number) {
-	const elapsedMs = getElapsedMs();
-	const elapsedHours = getElapsedHours(elapsedMs);
-	const totals = getValueTotals(elapsedHours);
-	const sessionEnd = sessionStatus === "ended" && sessionEndedAt !== null
-		? new Date(sessionEndedAt).toISOString()
-		: "";
-	const rows: Array<Array<string | number>> = [
-		["session_start", new Date(startedAt).toISOString()],
-		["session_end", sessionEnd],
-		["session_seconds", elapsedMs / 1000],
-		["total_value", totals.hasLoadingPrices ? "" : totals.totalValue],
-		[
-			"total_gp_per_hour",
-			totals.hasLoadingPrices ? "" : roundCsv(totals.totalGpPerHour),
-		],
-		[],
-		[
-			"item",
-			"skill",
-			"source",
-			"count",
-			"per_hour",
-			"unit_price",
-			"total_value",
-			"gp_per_hour",
-		],
-	];
-	const orderedIds = Object.keys(sessionItems).sort((a, b) =>
-		sessionItems[b].lastUpdated - sessionItems[a].lastUpdated
-	);
-
-	for (const id of orderedIds) {
-		const item = sessionItems[id];
-		const details = getEventDetails(id);
-		const values = getItemValues(item, elapsedHours);
-
-		rows.push([
-			titleCase(item.displayName),
-			details.skill,
-			details.source,
-			item.count,
-			roundCsv(values.perHour),
-			typeof values.price === "number" ? values.price : "",
-			values.totalValue ?? "",
-			values.gpPerHour === null ? "" : roundCsv(values.gpPerHour),
-		]);
-	}
-
-	return `${rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")}\r\n`;
+function loadPriceCache(): Record<string, CacheItem> {
+  const raw = localStorage.getItem(priceCacheId);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, CacheItem>;
+  } catch {
+    return {};
+  }
 }
 
-function getEventDetails(id: string) {
-	const skills = new Set<string>();
-	const sources = new Set<string>();
-
-	for (const event of sessionEvents) {
-		if (getUpdateId(event) !== id) continue;
-		if (event.skill) skills.add(event.skill);
-		if (event.source) sources.add(event.source);
-	}
-
-	return {
-		skill: Array.from(skills).join("; "),
-		source: Array.from(sources).join("; "),
-	};
+function savePriceCache(cache: Record<string, CacheItem>): void {
+  localStorage.setItem(priceCacheId, JSON.stringify(cache));
 }
 
-function roundCsv(value: number) {
-	return Math.round(value * 1000) / 1000;
+function cleanItemNameForPrice(item: string): string {
+  return item.replace(/^﴾♦﴿\s*/, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function escapeCsv(value: string | number) {
-	const text = String(value);
-
-	return /[",\r\n]/.test(text)
-		? `"${text.replace(/"/g, '""')}"`
-		: text;
+function getPriceId(item: string): string {
+  return cleanItemNameForPrice(item);
 }
 
-function getCsvFilename(startedAt: number) {
-	const timestamp = new Date(startedAt).toISOString();
-	const date = timestamp.slice(0, 10);
-	const time = timestamp.slice(11, 19).replace(/:/g, "");
-
-	return `Resource-Tracker-session-${date}-${time}.csv`;
+function toWikiPriceName(item: string): string {
+  const cleaned = cleanItemNameForPrice(item);
+  return cleaned ? (cleaned.charAt(0).toUpperCase() + cleaned.slice(1)).replace(/\s+/g, "_") : "";
 }
 
-function loadSession(): StoredSession | null {
-	const raw = localStorage.getItem(sessionId);
-
-	if (!raw) return null;
-
-	try {
-		const saved = JSON.parse(raw) as unknown;
-
-		if (!saved || typeof saved !== "object") throw new Error();
-
-		const value = saved as Record<string, unknown>;
-		const status = value.status;
-		const startedAt = value.startedAt;
-		const storedEndedAt = value.endedAt;
-		const storedActiveMs = value.activeMs;
-		const storedItems = value.items;
-		const storedEvents = value.events;
-
-		if (
-			(status !== "running" && status !== "paused" && status !== "ended") ||
-			typeof startedAt !== "number" ||
-			!Number.isFinite(startedAt) ||
-			startedAt <= 0 ||
-			startedAt > 8.64e15 ||
-			(storedEndedAt !== undefined &&
-				(typeof storedEndedAt !== "number" ||
-					!Number.isFinite(storedEndedAt) ||
-					storedEndedAt < 0 ||
-					storedEndedAt > 8.64e15)) ||
-			typeof storedActiveMs !== "number" ||
-			!Number.isFinite(storedActiveMs) ||
-			storedActiveMs < 0 ||
-			!storedItems ||
-			typeof storedItems !== "object" ||
-			Array.isArray(storedItems)
-		) {
-			throw new Error();
-		}
-
-		const items: Record<string, Item> = {};
-
-		for (const [id, storedItem] of Object.entries(storedItems)) {
-			if (!storedItem || typeof storedItem !== "object") throw new Error();
-
-			const item = storedItem as Record<string, unknown>;
-
-			if (
-				typeof item.count !== "number" ||
-				!Number.isFinite(item.count) ||
-				typeof item.lastUpdated !== "number" ||
-				!Number.isFinite(item.lastUpdated) ||
-				typeof item.displayName !== "string"
-			) {
-				throw new Error();
-			}
-
-			items[id] = {
-				count: item.count,
-				lastUpdated: item.lastUpdated,
-				displayName: item.displayName,
-			};
-		}
-
-		const events: ItemEvent[] = [];
-
-		if (storedEvents !== undefined) {
-			if (!Array.isArray(storedEvents)) throw new Error();
-
-			for (const storedEvent of storedEvents) {
-				if (!storedEvent || typeof storedEvent !== "object") throw new Error();
-
-				const event = storedEvent as Record<string, unknown>;
-				if (
-					typeof event.timestamp !== "number" ||
-					!Number.isFinite(event.timestamp) ||
-					event.timestamp < 0 ||
-					event.timestamp > 8.64e15 ||
-					typeof event.activeMs !== "number" ||
-					!Number.isFinite(event.activeMs) ||
-					event.activeMs < 0 ||
-					typeof event.item !== "string" ||
-					typeof event.amount !== "number" ||
-					!Number.isFinite(event.amount) ||
-					(event.skill !== undefined && typeof event.skill !== "string") ||
-					(event.source !== undefined && typeof event.source !== "string") ||
-					(event.storageId !== undefined && typeof event.storageId !== "string") ||
-					(event.unitPrice !== undefined &&
-						(typeof event.unitPrice !== "number" ||
-							!Number.isFinite(event.unitPrice)))
-				) {
-					throw new Error();
-				}
-
-				events.push({
-					timestamp: event.timestamp,
-					activeMs: event.activeMs,
-					item: event.item,
-					amount: event.amount,
-					skill: event.skill,
-					source: event.source,
-					storageId: event.storageId,
-					unitPrice: event.unitPrice,
-				} as ItemEvent);
-			}
-		}
-
-		return {
-			status,
-			startedAt,
-			endedAt: typeof storedEndedAt === "number" ? storedEndedAt : undefined,
-			activeMs: storedActiveMs,
-			items,
-			events,
-		};
-	} catch {
-		localStorage.removeItem(sessionId);
-		return null;
-	}
+function isCoinsItem(item: string): boolean {
+  const cleaned = cleanItemNameForPrice(item);
+  return cleaned === "coin" || cleaned === "coins";
 }
 
-function saveSession() {
-	if (sessionStatus === "idle" || sessionStartedAt === null) {
-		localStorage.removeItem(sessionId);
-		return;
-	}
-
-	const session: StoredSession = {
-		status: sessionStatus,
-		startedAt: sessionStartedAt,
-		endedAt: sessionEndedAt ?? undefined,
-		activeMs,
-		items: sessionItems,
-		events: sessionEvents,
-	};
-
-	try {
-		localStorage.setItem(sessionId, JSON.stringify(session));
-		saveWarningShown = false;
-	} catch (error) {
-		if (!saveWarningShown) {
-			console.warn("Session save failed", error);
-			saveWarningShown = true;
-		}
-	}
+function loadActivity(): Activity {
+  const raw = localStorage.getItem(sessionId);
+  if (!raw) return { version: 2, days: {} };
+  try {
+    const value = JSON.parse(raw) as unknown;
+    const saved = parseActivity(value);
+    if (saved) return saved;
+    const legacy = value as {
+      startedAt?: number;
+      activeMs?: number;
+      items?: Record<string, Item>;
+      events?: Array<ItemUpdate & { timestamp: number }>;
+    };
+    if (isMs(legacy.startedAt) && isMs(legacy.activeMs)
+      && legacy.items && typeof legacy.items === "object") {
+      const items: Record<string, Item> = {};
+      for (const [id, item] of Object.entries(legacy.items)) {
+        if (isItem(item)) items[id] = item;
+      }
+      const lastGainAt = Math.max(
+        legacy.startedAt,
+        ...Object.values(items).map((item) => item.lastUpdated),
+      );
+      const run: Run = {
+        startedAt: legacy.startedAt,
+        lastGainAt,
+        endedAt: legacy.startedAt + legacy.activeMs,
+        activeMs: legacy.activeMs,
+        items,
+      };
+      const days: Record<string, Summary> = {};
+      if (Array.isArray(legacy.events) && legacy.events.length > 0) {
+        for (const event of legacy.events) {
+          if (!event || !isMs(event.timestamp) || typeof event.item !== "string"
+            || !Number.isSafeInteger(event.amount) || event.amount <= 0) continue;
+          const date = dayKey(event.timestamp);
+          const day = days[date] ?? { activeMs: 0, items: {} };
+          addItem(day.items, event, event.timestamp);
+          days[date] = day;
+        }
+      } else {
+        days[dayKey(legacy.startedAt)] = {
+          activeMs: legacy.activeMs,
+          items: { ...items },
+        };
+      }
+      return {
+        version: 2,
+        days,
+        lastRun: run,
+      };
+    }
+  } catch {
+    // A damaged local save should not stop tracking.
+  }
+  return { version: 2, days: {} };
 }
 
-function loadPriceCache(): Cache {
-	const raw = localStorage.getItem(priceCacheId);
-
-	if (!raw) return {};
-
-	try {
-		return JSON.parse(raw) as Cache;
-	} catch {
-		return {};
-	}
+function parseActivity(value: unknown): Activity | null {
+  if (!value || typeof value !== "object") return null;
+  const saved = value as Partial<Activity>;
+  if (saved.version !== 2 || !saved.days || typeof saved.days !== "object") return null;
+  const days: Record<string, Summary> = {};
+  for (const [date, summary] of Object.entries(saved.days)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const parsed = parseSummary(summary);
+    if (parsed) days[date] = parsed;
+  }
+  return {
+    version: 2,
+    days,
+    run: parseRun(saved.run) ?? undefined,
+    lastRun: parseRun(saved.lastRun) ?? undefined,
+  };
 }
 
-function savePriceCache(cache: Cache) {
-	localStorage.setItem(priceCacheId, JSON.stringify(cache));
+function parseSummary(value: unknown): Summary | null {
+  if (!value || typeof value !== "object") return null;
+  const summary = value as Summary;
+  if (!isMs(summary.activeMs)
+    || !summary.items || typeof summary.items !== "object") return null;
+  const items: Record<string, Item> = {};
+  for (const [id, item] of Object.entries(summary.items)) {
+    if (isItem(item)) items[id] = item;
+  }
+  return { activeMs: summary.activeMs, items };
 }
 
-function cleanItemNameForPrice(item: string) {
-	return item
-		.replace(/^﴾♦﴿\s*/, "")
-		.toLowerCase()
-		.replace(/\s+/g, " ")
-		.trim();
+function parseRun(value: unknown): Run | null {
+  if (!value || typeof value !== "object") return null;
+  const run = value as Run;
+  if (!isMs(run.startedAt) || !isMs(run.lastGainAt) || !isMs(run.activeMs)
+    || (run.seenAt !== undefined && !isMs(run.seenAt))
+    || (run.endedAt !== undefined && !isMs(run.endedAt))
+    || !run.items || typeof run.items !== "object") return null;
+  const items: Record<string, Item> = {};
+  for (const [id, item] of Object.entries(run.items)) {
+    if (isItem(item)) items[id] = item;
+  }
+  return { ...run, items };
 }
 
-function getPriceId(item: string) {
-	return cleanItemNameForPrice(item);
+function isMs(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function toWikiPriceName(item: string) {
-	const cleaned = cleanItemNameForPrice(item);
-
-	if (!cleaned) return "";
-
-	const pageName =
-		cleaned.charAt(0).toUpperCase() +
-		cleaned.slice(1);
-
-	return pageName.replace(/\s+/g, "_");
+function isItem(value: unknown): value is Item {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Item;
+  return Number.isSafeInteger(item.count) && item.count >= 0
+    && isMs(item.lastUpdated) && typeof item.displayName === "string"
+    && (item.skill === undefined || typeof item.skill === "string")
+    && (item.source === undefined || typeof item.source === "string");
 }
 
-function isCoinsItem(item: string) {
-	const cleaned = cleanItemNameForPrice(item);
-
-	return cleaned === "coin" || cleaned === "coins";
+function saveActivity(): void {
+  trimDays();
+  try {
+    localStorage.setItem(sessionId, JSON.stringify(activity));
+    saveWarningShown = false;
+  } catch (error) {
+    if (!saveWarningShown) {
+      console.warn("Activity save failed", error);
+      saveWarningShown = true;
+    }
+  }
 }
 
-function formatElapsed(ms: number) {
-	const totalSeconds = Math.floor(ms / 1000);
-	const hours = Math.floor(totalSeconds / 3600);
-	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = totalSeconds % 60;
-
-	return [
-		hours.toString().padStart(2, "0"),
-		minutes.toString().padStart(2, "0"),
-		seconds.toString().padStart(2, "0"),
-	].join(":");
+function formatElapsed(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return [
+    Math.floor(seconds / 3600),
+    Math.floor((seconds % 3600) / 60),
+    seconds % 60,
+  ].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function formatPerHour(value: number) {
-	if (!isFinite(value) || value <= 0) return "0/hr";
-
-	return `${Math.round(value).toLocaleString()}`;
+function formatPerHour(value: number): string {
+  return Number.isFinite(value) && value > 0 ? Math.round(value).toLocaleString() : "0";
 }
 
-function formatPriceValue(
-	price: number | null | undefined,
-	totalValue: number | null
-) {
-	if (price === undefined) return "...";
-	if (price === null || totalValue === null) return "—";
-
-	return formatGp(totalValue);
+function formatPriceValue(price: number | null | undefined, value: number | null): string {
+  if (price === undefined) return "...";
+  return price === null || value === null ? "—" : formatGp(value);
 }
 
-function formatGpPerHour(value: number | null) {
-	if (value === null || !isFinite(value)) return "—";
-
-	return formatGp(value);
+function formatGpPerHour(value: number | null): string {
+  return value === null || !Number.isFinite(value) ? "—" : formatGp(value);
 }
 
-export function formatGp(value: number) {
-	const rounded = Math.round(value);
-
-	if (rounded >= 1_000_000_000) {
-		return `${trimDecimal(rounded / 1_000_000_000)}b`;
-	}
-
-	if (rounded >= 1_000_000) {
-		return `${trimDecimal(rounded / 1_000_000)}m`;
-	}
-
-	if (rounded >= 10_000) {
-		return `${trimDecimal(rounded / 1_000)}k`;
-	}
-
-	return rounded.toLocaleString();
+export function formatGp(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded >= 1_000_000_000) return trimDecimal(rounded / 1_000_000_000) + "b";
+  if (rounded >= 1_000_000) return trimDecimal(rounded / 1_000_000) + "m";
+  if (rounded >= 10_000) return trimDecimal(rounded / 1_000) + "k";
+  return rounded.toLocaleString();
 }
 
-function trimDecimal(value: number) {
-	return value
-		.toFixed(1)
-		.replace(/\.0$/, "");
+function trimDecimal(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, "");
 }
 
-function titleCase(text: string) {
-	return text.replace(/(^|[\s\-])([a-z])/g, (_match, prefix, char) => {
-		return prefix + char.toUpperCase();
-	});
+function titleCase(value: string): string {
+  return value.replace(/(^|[\s-])([a-z])/g, (_match, prefix, char) =>
+    prefix + char.toUpperCase());
+}
+
+function roundCsv(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function escapeCsv(value: string | number): string {
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+
+function setText(doc: Document, id: string, value: string): void {
+  const element = doc.getElementById(id);
+  if (element && element.textContent !== value) element.textContent = value;
 }

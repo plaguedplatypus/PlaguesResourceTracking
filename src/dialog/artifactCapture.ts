@@ -17,6 +17,7 @@ interface ArtifactCaptureReader {
 const damagedArtifactRegex =
 	/^You find\s*[:;]?\s+(.+?\(\s*damaged\s*\))[!.]?$/i;
 const maxReadFails = 3;
+const readOffsets = [0, -30, -20, 5, 10, 20, 30];
 
 export function createArtifactReader(): ArtifactCaptureReader {
 	const reader = new DialogReader();
@@ -49,8 +50,18 @@ export function createArtifactReader(): ArtifactCaptureReader {
 			readFails = 0;
 			if (counted) return null;
 
-			const rawText = lines.join(" ").replace(/\s+/g, " ").trim();
-			const match = rawText.match(damagedArtifactRegex);
+			let rawText = "";
+			let match: RegExpMatchArray | null = null;
+			// A fixed OCR probe can land on a glyph stroke and skip the dialog line.
+			for (const offset of readOffsets) {
+				const text = (offset === 0 ? lines : reader.read(image, offset) ?? [])
+					.join(" ").replace(/\s+/g, " ").trim();
+				match = text.match(damagedArtifactRegex);
+				if (match) {
+					rawText = text;
+					break;
+				}
+			}
 			if (!match) return null;
 
 			const item = normalizeTrackedItemName(match[1]);

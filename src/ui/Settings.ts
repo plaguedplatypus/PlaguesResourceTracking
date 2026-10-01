@@ -190,8 +190,8 @@ export function createSettingsWindow(
     if (clearSession) {
       clearSession.disabled = !state.hasSession;
       clearSession.title = state.hasSession
-        ? "Clear the current session"
-        : "No session to clear";
+        ? "Clear saved activity"
+        : "No activity to clear";
     }
 
     const exportSession = doc.querySelector(
@@ -200,10 +200,10 @@ export function createSettingsWindow(
     if (exportSession) {
       exportSession.disabled = !state.canExportSession;
       exportSession.title = state.canExportSession
-        ? "Export session events as CSV"
+        ? "Export daily item totals as CSV"
         : state.hasSession
-          ? "No session events to export"
-          : "No session to export";
+          ? "No item gains to export"
+          : "No activity to export";
     }
 
     const version = doc.querySelector(".settings-version-label");
@@ -247,8 +247,8 @@ export function createSettingsWindow(
       if (!actions.getState().hasSession) return;
 
       requestConfirmation(doc, {
-        title: "Clear session data?",
-        message: "This permanently removes the current session and its recorded data.",
+        title: "Clear activity history?",
+        message: "This removes the current run and seven-day history.",
         confirmLabel: "Clear",
       }, () => {
         actions.clearSession();
@@ -300,7 +300,6 @@ export function createSettingsWindow(
         });
       },
     );
-
     const trackerSize = doc.querySelector(
       ".tracker-size",
     ) as HTMLInputElement | null;
@@ -503,18 +502,18 @@ function updateStatus(doc: Document, status: SessionStatus): void {
   ) as HTMLButtonElement | null;
   const statusText =
     status === "running"
-      ? "Running"
+      ? "Active"
       : status === "paused"
-        ? "Paused"
+        ? "Idle"
         : status === "ended"
-          ? "Ended"
-          : "Not Running";
+          ? "Run ended"
+          : "Waiting for a gain";
 
   if (quickButton) {
     quickButton.classList.remove("running", "paused", "ended", "idle");
     quickButton.classList.add(status);
-    quickButton.title = `Session: ${statusText}`;
-    quickButton.setAttribute("aria-label", `Session: ${statusText}`);
+    quickButton.title = `Activity: ${statusText}`;
+    quickButton.setAttribute("aria-label", `Activity: ${statusText}`);
   }
 }
 
@@ -609,9 +608,9 @@ function markup(): string {
             <div class="settings-section">
               <div class="settings-section-title">DATA</div>
               <div class="settings-data-actions">
-                <button class="history-button" type="button">History</button>
+                <button class="history-button" type="button">Chat History</button>
                 <button class="export-session-csv" type="button">Export Session CSV</button>
-                <button class="clear-session" type="button">Clear Session</button>
+                <button class="clear-session" type="button">Clear Session History</button>
               </div>
             </div>
           </section>

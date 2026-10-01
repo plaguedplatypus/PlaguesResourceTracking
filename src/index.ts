@@ -7,7 +7,7 @@ import { getOptions as getDivinationOptions, } from "./tracking/divination";
 import { getOptions as getHunterOptions, groups as hunterGroups, } from "./tracking/hunter";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
-import { clearSession, exportSessionCsv, formatGp, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, recordSession, showSession, } from "./ui/session";
+import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, showSession, } from "./ui/session";
 import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
 import { showPatchNotes, } from "./updates/patchNotes";
@@ -1888,7 +1888,7 @@ function closeTabActionsMenu() {
 function exportData() {
   const data = getSaveData();
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
+  const blob = new Blob([JSON.stringify({ ...data, activity: getActivityExport() }, null, 2)], {
     type: "application/json",
   });
 
@@ -1905,8 +1905,12 @@ function importData(file: File) {
 
   reader.onload = function () {
     try {
-      const data = normalizeSaveData(JSON.parse(reader.result as string));
+      const imported = JSON.parse(reader.result as string);
+      const data = normalizeSaveData(imported);
 
+      if (imported && typeof imported === "object" && "activity" in imported) {
+        importActivity(imported.activity);
+      }
       saveData(data);
       openSettingsItem = null;
       goalDraft = null;

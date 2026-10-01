@@ -6,6 +6,14 @@ type ReleaseNote = {
 
 const releaseHistory: ReleaseNote[] = [
 	{
+		version: "v1.16",
+		title: "Session Tracking - 9/30/26",
+		items: [
+			"Updated the Session tracking to be automatic.",
+			"View up to 7 days of Session history.",
+		],
+	},
+	{
 		version: "v1.15",
 		title: "Havenhythe II - 9/28/26",
 		items: [
