@@ -78,7 +78,16 @@ body.session-window-body {
 }
 
 .session-day-row[hidden] { display: none; }
-.session-day-row select { flex: 1; min-width: 0; }
+.session-day-row select {
+  flex: 1;
+  min-width: 0;
+  color-scheme: dark;
+}
+
+.session-day-row option {
+  color: #d8c58a;
+  background: #20231c;
+}
 
 .session-meta {
   box-sizing: border-box;
