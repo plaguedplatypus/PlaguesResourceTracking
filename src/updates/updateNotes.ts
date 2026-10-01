@@ -9,8 +9,9 @@ const releaseHistory: ReleaseNote[] = [
 		version: "v1.16",
 		title: "Session Tracking - 9/30/26",
 		items: [
-			"Updated the Session tracking to be automatic.",
+			"Updated the Session tracker.",
 			"View up to 7 days of Session history.",
+			"Export a 7-Day CSV.",
 		],
 	},
 	{
