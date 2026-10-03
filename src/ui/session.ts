@@ -48,6 +48,9 @@ type CacheItem = {
 
 type LatestResponse = Record<string, { price?: number }>;
 type View = "run" | "daily";
+type SortField = "item" | "count" | "perHour" | "value" | "gpHour";
+type SortTable = "run" | "today" | "daily";
+type Sort = { field: SortField; direction: "asc" | "desc" };
 
 const appName = "ResourceTracker";
 const sessionId = appName + "_Session";
@@ -65,6 +68,7 @@ let refreshApp: (() => void) | null = null;
 let view: View = "run";
 let selectedDay = dayKey(Date.now());
 let followToday = true;
+const sorts: Partial<Record<SortTable, Sort>> = {};
 let saveWarningShown = false;
 
 const pendingPrices = new Map<string, Promise<void>>();
@@ -406,6 +410,22 @@ function ensureUi(doc: Document): void {
     void ensurePrices();
     updateWindow();
   });
+  doc.querySelectorAll<HTMLButtonElement>(".session-sort-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const table = button.closest("table") as HTMLTableElement;
+      const name: SortTable = table.id === "session-today-items-table"
+        ? "today" : view === "daily" ? "daily" : "run";
+      const field = button.dataset.field as SortField;
+      const current = sorts[name];
+      sorts[name] = {
+        field,
+        direction: current?.field === field
+          ? current.direction === "asc" ? "desc" : "asc"
+          : field === "item" ? "asc" : "desc",
+      };
+      updateWindow();
+    });
+  });
   sessionUiOwner = sessionWindow;
 }
 
@@ -479,18 +499,50 @@ function updateTotals(doc: Document, summary: Summary, hours: number): void {
 }
 
 function updateRows(doc: Document, summary: Summary, hours: number, id = "session-items"): void {
+  const table = doc.getElementById(`${id}-table`) as HTMLTableElement;
   const body = doc.getElementById(`${id}-body`) as HTMLTableSectionElement;
-  const items = Object.values(summary.items).sort((a, b) => b.lastUpdated - a.lastUpdated);
-  const rows = items.map((item) => {
-    const row = doc.createElement("tr");
+  const name: SortTable = id === "session-today-items"
+    ? "today" : view === "daily" ? "daily" : "run";
+  const sort = sorts[name];
+  table.querySelectorAll<HTMLTableCellElement>("th").forEach((header) => {
+    const field = header.querySelector<HTMLButtonElement>(".session-sort-button")?.dataset.field;
+    header.setAttribute("aria-sort", sort && sort.field === field
+      ? sort.direction === "asc" ? "ascending" : "descending" : "none");
+  });
+
+  const items = Object.values(summary.items).map((item) => {
     const price = getCachedPrice(item.displayName);
     const value = typeof price === "number" ? price * item.count : null;
+    return { item, price, value, perHour: hours > 0 ? item.count / hours : null,
+      gpHour: value !== null && hours > 0 ? value / hours : null };
+  });
+  if (sort) {
+    const metric = (entry: typeof items[number]) => {
+      if (sort.field === "count") return entry.item.count;
+      if (sort.field === "perHour") return entry.perHour;
+      if (sort.field === "value") return entry.value;
+      return entry.gpHour;
+    };
+    items.sort((a, b) => {
+      const byName = a.item.displayName.localeCompare(b.item.displayName, undefined, { sensitivity: "base" });
+      if (sort.field === "item") return (sort.direction === "asc" ? 1 : -1) * byName;
+      const first = metric(a);
+      const second = metric(b);
+      if (first === null) return second === null ? byName : 1;
+      if (second === null) return -1;
+      return (sort.direction === "asc" ? 1 : -1) * (first - second) || byName;
+    });
+  } else {
+    items.sort((a, b) => b.item.lastUpdated - a.item.lastUpdated);
+  }
+  const rows = items.map(({ item, price, value, perHour, gpHour }) => {
+    const row = doc.createElement("tr");
     const cells = [
       titleCase(item.displayName),
       item.count.toLocaleString(),
-      hours > 0 ? formatPerHour(item.count / hours) : "—",
+      perHour !== null ? formatPerHour(perHour) : "—",
       formatPriceValue(price, value),
-      formatGpPerHour(value !== null && hours > 0 ? value / hours : null),
+      formatGpPerHour(gpHour),
     ];
     cells.forEach((text, index) => {
       const cell = doc.createElement("td");
@@ -502,7 +554,7 @@ function updateRows(doc: Document, summary: Summary, hours: number, id = "sessio
     return row;
   });
   body.replaceChildren(...rows);
-  (doc.getElementById(`${id}-table`) as HTMLTableElement).hidden = items.length === 0;
+  table.hidden = items.length === 0;
   (doc.getElementById(`${id}-empty`) as HTMLElement).hidden = items.length > 0;
 }
 
@@ -511,11 +563,11 @@ function renderItemTable(id: string, empty: string): string {
     <div id="${id}-empty" class="session-empty">${empty}</div>
     <table id="${id}-table" hidden>
       <thead><tr>
-        <th class="session-item-name">Item</th>
-        <th class="session-number">Count</th>
-        <th class="session-number">Per/hr</th>
-        <th class="session-number">Value</th>
-        <th class="session-number">GP/hr</th>
+        <th class="session-item-name"><button class="session-sort-button" type="button" data-field="item">Item</button></th>
+        <th class="session-number"><button class="session-sort-button" type="button" data-field="count">Count</button></th>
+        <th class="session-number"><button class="session-sort-button" type="button" data-field="perHour">Per/hr</button></th>
+        <th class="session-number"><button class="session-sort-button" type="button" data-field="value">Value</button></th>
+        <th class="session-number"><button class="session-sort-button" type="button" data-field="gpHour">GP/hr</button></th>
       </tr></thead>
       <tbody id="${id}-body"></tbody>
     </table>

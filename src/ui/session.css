@@ -167,6 +167,47 @@ body.session-window-body {
   text-align: left;
 }
 
+.session-window-panel .session-sort-button {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-shadow: none;
+}
+
+.session-window-panel .session-sort-button:hover {
+  color: #fff0bd;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.session-window-panel .session-sort-button:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.session-window-panel .session-sort-button:active { transform: none; }
+
+.session-window-panel th[aria-sort="ascending"] .session-sort-button::after,
+.session-window-panel th[aria-sort="descending"] .session-sort-button::after {
+  margin-left: 2px;
+  color: var(--gold);
+  font-size: 8px;
+}
+
+.session-window-panel th[aria-sort="ascending"] .session-sort-button::after { content: "▲"; }
+.session-window-panel th[aria-sort="descending"] .session-sort-button::after { content: "▼"; }
+
 .session-window-panel td { color: #ddd; font-size: 11px; }
 .session-item-name { width: 34%; }
 .session-number { text-align: right; }
