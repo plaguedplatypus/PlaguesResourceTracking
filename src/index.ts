@@ -7,8 +7,8 @@ import { getOptions as getDivinationOptions, } from "./tracking/divination";
 import { getOptions as getHunterOptions, groups as hunterGroups, } from "./tracking/hunter";
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
+import { hasSeenMessage, markSeenMessage } from "./tracking/processedMessages";
 import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, showSession, } from "./ui/session";
-import { addHistoryEntry, hasSeenMessage, markSeenMessage, showHistory, } from "./ui/history";
 import { trackerVersion } from "./updates/updateNotes";
 import { showPatchNotes, } from "./updates/patchNotes";
 import ChatReader, { ChatPosition } from "./chat/ChatReader";
@@ -183,7 +183,6 @@ const settingsWindow = createSettingsWindow({
   }),
   selectChat,
   findChat: refreshChatboxes,
-  showHistory,
   showSession: openSession,
   clearSession,
   exportSessionCsv,
@@ -325,7 +324,6 @@ function readDialogBox() {
   incrementItem(result.item, result.quantity, result.source);
 
   markSeenMessage(result.rawText);
-  addHistoryEntry(result.rawText, "dialog");
 }
 
 function createPollTransaction() {
@@ -386,7 +384,6 @@ function readChatbox() {
     processMessage: (message) =>
       processChatLine(message, transaction.increment),
     rememberProcessed: markSeenMessage,
-    addHistory: (message) => addHistoryEntry(message, "chat"),
     commitChanges: transaction.commit,
   });
 }
@@ -1424,7 +1421,10 @@ function updateDivinationAddMenu() {
 
     for (const option of groupOptions) {
       const button = document.createElement("button");
-      button.className = "divination-add-option";
+      button.className = [
+        "divination-add-option",
+        option.colorClass || "",
+      ].filter(Boolean).join(" ");
       button.type = "button";
       button.dataset.item = option.item;
       button.textContent = titleCase(option.item);

@@ -4,9 +4,8 @@ type Message = {
 
 type Dependencies = {
   hasProcessed: (message: string) => boolean;
-  processMessage: (message: string) => boolean;
+  processMessage: (message: string) => void;
   rememberProcessed: (message: string) => void;
-  addHistory: (message: string) => void;
   commitChanges: () => void;
 };
 
@@ -21,10 +20,8 @@ export function processMessages(
 
       if (dependencies.hasProcessed(message)) continue;
 
-      const tracked = dependencies.processMessage(chatLine);
+      dependencies.processMessage(chatLine);
       dependencies.rememberProcessed(message);
-      if (!tracked) continue;
-      dependencies.addHistory(message);
     }
   } finally {
     dependencies.commitChanges();

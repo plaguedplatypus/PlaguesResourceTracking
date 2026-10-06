@@ -29,7 +29,6 @@ type Actions = {
   getState(): State;
   selectChat(value: string): void;
   findChat(): void;
-  showHistory(): void;
   showSession(): void;
   clearSession(): void;
   exportSessionCsv(): void;
@@ -239,7 +238,6 @@ export function createSettingsWindow(
       window.setTimeout(refresh, 100);
     });
     doc.querySelector(".find-chat")?.addEventListener("click", actions.findChat);
-    doc.querySelector(".history-button")?.addEventListener("click", actions.showHistory);
     doc.querySelector(".export-session-csv")?.addEventListener("click", () => {
       if (actions.getState().canExportSession) actions.exportSessionCsv();
     });
@@ -608,7 +606,6 @@ function markup(): string {
             <div class="settings-section">
               <div class="settings-section-title">DATA</div>
               <div class="settings-data-actions">
-                <button class="history-button" type="button">Chat History</button>
                 <button class="export-session-csv" type="button">Export Session CSV</button>
                 <button class="clear-session" type="button">Clear Session History</button>
               </div>
