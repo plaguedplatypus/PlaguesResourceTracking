@@ -8,7 +8,7 @@ import { getOptions as getHunterOptions, groups as hunterGroups, } from "./track
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
 import { hasSeenMessage, markSeenMessage } from "./tracking/processedMessages";
-import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, showSession, } from "./ui/session";
+import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, } from "./ui/session";
 import { trackerVersion } from "./updates/updateNotes";
 import { showPatchNotes, } from "./updates/patchNotes";
 import ChatReader, { ChatPosition } from "./chat/ChatReader";
@@ -157,10 +157,6 @@ sortMode = savedData.sortMode || "recent";
 
 const artifactReader = createArtifactReader();
 
-function openSession() {
-  showSession(settingsWindow.refresh);
-}
-
 const settingsWindow = createSettingsWindow({
   getState: () => ({
     chatTypes: reader.pos?.boxes.map((box) => box.type) || [],
@@ -183,7 +179,6 @@ const settingsWindow = createSettingsWindow({
   }),
   selectChat,
   findChat: refreshChatboxes,
-  showSession: openSession,
   clearSession,
   exportSessionCsv,
   togglePorters,
@@ -2070,10 +2065,12 @@ tabsToggleButton?.addEventListener("click", function () {
 });
 
 appCog?.addEventListener("click", function () {
-  settingsWindow.show();
+  settingsWindow.show("general");
 });
 
-sessionQuickButton?.addEventListener("click", openSession);
+sessionQuickButton?.addEventListener("click", () => {
+  settingsWindow.show("session");
+});
 
 tabResetButton?.addEventListener("click", toggleTabActionsMenu);
 tabClearButton?.addEventListener("click", () => {

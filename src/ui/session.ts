@@ -1,5 +1,4 @@
 import { getUpdateId } from "../tracking/SkillTracker";
-import "./settings.css";
 import "./session.css";
 
 export type SessionStatus = "idle" | "running" | "paused" | "ended";
@@ -62,8 +61,7 @@ const heartbeatMs = 5 * 1000;
 const daysKept = 7;
 
 let activity = loadActivity();
-let sessionWindow: Window | null = null;
-let sessionUiOwner: Window | null = null;
+let sessionRoot: HTMLElement | null = null;
 let refreshApp: (() => void) | null = null;
 let view: View = "run";
 let selectedDay = dayKey(Date.now());
@@ -86,7 +84,7 @@ window.setInterval(() => {
     activity.run.seenAt = now;
     saveActivity();
   }
-  if (sessionWindow && !sessionWindow.closed) updateWindow();
+  refreshSession();
 }, 1000);
 window.addEventListener("pagehide", () => {
   if (activity.run) finishRun(Date.now());
@@ -112,7 +110,7 @@ export function hasSessionData(): boolean {
 export function clearSession(): void {
   activity = { version: 2, days: {} };
   saveActivity();
-  updateWindow();
+  refreshSession();
   refreshApp?.();
 }
 
@@ -131,7 +129,7 @@ export function importActivity(value: unknown): void {
   }
   trimDays();
   saveActivity();
-  updateWindow();
+  refreshSession();
   refreshApp?.();
 }
 
@@ -156,18 +154,24 @@ export function recordSession(updates: ItemUpdate[]): void {
   }
 
   saveActivity();
-  updateWindow();
+  refreshSession();
   refreshApp?.();
 }
 
-export function showSession(onChange?: () => void): void {
+export function mountSession(
+  host: HTMLElement,
+  onChange?: () => void,
+): void {
   if (onChange) refreshApp = onChange;
-  if (!sessionWindow || sessionWindow.closed) {
-    sessionWindow = window.open("", "sessionWindow", "width=400,height=330");
-    sessionUiOwner = null;
+
+  if (sessionRoot?.parentElement !== host) {
+    host.innerHTML = renderShellHtml();
+    sessionRoot = host.querySelector("#session-root");
+    bindSessionEvents(sessionRoot);
   }
+
   void ensurePrices();
-  window.setTimeout(updateWindow, 50);
+  refreshSession();
 }
 
 export function exportSessionCsv(): void {
@@ -314,7 +318,7 @@ function finishRun(now: number): void {
   activity.run = undefined;
   trimDays();
   saveActivity();
-  updateWindow();
+  refreshSession();
   refreshApp?.();
 }
 
@@ -369,14 +373,15 @@ function getRateHours(summary: Summary): number {
   return summary.activeMs > 0 ? summary.activeMs / 3600000 : 0;
 }
 
-function updateWindow(): void {
-  if (!sessionWindow || sessionWindow.closed) return;
-  const doc = sessionWindow.document;
-  if (!doc.body) {
-    window.setTimeout(updateWindow, 50);
+export function refreshSession(): void {
+  const root = sessionRoot;
+  const viewWindow = root?.ownerDocument.defaultView;
+  if (!root?.isConnected || !viewWindow || viewWindow.closed) {
+    sessionRoot = null;
     return;
   }
-  ensureUi(doc);
+
+  const doc = root.ownerDocument;
   const summary = getShown();
   const hours = getRateHours(summary);
   updateChrome(doc, summary);
@@ -391,26 +396,23 @@ function updateWindow(): void {
   }
 }
 
-function ensureUi(doc: Document): void {
-  if (sessionUiOwner === sessionWindow && doc.getElementById("session-root")) return;
-  doc.title = "Session Stats";
-  doc.head.replaceChildren(...cloneStyles(doc));
-  doc.body.className = "nis session-window-body";
-  doc.body.innerHTML = renderShellHtml();
-  doc.querySelectorAll<HTMLButtonElement>(".session-view").forEach((button) => {
+function bindSessionEvents(root: HTMLElement | null): void {
+  if (!root) return;
+
+  root.querySelectorAll<HTMLButtonElement>(".session-view").forEach((button) => {
     button.addEventListener("click", () => {
       view = button.dataset.view === "daily" ? "daily" : "run";
       void ensurePrices();
-      updateWindow();
+      refreshSession();
     });
   });
-  doc.getElementById("session-day")?.addEventListener("change", (event) => {
+  root.querySelector("#session-day")?.addEventListener("change", (event) => {
     selectedDay = (event.target as HTMLSelectElement).value;
     followToday = selectedDay === dayKey(Date.now());
     void ensurePrices();
-    updateWindow();
+    refreshSession();
   });
-  doc.querySelectorAll<HTMLButtonElement>(".session-sort-button").forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>(".session-sort-button").forEach((button) => {
     button.addEventListener("click", () => {
       const table = button.closest("table") as HTMLTableElement;
       const name: SortTable = table.id === "session-today-items-table"
@@ -423,10 +425,9 @@ function ensureUi(doc: Document): void {
           ? current.direction === "asc" ? "desc" : "asc"
           : field === "item" ? "asc" : "desc",
       };
-      updateWindow();
+      refreshSession();
     });
   });
-  sessionUiOwner = sessionWindow;
 }
 
 function updateChrome(doc: Document, summary: Summary): void {
@@ -574,19 +575,9 @@ function renderItemTable(id: string, empty: string): string {
   `;
 }
 
-function cloneStyles(doc: Document): Node[] {
-  const base = doc.createElement("base");
-  base.href = document.baseURI;
-  return [
-    base,
-    ...Array.from(document.head.querySelectorAll('style, link[rel="stylesheet"]'))
-      .map((node) => doc.importNode(node, true)),
-  ];
-}
-
 function renderShellHtml(): string {
   return `
-    <div id="session-root" class="session-window-panel">
+    <div id="session-root" class="session-panel">
       <div class="session-views" role="group" aria-label="Activity view">
         <button class="session-view is-active" type="button" data-view="run" aria-pressed="true">This Session</button>
         <button class="session-view" type="button" data-view="daily" aria-pressed="false">Daily History</button>
@@ -648,7 +639,7 @@ async function fetchAndSavePrice(item: string, priceId: string): Promise<void> {
     savePriceCache(cache);
   } finally {
     pendingPrices.delete(priceId);
-    updateWindow();
+    refreshSession();
   }
 }
 

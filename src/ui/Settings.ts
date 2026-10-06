@@ -1,9 +1,13 @@
-import type { SessionStatus } from "./session";
+import {
+  mountSession,
+  refreshSession,
+  type SessionStatus,
+} from "./session";
 import type { ChatboxType } from "../chat/chatTypes";
 import type { CountPosition, ItemDisplay, TrackableSkill } from "../trackerData";
 import "./settings.css";
 
-type SettingsPage = "general" | "skills" | "data";
+type SettingsPage = "general" | "skills" | "data" | "session";
 
 type State = {
   chatTypes: readonly ChatboxType[];
@@ -29,7 +33,6 @@ type Actions = {
   getState(): State;
   selectChat(value: string): void;
   findChat(): void;
-  showSession(): void;
   clearSession(): void;
   exportSessionCsv(): void;
   togglePorters(): void;
@@ -49,7 +52,7 @@ type Actions = {
 };
 
 type windowController = {
-  show(): void;
+  show(page?: SettingsPage): void;
   refresh(): void;
 };
 
@@ -66,18 +69,19 @@ export function createSettingsWindow(
   let initializedWindow: Window | null = null;
   let activePage: SettingsPage = "general";
 
-  function show(): void {
-    if (settingsWindow && !settingsWindow.closed) {
-      settingsWindow.close();
-      settingsWindow = null;
+  function show(page: SettingsPage = "general"): void {
+    activePage = page;
+
+    if (!settingsWindow || settingsWindow.closed) {
+      settingsWindow = window.open("", "settingsWindow", "width=375,height=300");
       initializedWindow = null;
-      return;
+      window.setTimeout(initialize, 50);
+    } else if (initializedWindow === settingsWindow) {
+      showPage(settingsWindow.document, activePage);
+      refresh();
     }
 
-    activePage = "general";
-    settingsWindow = window.open("", "settingsWindow", "width=315,height=255");
-    initializedWindow = null;
-    window.setTimeout(initialize, 50);
+    settingsWindow?.focus();
   }
 
   function initialize(): void {
@@ -91,8 +95,8 @@ export function createSettingsWindow(
     if (initializedWindow !== settingsWindow) {
       initializeDocument(doc);
       bindEvents(doc);
-      setActivePage(doc, activePage);
       initializedWindow = settingsWindow;
+      showPage(doc, activePage);
     }
 
     refresh();
@@ -207,6 +211,17 @@ export function createSettingsWindow(
 
     const version = doc.querySelector(".settings-version-label");
     if (version) version.textContent = `${state.version} Patch Notes`;
+
+    if (activePage === "session") refreshSession();
+  }
+
+  function showPage(doc: Document, page: SettingsPage): void {
+    activePage = page;
+    setActivePage(doc, activePage);
+    if (activePage !== "session") return;
+
+    const host = doc.querySelector(".settings-session-host") as HTMLElement | null;
+    if (host) mountSession(host, refresh);
   }
 
   function initializeDocument(doc: Document): void {
@@ -229,14 +244,9 @@ export function createSettingsWindow(
       )
       .forEach((button) => {
         button.addEventListener("click", () => {
-          activePage = button.dataset.page as SettingsPage;
-          setActivePage(doc, activePage);
+          showPage(doc, button.dataset.page as SettingsPage);
         });
       });
-    doc.querySelector(".settings-session-button")?.addEventListener("click", () => {
-      actions.showSession();
-      window.setTimeout(refresh, 100);
-    });
     doc.querySelector(".find-chat")?.addEventListener("click", actions.findChat);
     doc.querySelector(".export-session-csv")?.addEventListener("click", () => {
       if (actions.getState().canExportSession) actions.exportSessionCsv();
@@ -416,7 +426,9 @@ function requestConfirmation(
 }
 
 function setActivePage(doc: Document, page: SettingsPage): void {
-  const validPage = page === "skills" || page === "data" ? page : "general";
+  const validPage = page === "skills" || page === "data" || page === "session"
+    ? page
+    : "general";
   doc.querySelectorAll<HTMLElement>(".settings-page").forEach((element) => {
     element.hidden = element.dataset.settingsPage !== validPage;
   });
@@ -525,7 +537,7 @@ function markup(): string {
         <button class="settings-sidebar-item" type="button" data-page="skills">Skills</button>
         <button class="settings-sidebar-item" type="button" data-page="data">Data</button>
         <div class="settings-sidebar-title"></div>
-        <button class="settings-session-button" type="button">Session</button>
+        <button class="settings-sidebar-item" type="button" data-page="session">Session</button>
       </nav>
       <div class="settings-page-content">
           <section class="settings-page" data-settings-page="general">
@@ -610,6 +622,9 @@ function markup(): string {
                 <button class="clear-session" type="button">Clear Session History</button>
               </div>
             </div>
+          </section>
+          <section class="settings-page settings-session-page" data-settings-page="session" hidden>
+            <div class="settings-session-host"></div>
           </section>
       </div>
       </div>

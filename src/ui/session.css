@@ -1,4 +1,4 @@
-.session-window-panel {
+.session-panel {
     padding: 6px;
     overflow-x: hidden;
     overflow-y: auto;
@@ -108,13 +108,13 @@
     margin-top: 14px;
 }
 
-.session-window-panel table {
+.session-panel table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
 
-.session-window-panel :is(th, td) {
+.session-panel :is(th, td) {
     padding: 3px 2px;
     overflow: hidden;
     border-bottom: 1px solid var(--border2);
@@ -122,13 +122,13 @@
     white-space: nowrap;
 }
 
-.session-window-panel th {
+.session-panel th {
     color: #d8c58a;
     font-size: 11px;
     text-align: left;
 }
 
-.session-window-panel td {
+.session-panel td {
     color: var(--text);
     font-size: 11px;
 }
@@ -138,7 +138,7 @@
 }
 
 .session-number,
-.session-window-panel td.number {
+.session-panel td.number {
     text-align: left;
 }
 
@@ -164,18 +164,18 @@
     transform: none;
 }
 
-.session-window-panel th[aria-sort="ascending"] .session-sort-button::after,
-.session-window-panel th[aria-sort="descending"] .session-sort-button::after {
+.session-panel th[aria-sort="ascending"] .session-sort-button::after,
+.session-panel th[aria-sort="descending"] .session-sort-button::after {
     margin-left: 2px;
     color: var(--gold);
     font-size: 8px;
 }
 
-.session-window-panel th[aria-sort="ascending"] .session-sort-button::after {
+.session-panel th[aria-sort="ascending"] .session-sort-button::after {
     content: "▲";
 }
 
-.session-window-panel th[aria-sort="descending"] .session-sort-button::after {
+.session-panel th[aria-sort="descending"] .session-sort-button::after {
     content: "▼";
 }
 
