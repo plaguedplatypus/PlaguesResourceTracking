@@ -124,12 +124,18 @@ export function parseSkillMessage(
 			return null;
 		}
 
-		const skill = getTransportSkill(item, destination);
+		const farmingItem = destination.includes("bank")
+			? getFarmingProduce(item)
+			: null;
+		const trackedItem = farmingItem ?? item;
+		const skill = farmingItem
+			? "farming"
+			: getTransportSkill(item, destination);
 		if (skill === "fishing" && !options.fishingUsePorters) {
 			return null;
 		}
 
-		return makeResult({ item, amount, skill });
+		return makeResult({ item: trackedItem, amount, skill });
 	}
 
 	for (const entry of skillPatterns) {
