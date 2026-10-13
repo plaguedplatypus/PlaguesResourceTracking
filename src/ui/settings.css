@@ -328,6 +328,26 @@ input.tracker-size {
     font-size: 12px;
 }
 
+.settings-color-input {
+    justify-self: end;
+    width: 34px;
+    height: 20px;
+    padding: 1px;
+    background: #151e21;
+    border: 1px solid var(--border3);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.settings-color-input::-webkit-color-swatch-wrapper {
+    padding: 1px;
+}
+
+.settings-color-input::-webkit-color-swatch {
+    border: 0;
+    border-radius: 1px;
+}
+
 .settings-bottom-area {
     padding: 3px 7px 4px;
     background: #0c171c;

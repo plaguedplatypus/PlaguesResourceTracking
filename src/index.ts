@@ -15,7 +15,7 @@ import ChatReader, { ChatPosition } from "./chat/ChatReader";
 import { createArtifactReader } from "./dialog/artifactCapture";
 import { processMessages } from "./chatPoll";
 import { createSettingsWindow } from "./ui/Settings";
-import { getSaveData, normalizeSaveData, normalizeSkillSelection, normalizeTrackerSize, saveData, saveSetting, trackerSizeDefault, type CountPosition, type InternalSkillType, type ItemDisplay, type ItemUpdate, type SaveData, type SkillSelection, type SkillType, type SortMode, type TrackableSkill, type TrackedItem, } from "./trackerData";
+import { getSaveData, normalizeProgressColor, normalizeSaveData, normalizeSkillSelection, normalizeTrackerSize, progressColorDefault, saveData, saveSetting, trackerSizeDefault, type CountPosition, type InternalSkillType, type ItemDisplay, type ItemUpdate, type SaveData, type SkillSelection, type SkillType, type SortMode, type TrackableSkill, type TrackedItem, } from "./trackerData";
 
 import "./ui/style.css";
 
@@ -104,6 +104,8 @@ let shortInventionNames = false;
 let countPosition: CountPosition = "right";
 let itemDisplay: ItemDisplay = "card";
 let showAllTabIcons = true;
+let showGoalProgress = true;
+let progressColor = progressColorDefault;
 let showInventionFilter = true;
 let showArchFilter = true;
 let showArchArtefacts = true;
@@ -166,6 +168,8 @@ const settingsWindow = createSettingsWindow({
     countPosition,
     itemDisplay,
     showAllTabIcons,
+    showGoalProgress,
+    progressColor,
     showInventionFilter,
     showArchFilter,
     showArchArtefacts,
@@ -186,6 +190,8 @@ const settingsWindow = createSettingsWindow({
   setCountPosition,
   setItemDisplay,
   toggleAllIcons,
+  toggleGoalProgress,
+  setProgressColor,
   toggleInventionFilter,
   toggleArchFilter,
   toggleArchArtefacts,
@@ -447,6 +453,8 @@ function applySavedSettings(data: SaveData) {
   countPosition = data.countPosition === "left" ? "left" : "right";
   itemDisplay = data.itemDisplay === "list" ? "list" : "card";
   showAllTabIcons = data.showAllTabIcons ?? true;
+  showGoalProgress = data.showGoalProgress ?? true;
+  progressColor = normalizeProgressColor(data.progressColor);
   showInventionFilter = data.showInventionFilter ?? true;
   showArchFilter = data.showArchFilter ?? true;
   showArchArtefacts = data.showArchArtefacts ?? true;
@@ -907,12 +915,11 @@ function renderItemRow(
 
       goalHtml = `
     		<div class="goal-row" title="${escapeAttr(goalTooltip)}">
-        		<span class="goal-text">
-           			 ${current} / ${goal} (${progress.toFixed(1)}%)
-        		</span>
-
 				<div class="progress-bar">
-					<div class="progress-fill" style="width:${progress}%"></div>
+					<div class="progress-track">
+						<div class="progress-fill" style="width:${progress}%"></div>
+					</div>
+			<span class="goal-text">${current} / ${goal} (${progress.toFixed(1)}%)</span>
 				</div>
 			</div>
 		`;
@@ -1114,6 +1121,23 @@ function toggleAllIcons() {
   render();
 }
 
+function toggleGoalProgress() {
+  showGoalProgress = !showGoalProgress;
+  saveSetting("showGoalProgress", showGoalProgress);
+
+  updateGoalDisplayUi();
+  settingsWindow.refresh();
+}
+
+function setProgressColor(value: string, persist: boolean) {
+  progressColor = normalizeProgressColor(value);
+  updateGoalDisplayUi();
+
+  if (persist) {
+    saveSetting("progressColor", progressColor);
+  }
+}
+
 function toggleInventionFilter() {
   showInventionFilter = !showInventionFilter;
   saveSetting("showInventionFilter", showInventionFilter);
@@ -1164,6 +1188,11 @@ function toggleUnknownSection() {
 
 function updateTrackerSizeUi() {
   tracker.style.setProperty("--tracker-size", `${trackerSize}px`);
+}
+
+function updateGoalDisplayUi() {
+  document.body.classList.toggle("hide-goal-progress", !showGoalProgress);
+  document.documentElement.style.setProperty("--progress", progressColor);
 }
 
 function setTrackerSize(value: number, persist: boolean) {
@@ -1924,6 +1953,7 @@ function importData(file: File) {
       updateDivinationAddMenu();
       updateHunterAddMenu();
       updateTrackerSizeUi();
+      updateGoalDisplayUi();
       settingsWindow.refresh();
       render();
     } catch {
@@ -2056,6 +2086,7 @@ updateTabsCollapsedUi();
 updateCountPositionUi();
 updateItemDisplayUi();
 updateTrackerSizeUi();
+updateGoalDisplayUi();
 updateSkillTabScrollButtons();
 render();
 

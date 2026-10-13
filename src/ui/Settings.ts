@@ -17,6 +17,8 @@ type State = {
   countPosition: CountPosition;
   itemDisplay: ItemDisplay;
   showAllTabIcons: boolean;
+  showGoalProgress: boolean;
+  progressColor: string;
   showInventionFilter: boolean;
   showArchFilter: boolean;
   showArchArtefacts: boolean;
@@ -40,6 +42,8 @@ type Actions = {
   setCountPosition(position: CountPosition): void;
   setItemDisplay(display: ItemDisplay): void;
   toggleAllIcons(): void;
+  toggleGoalProgress(): void;
+  setProgressColor(value: string, persist: boolean): void;
   toggleInventionFilter(): void;
   toggleArchFilter(): void;
   toggleArchArtefacts(): void;
@@ -138,6 +142,16 @@ export function createSettingsWindow(
         ? "Item icons are shown."
         : "Item icons are hidden.",
     );
+    updateSwitch(
+      doc,
+      ".goal-progress-toggle",
+      state.showGoalProgress,
+      "Show goal progress bars.",
+    );
+    const progressColor = doc.querySelector(
+      ".goal-progress-color",
+    ) as HTMLInputElement | null;
+    if (progressColor) progressColor.value = state.progressColor;
     updateSwitch(
       doc,
       ".invention-filter-toggle",
@@ -272,6 +286,18 @@ export function createSettingsWindow(
     doc
       .querySelector(".all-tab-icons-toggle input")
       ?.addEventListener("change", actions.toggleAllIcons);
+    doc
+      .querySelector(".goal-progress-toggle input")
+      ?.addEventListener("change", actions.toggleGoalProgress);
+    const progressColor = doc.querySelector(
+      ".goal-progress-color",
+    ) as HTMLInputElement | null;
+    progressColor?.addEventListener("input", () => {
+      actions.setProgressColor(progressColor.value, false);
+    });
+    progressColor?.addEventListener("change", () => {
+      actions.setProgressColor(progressColor.value, true);
+    });
     doc
       .querySelector(".invention-filter-toggle input")
       ?.addEventListener("change", actions.toggleInventionFilter);
@@ -578,6 +604,14 @@ function markup(): string {
                 </div>
               </div>
                 ${switchMarkup("all-tab-icons-toggle", "Item Icons", "Show icons beside items.")}
+            </div>
+            <div class="settings-section">
+              <div class="settings-section-title">GOALS</div>
+              ${switchMarkup("goal-progress-toggle", "Show Progress Bar", "Show goal progress bars.")}
+              <label class="settings-field settings-inline-field">
+                <span class="settings-field-label">Progress Color:</span>
+                <input class="settings-color-input goal-progress-color" type="color" value="#78d86b" aria-label="Goal Progress Color">
+              </label>
             </div>
           </section>
           <section class="settings-page" data-settings-page="skills" hidden>

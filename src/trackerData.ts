@@ -46,6 +46,8 @@ export type SaveData = {
   countPosition?: CountPosition;
   itemDisplay?: ItemDisplay;
   showAllTabIcons?: boolean;
+  showGoalProgress?: boolean;
+  progressColor?: string;
   showInventionFilter?: boolean;
   showArchFilter?: boolean;
   showArchArtefacts?: boolean;
@@ -60,6 +62,7 @@ const appName = "ResourceTracker";
 const trackerSizeMin = 10;
 const trackerSizeMax = 16;
 export const trackerSizeDefault = 12;
+export const progressColorDefault = "#78d86b";
 
 export function normalizeSkillSelection(value: unknown): SkillSelection {
   const savedSelection = value as Partial<SkillSelection> | undefined;
@@ -90,10 +93,18 @@ export function normalizeTrackerSize(value: unknown): number {
   return trackerSizeDefault;
 }
 
+export function normalizeProgressColor(value: unknown): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase()
+    : progressColorDefault;
+}
+
 export function normalizeSaveData(value: unknown): SaveData {
   if (value === undefined) {
     return {
       itemDisplay: "card",
+      showGoalProgress: true,
+      progressColor: progressColorDefault,
       sortMode: "recent",
       trackerSize: trackerSizeDefault,
       items: {},
@@ -110,6 +121,8 @@ export function normalizeSaveData(value: unknown): SaveData {
     countPosition: data.countPosition === "left" ? "left" : "right",
     itemDisplay: data.itemDisplay === "list" ? "list" : "card",
     showAllTabIcons: data.showAllTabIcons ?? true,
+    showGoalProgress: data.showGoalProgress ?? true,
+    progressColor: normalizeProgressColor(data.progressColor),
     showInventionFilter: data.showInventionFilter ?? true,
     showArchFilter: data.showArchFilter ?? true,
     showArchArtefacts: data.showArchArtefacts ?? true,
