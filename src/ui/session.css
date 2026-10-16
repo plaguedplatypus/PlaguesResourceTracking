@@ -36,7 +36,7 @@
     min-width: 0;
 }
 
-.session-day-row option {
+.session-day-row :is(optgroup, option) {
     color: #d8c58a;
     background: #151e21;
 }

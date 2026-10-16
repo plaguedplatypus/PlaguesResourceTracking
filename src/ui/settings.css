@@ -143,8 +143,23 @@
     background: #151e21;
 }
 
+.settings-history-days {
+    min-width: 0;
+    color: #d8c58a;
+    background: #151e21;
+}
+
+.settings-history-days option {
+    color: #d8c58a;
+    background: #151e21;
+}
+
 .settings-data-row {
     grid-template-columns: 1fr 1fr;
+}
+
+.settings-data-actions {
+    margin-top: 4px;
 }
 
 .settings-switch-row {

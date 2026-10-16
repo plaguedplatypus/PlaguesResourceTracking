@@ -37,6 +37,7 @@ export type SkillSelection = Record<TrackableSkill, boolean>;
 export type SortMode = "recent" | "alpha" | "count";
 export type CountPosition = "right" | "left";
 export type ItemDisplay = "list" | "card";
+export type HistoryDays = 30 | 90;
 
 export type SaveData = {
   chat?: string;
@@ -54,6 +55,7 @@ export type SaveData = {
   visibleSkills?: Partial<SkillSelection>;
   hideUnknownSection?: boolean;
   trackerSize?: number;
+  historyDays?: HistoryDays;
   sortMode?: SortMode;
   items: Record<string, TrackedItem>;
 };
@@ -62,6 +64,7 @@ const appName = "ResourceTracker";
 const trackerSizeMin = 10;
 const trackerSizeMax = 16;
 export const trackerSizeDefault = 12;
+export const historyDaysDefault = 30;
 export const progressColorDefault = "#78d86b";
 
 export function normalizeSkillSelection(value: unknown): SkillSelection {
@@ -93,6 +96,10 @@ export function normalizeTrackerSize(value: unknown): number {
   return trackerSizeDefault;
 }
 
+export function normalizeHistoryDays(value: unknown): HistoryDays {
+  return value === 90 ? 90 : historyDaysDefault;
+}
+
 export function normalizeProgressColor(value: unknown): string {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
     ? value.toLowerCase()
@@ -107,6 +114,7 @@ export function normalizeSaveData(value: unknown): SaveData {
       progressColor: progressColorDefault,
       sortMode: "recent",
       trackerSize: trackerSizeDefault,
+      historyDays: historyDaysDefault,
       items: {},
     };
   }
@@ -129,6 +137,7 @@ export function normalizeSaveData(value: unknown): SaveData {
     visibleSkills: normalizeSkillSelection(data.visibleSkills),
     hideUnknownSection: data.hideUnknownSection ?? true,
     trackerSize: normalizeTrackerSize(data.trackerSize),
+    historyDays: normalizeHistoryDays(data.historyDays),
     sortMode: data.sortMode || "recent",
     items: data.items || {},
   };

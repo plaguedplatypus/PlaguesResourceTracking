@@ -8,7 +8,7 @@ import { getOptions as getHunterOptions, groups as hunterGroups, } from "./track
 import { getUpdateId, parseSkillMessage } from "./tracking/SkillTracker";
 import { isIgnoredMessage } from "./tracking/trackerMessages";
 import { hasSeenMessage, markSeenMessage } from "./tracking/processedMessages";
-import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, } from "./ui/session";
+import { clearSession, exportSessionCsv, formatGp, getActivityExport, getCachedPrice, getHistoryDays, getPrice, getSessionStatus, hasSession, hasSessionData, importActivity, recordSession, setHistoryDays, } from "./ui/session";
 import { trackerVersion } from "./updates/updateNotes";
 import { showPatchNotes, } from "./updates/patchNotes";
 import ChatReader, { ChatPosition } from "./chat/ChatReader";
@@ -176,6 +176,7 @@ const settingsWindow = createSettingsWindow({
     trackedSkills: visibleSkills,
     hideUnknownSection,
     trackerSize,
+    historyDays: getHistoryDays(),
     sessionStatus: getSessionStatus(),
     hasSession: hasSession(),
     canExportSession: hasSessionData(),
@@ -198,6 +199,7 @@ const settingsWindow = createSettingsWindow({
   setSkillVisible,
   toggleUnknownSection,
   setTrackerSize,
+  setHistoryDays,
   exportData,
   importData,
   showPatchNotes,
@@ -1933,9 +1935,10 @@ function importData(file: File) {
       const data = normalizeSaveData(imported);
 
       if (imported && typeof imported === "object" && "activity" in imported) {
-        importActivity(imported.activity);
+        importActivity(imported.activity, data.historyDays ?? getHistoryDays());
       }
       saveData(data);
+      setHistoryDays(data.historyDays ?? getHistoryDays());
       openSettingsItem = null;
       goalDraft = null;
       countEditItem = null;

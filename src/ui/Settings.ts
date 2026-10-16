@@ -4,7 +4,7 @@ import {
   type SessionStatus,
 } from "./session";
 import type { ChatboxType } from "../chat/chatTypes";
-import type { CountPosition, ItemDisplay, TrackableSkill } from "../trackerData";
+import type { CountPosition, HistoryDays, ItemDisplay, TrackableSkill } from "../trackerData";
 import "./settings.css";
 
 type SettingsPage = "general" | "skills" | "data" | "session";
@@ -25,6 +25,7 @@ type State = {
   trackedSkills: Readonly<Record<TrackableSkill, boolean>>;
   hideUnknownSection: boolean;
   trackerSize: number;
+  historyDays: HistoryDays;
   sessionStatus: SessionStatus;
   hasSession: boolean;
   canExportSession: boolean;
@@ -50,6 +51,7 @@ type Actions = {
   setSkillVisible(skill: TrackableSkill, visible: boolean): void;
   toggleUnknownSection(): void;
   setTrackerSize(value: number, persist: boolean): void;
+  setHistoryDays(days: number): void;
   exportData(): void;
   importData(file: File): void;
   showPatchNotes(targetDocument: Document): void;
@@ -191,6 +193,8 @@ export function createSettingsWindow(
     );
     updateCountPosition(doc, state.countPosition);
     updateItemDisplay(doc, state.itemDisplay);
+    const historyDays = doc.querySelector(".settings-history-days") as HTMLSelectElement | null;
+    if (historyDays) historyDays.value = String(state.historyDays);
 
     const trackerSize = doc.querySelector(
       ".tracker-size",
@@ -270,7 +274,7 @@ export function createSettingsWindow(
 
       requestConfirmation(doc, {
         title: "Clear activity history?",
-        message: "This removes the current run and seven-day history.",
+        message: "This removes the current run and all saved daily history.",
         confirmLabel: "Clear",
       }, () => {
         actions.clearSession();
@@ -342,6 +346,23 @@ export function createSettingsWindow(
     });
     trackerSize?.addEventListener("change", () => {
       actions.setTrackerSize(Number(trackerSize.value), true);
+    });
+    doc.querySelector(".settings-history-days")?.addEventListener("change", (event) => {
+      const days = Number((event.target as HTMLSelectElement).value);
+      if (days < actions.getState().historyDays) {
+        requestConfirmation(doc, {
+          title: "Shorten daily history?",
+          message: `Saved days older than ${days} days will be removed.`,
+          confirmLabel: "Shorten",
+        }, () => {
+          actions.setHistoryDays(days);
+          refresh();
+        });
+        refresh();
+        return;
+      }
+      actions.setHistoryDays(days);
+      refresh();
     });
     doc.querySelector(".export")?.addEventListener("click", actions.exportData);
 
@@ -651,6 +672,13 @@ function markup(): string {
             </div>
             <div class="settings-section">
               <div class="settings-section-title">DATA</div>
+              <label class="settings-field settings-inline-field">
+                <span class="settings-field-label">Keep Daily History:</span>
+                <select class="settings-history-days">
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                </select>
+              </label>
               <div class="settings-data-actions">
                 <button class="export-session-csv" type="button">Export Session CSV</button>
                 <button class="clear-session" type="button">Clear Session History</button>

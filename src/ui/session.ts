@@ -1,4 +1,5 @@
 import { getUpdateId } from "../tracking/SkillTracker";
+import { getSaveData, historyDaysDefault, normalizeHistoryDays, saveSetting, type HistoryDays } from "../trackerData";
 import "./session.css";
 
 export type SessionStatus = "idle" | "running" | "paused" | "ended";
@@ -58,7 +59,7 @@ const priceCacheDurationMs = 24 * 60 * 60 * 1000;
 const activeGapMs = 30 * 1000;
 const runGapMs = 30 * 60 * 1000;
 const heartbeatMs = 5 * 1000;
-const daysKept = 7;
+let daysKept = getSaveData().historyDays ?? historyDaysDefault;
 
 let activity = loadActivity();
 let sessionRoot: HTMLElement | null = null;
@@ -98,6 +99,19 @@ export function getSessionStatus(): SessionStatus {
   return hasSession() ? "ended" : "idle";
 }
 
+export function getHistoryDays(): HistoryDays {
+  return daysKept;
+}
+
+export function setHistoryDays(value: number): void {
+  const days = normalizeHistoryDays(value);
+  if (days === daysKept) return;
+  daysKept = days;
+  saveSetting("historyDays", days);
+  if (trimDays()) saveActivity();
+  refreshSession();
+}
+
 export function hasSession(): boolean {
   return Boolean(activity.run || activity.lastRun || Object.keys(activity.days).length);
 }
@@ -119,9 +133,10 @@ export function getActivityExport(): Activity {
   return JSON.parse(JSON.stringify(activity)) as Activity;
 }
 
-export function importActivity(value: unknown): void {
+export function importActivity(value: unknown, days: number): void {
   const imported = parseActivity(value);
   if (!imported) throw new Error("Invalid activity data");
+  daysKept = normalizeHistoryDays(days);
   activity = imported;
   if (activity.run) {
     const lastSeen = activity.run.seenAt ?? activity.run.lastGainAt;
@@ -439,10 +454,23 @@ function updateChrome(doc: Document, summary: Summary): void {
   if (followToday) selectedDay = today;
   if (selector.options.length !== options.length
     || options.some((date, index) => selector.options[index]?.value !== date)) {
-    selector.replaceChildren(...options.map((date) => {
+    selector.replaceChildren();
+    let month = "";
+    let group: HTMLOptGroupElement;
+    for (const date of options) {
+      if (date.slice(0, 7) !== month) {
+        month = date.slice(0, 7);
+        const [year, number] = month.split("-").map(Number);
+        group = doc.createElement("optgroup");
+        group.label = new Date(year, number - 1).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+        selector.append(group);
+      }
       const label = date === today ? "Today · " + formatDate(date) : formatDate(date);
-      return new Option(label, date);
-    }));
+      group!.append(new Option(label, date));
+    }
   }
   selector.value = selectedDay;
   (doc.getElementById("session-day-row") as HTMLElement).hidden = view !== "daily";
